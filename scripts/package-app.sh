@@ -25,8 +25,8 @@ echo "→ $APP oluşturuluyor…"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/$EXECUTABLE" "$APP/Contents/MacOS/"
-# Phosphor ikonları Bundle.main.resourceURL altında aranıyor; yoksa uygulama açılışta çöker.
-cp -R "$BIN/PhosphorSwift_PhosphorSwift.bundle" "$APP/Contents/Resources/"
+# İkonların kaynak paketi (Bundle.module) Bundle.main.resourceURL altında aranıyor; yoksa uygulama açılışta çöker.
+cp -R "$BIN/${EXECUTABLE}_${EXECUTABLE}.bundle" "$APP/Contents/Resources/"
 # Tarayıcı eklentisi: Ayarlar'daki "Kur" butonu buradan kopyalar.
 cp -R ChromeExtension "$APP/Contents/Resources/BrowserExtension"
 

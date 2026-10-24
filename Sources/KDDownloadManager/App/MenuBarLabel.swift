@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import PhosphorSwift
 
 /// Menü çubuğunda görünen ikon (+ isteğe bağlı anlık toplam hız).
 struct MenuBarLabel: View {
@@ -18,7 +17,7 @@ struct MenuBarLabel: View {
     /// MenuBarExtra etiketi SwiftUI frame'lerini yok saydığı için
     /// Phosphor ikonunu sabit boyutlu bir template NSImage'a çeviriyoruz.
     private static let icon: NSImage = {
-        let renderer = ImageRenderer(content: Ph.arrowCircleDown.bold.frame(width: 16, height: 16))
+        let renderer = ImageRenderer(content: Ph.arrowCircleDown.weight(.bold).frame(width: 16, height: 16))
         renderer.scale = 2
         let image = renderer.nsImage ?? NSImage()
         image.size = NSSize(width: 16, height: 16)

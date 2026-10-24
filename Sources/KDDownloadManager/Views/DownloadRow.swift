@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import PhosphorSwift
 
 /// Listedeki tek indirme kartı.
 struct DownloadRow: View {

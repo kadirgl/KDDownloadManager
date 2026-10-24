@@ -1,5 +1,4 @@
 import Foundation
-import PhosphorSwift
 
 /// Üstteki filtre çipleri.
 enum DownloadCategory: CaseIterable, Identifiable {

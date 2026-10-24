@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import PhosphorSwift
 
 /// Ayarlar ekranı; değerler @AppStorage ile UserDefaults'a yazılır.
 struct SettingsView: View {

@@ -1,5 +1,4 @@
 import SwiftUI
-import PhosphorSwift
 
 /// Ana ekran: başlık, kategori çipleri, indirme listesi ve alt sekmeler.
 struct DownloadListView: View {
