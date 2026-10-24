@@ -1,0 +1,16 @@
+# SwiftPM build output and caches
+.build/
+.swiftpm/
+/Packages/
+
+# Xcode
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# Editor / local settings
+.vscode/
+.claude/settings.local.json
+
+# macOS
+.DS_Store
