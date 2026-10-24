@@ -141,9 +141,10 @@ final class ExtensionBridge {
                 var url: String
                 var cookieJar: [BrowserCookie]?
             }
+            // Herhangi bir sayfa: yt-dlp video bulamazsa 502 döner, eklenti "video bulunamadı" der.
             guard let payload = try? JSONDecoder().decode(Payload.self, from: request.body),
-                  DownloadSource.looksLikeLink(payload.url), DownloadSource.detect(payload.url) == .video else {
-                Self.send(status: 422, ["error": "Video linki değil"], origin: origin, on: connection)
+                  payload.url.lowercased().hasPrefix("http") else {
+                Self.send(status: 422, ["error": "Geçersiz adres"], origin: origin, on: connection)
                 return
             }
             if let jar = payload.cookieJar, let site = CookieVault.site(of: payload.url) {

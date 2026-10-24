@@ -178,8 +178,11 @@ final class DownloadStore {
         guard !requests.isEmpty else { return }
         var names: [String] = []
         for request in requests {
-            let name = request.filename.flatMap { $0.isEmpty ? nil : $0 }
-            let item = DownloadItem(url: request.url.trimmingCharacters(in: .whitespacesAndNewlines), fileName: name)
+            let saveAs = request.saveAs.map(Self.sanitizedFileName).flatMap { $0.isEmpty ? nil : $0 }
+            let name = saveAs ?? request.filename.flatMap { $0.isEmpty ? nil : $0 }
+            let item = DownloadItem(url: request.url.trimmingCharacters(in: .whitespacesAndNewlines), fileName: name,
+                                    forceVideo: request.video == true)
+            item.preferredName = saveAs
             item.referrer = request.referrer
             item.userAgent = request.userAgent
             item.cookies = request.cookies
@@ -270,6 +273,15 @@ final class DownloadStore {
     }
 
     // MARK: - Yardımcılar
+
+    /// Dosya adında olamayacak karakterleri (/ : ve kontrol karakterleri) temizler, boyu sınırlar.
+    static func sanitizedFileName(_ name: String) -> String {
+        let cleaned = name.unicodeScalars.map { scalar -> String in
+            if scalar == "/" || scalar == ":" || CharacterSet.controlCharacters.contains(scalar) { return "-" }
+            return String(scalar)
+        }.joined()
+        return String(cleaned.trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "."))).prefix(150))
+    }
 
     static func parseLinks(_ text: String) -> [String] {
         text.split(whereSeparator: \.isNewline)

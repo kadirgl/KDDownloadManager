@@ -306,7 +306,8 @@ final class YtDlpEngine: DownloadEngine {
             "--no-simulate",
             "-P", item.folder.path,
             "-P", "temp:" + Self.temporaryFolder(for: item.id).path,
-            "-o", "%(title)s.%(ext)s",
+            // Yakalanan akışlarda yt-dlp'nin bulduğu başlık "index"/"master" gibi oluyor; sayfanın başlığı kullanılır.
+            "-o", (item.preferredName.map { $0.replacingOccurrences(of: "%", with: "%%") } ?? "%(title)s") + ".%(ext)s",
             "--print",
             "before_dl:KDINFO %(.{title,filesize,filesize_approx,requested_formats.:.filesize,requested_formats.:.filesize_approx})j",
             "--print", "after_move:KDFILE %(filepath)s",
@@ -319,6 +320,11 @@ final class YtDlpEngine: DownloadEngine {
             arguments += ["--cookies", Self.cookieFile(for: item.id).path]
         }
         arguments += segmentedArguments(for: item)
+        if !DownloadSource.isKnownVideoSite(item.url) {
+            // Diğer siteler videoyu genelde ancak sayfanın kendisinden gelmiş gibi görünen isteklere veriyor.
+            if let referrer = item.referrer { arguments += ["--referer", referrer] }
+            if let userAgent = item.userAgent { arguments += ["--user-agent", userAgent] }
+        }
         let limits = [item.speedLimit, globalLimit].compactMap { $0 }
         if let limit = limits.min() {
             // Parçalı indirmede aria2c'ye --max-overall-download-limit olarak geçiyor.

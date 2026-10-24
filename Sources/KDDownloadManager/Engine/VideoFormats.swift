@@ -85,6 +85,10 @@ struct VideoFormats: Sendable {
                 options.append(found)
             }
         }
+        // Bazı sitelerde (doğrudan dosya, bilgisi eksik akış) biçimlerde çözünürlük yok; yine de indirilebilir.
+        if options.isEmpty, !formats.isEmpty || info["url"] != nil {
+            options.append(Option(quality: .auto, size: best(formats).flatMap(size)))
+        }
         if !audios.isEmpty || videos.isEmpty {
             options.append(Option(quality: .audio, size: nil))
         }

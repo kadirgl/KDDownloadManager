@@ -36,6 +36,9 @@ struct DownloadArchive {
         var referrer: String?
         var userAgent: String?
         var quality: VideoQuality?
+        /// Adresi video sitesi olmayan ama video olarak indirilen (eklentinin işaretlediği) kayıtlar.
+        var video: Bool?
+        var preferredName: String?
     }
 
     @MainActor
@@ -57,8 +60,10 @@ struct DownloadArchive {
                 folder: URL(fileURLWithPath: record.folder, isDirectory: true),
                 totalBytes: record.totalBytes,
                 downloadedBytes: record.downloadedBytes,
-                status: status
+                status: status,
+                forceVideo: record.video == true
             )
+            item.preferredName = record.preferredName
             item.speedLimit = record.speedLimit
             item.destination = record.destination.map { URL(fileURLWithPath: $0) }
             item.referrer = record.referrer
@@ -91,7 +96,9 @@ struct DownloadArchive {
                 destination: item.destination?.path,
                 referrer: item.referrer,
                 userAgent: item.userAgent,
-                quality: item.quality == .auto ? nil : item.quality
+                quality: item.quality == .auto ? nil : item.quality,
+                video: item.source == .video && DownloadSource.detect(item.url) != .video ? true : nil,
+                preferredName: item.preferredName
             )
         }
         let encoder = JSONEncoder()

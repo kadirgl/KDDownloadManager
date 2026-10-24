@@ -1,6 +1,6 @@
 import {
-  QUALITIES, VIDEO_HOSTS, accentColor, describe, fetchFormats, flashBadge, isAppRunning, isDownloadable,
-  isVideoPage, sayHello, sendToApp,
+  QUALITIES, VIDEO_HOSTS, accentColor, classifyStream, describe, fetchFormats, flashBadge, isAppRunning,
+  isDownloadable, isVideoPage, sayHello, sendStream, sendToApp, streamSaveAs,
 } from "./app.js";
 
 const MENU_LINK = "kd-link";
@@ -48,12 +48,13 @@ async function createMenus() {
     contexts: ["video", "audio"],
   });
 
-  // Video sitelerinde kalite seçerek indirme: sayfanın kendisi ve video linkleri (örn. küçük resimler).
+  // Herhangi bir sayfadaki videoyu kalite seçerek indirme (yt-dlp ~1.800 siteyi tanıyor) ve video
+  // sitelerindeki video linkleri (örn. küçük resimler).
   chrome.contextMenus.create({
     id: MENU_PAGE,
-    title: "Bu videoyu KD Download Manager ile indir",
+    title: "Bu sayfadaki videoyu KD Download Manager ile indir",
     contexts: ["page"],
-    documentUrlPatterns: VIDEO_PATTERNS,
+    documentUrlPatterns: ["http://*/*", "https://*/*"],
   });
   chrome.contextMenus.create({
     id: MENU_VIDEO_LINK,
@@ -81,13 +82,21 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     case MENU_LINK:
       url = info.linkUrl;
       break;
-    case MENU_MEDIA:
-      // Video sitelerinde oynatıcı genelde blob: adresi kullanır; o zaman sayfanın kendisini gönder (yt-dlp çözer).
-      url = isDownloadable(info.srcUrl) ? info.srcUrl : info.pageUrl;
-      break;
+    case MENU_MEDIA: {
+      // Doğrudan bir dosya oynatılıyorsa onu indir; oynatıcı blob: adresi kullanıyorsa (çoğu site) ya da
+      // site yt-dlp'nin özel olarak tanıdığı bir siteyse sayfanın kendisini yt-dlp'ye gönder.
+      if (isDownloadable(info.srcUrl) && !isVideoPage(info.pageUrl)) {
+        const extension = info.srcUrl.match(/\.(mp4|webm|m4v|mov|mkv|mp3|m4a|ogg|wav)(\?|$)/i)?.[1] ?? "mp4";
+        const saveAs = streamSaveAs({ kind: "file", extension }, tab?.title);
+        flashBadge(await sendToApp([await describe(info.srcUrl, { referrer: info.pageUrl, saveAs })]));
+        return;
+      }
+      flashBadge(await sendToApp([await describe(info.pageUrl, { referrer: info.pageUrl, video: true })]));
+      return;
+    }
     case MENU_PAGE:
-      url = info.pageUrl;
-      break;
+      flashBadge(await sendToApp([await describe(info.pageUrl, { referrer: info.pageUrl, video: true, quality })]));
+      return;
     case MENU_VIDEO_LINK:
       url = info.linkUrl;
       break;
@@ -102,15 +111,32 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   flashBadge(ok);
 });
 
-// YouTube sayfasındaki "İndir" butonu: uygulama durumu, kalite listesi ve indirme.
-// İçerik betikleri sayfanın kökeninde çalıştığı için uygulamaya istekleri arka plan yapıyor.
+// Sayfadaki "İndir" butonları (YouTube ve diğer sitelerdeki videolar) ve açılır pencere: uygulama
+// durumu, kalite listesi, yakalanan akışlar ve indirme. İçerik betikleri sayfanın kökeninde çalıştığı
+// için uygulamaya istekleri arka plan yapıyor.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  const isPage = (url) => /^https?:/i.test(url ?? "");
   const handlers = {
     "video-status": async () => ({ running: await isAppRunning(), accent: await accentColor() }),
-    "video-formats": async () => (isVideoPage(message.url) ? fetchFormats(message.url) : null),
+    // yt-dlp bu sayfada video bulabiliyor mu; bulamazsa null.
+    "video-formats": async () => (isPage(message.url) ? fetchFormats(message.url) : null),
     "video-download": async () => {
-      if (!isVideoPage(message.url)) return false;
-      const ok = await sendToApp([await describe(message.url, { referrer: sender.tab?.url, quality: message.quality })]);
+      if (!isPage(message.url)) return false;
+      const ok = await sendToApp([await describe(message.url, {
+        referrer: sender.tab?.url ?? message.url, quality: message.quality, video: true,
+      })]);
+      flashBadge(ok);
+      return ok;
+    },
+    // Bu sekmede yakalanan video akışları (açılır pencere sekme kimliğini kendisi gönderiyor).
+    "streams": async () => tabStreams(message.tabId ?? sender.tab?.id),
+    "stream-download": async () => {
+      // Gömülü oynatıcıdaki (iframe) videonun sunucusu genelde oynatıcının adresini referrer bekliyor.
+      const ok = await sendStream(message.stream, {
+        pageUrl: sender.url ?? sender.tab?.url ?? message.pageUrl,
+        pageTitle: sender.tab?.title ?? message.pageTitle,
+        quality: message.quality,
+      });
       flashBadge(ok);
       return ok;
     },
@@ -162,3 +188,54 @@ function shouldTake(download) {
     && !download.incognito // Gizli pencerede indirilenler uygulamanın listesine düşmesin.
     && isDownloadable(download.finalUrl || download.url);
 }
+
+// --- Sayfalarda oynatılan video akışlarını yakalama ---------------------------------------------
+// yt-dlp'nin tanımadığı sitelerde video, sayfanın açtığı HLS/DASH listesi ya da doğrudan dosya olarak
+// gelir; bunlar ağ trafiğinden yakalanıp sekme başına (en fazla 15) saklanır. Araç çubuğu ikonunda o
+// sekmede bulunan akış sayısı görünür.
+
+const STREAM_LIMIT = 15;
+const streamKey = (tabId) => `streams:${tabId}`;
+
+async function tabStreams(tabId) {
+  if (tabId === undefined || tabId < 0) return [];
+  const stored = await chrome.storage.session.get(streamKey(tabId));
+  return stored[streamKey(tabId)] ?? [];
+}
+
+// Oynatıcı ana listeyi ve kalite listelerini aynı anda ister; okuyup yazma sıraya alınmazsa biri kaybolur.
+let streamQueue = Promise.resolve();
+
+function rememberStream(tabId, stream) {
+  streamQueue = streamQueue.then(() => saveStream(tabId, stream)).catch(() => {});
+}
+
+async function saveStream(tabId, stream) {
+  const streams = await tabStreams(tabId);
+  if (streams.some((s) => s.url === stream.url)) return;
+  const updated = [stream, ...streams].slice(0, STREAM_LIMIT);
+  await chrome.storage.session.set({ [streamKey(tabId)]: updated });
+  chrome.action.setBadgeBackgroundColor({ tabId, color: await accentColor() });
+  chrome.action.setBadgeText({ tabId, text: String(updated.length) });
+}
+
+async function forgetStreams(tabId) {
+  await chrome.storage.session.remove(streamKey(tabId));
+  chrome.action.setBadgeText({ tabId, text: "" }).catch(() => {});
+}
+
+chrome.webRequest.onHeadersReceived.addListener(
+  (details) => {
+    if (details.tabId < 0) return;
+    const stream = classifyStream(details.url, details.responseHeaders);
+    if (stream) rememberStream(details.tabId, { ...stream, url: details.url, time: Date.now() });
+  },
+  { urls: ["http://*/*", "https://*/*"], types: ["media", "xmlhttprequest", "other"] },
+  ["responseHeaders"],
+);
+
+// Sayfa değişince (tek sayfalık uygulamalarda adres değişince de) eski sayfanın akışları silinir.
+chrome.tabs.onUpdated.addListener((tabId, change) => {
+  if (change.url) forgetStreams(tabId);
+});
+chrome.tabs.onRemoved.addListener((tabId) => forgetStreams(tabId));

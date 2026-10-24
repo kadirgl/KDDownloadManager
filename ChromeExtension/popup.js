@@ -1,5 +1,6 @@
 import {
-  QUALITIES, accentColor, describe, fetchFormats, isAppRunning, isDownloadable, isVideoPage, sendToApp,
+  QUALITIES, accentColor, describe, fetchFormats, isAppRunning, isDownloadable, isVideoPage, sendStream,
+  sendToApp, streamLabel,
 } from "./app.js";
 
 const status = document.getElementById("status");
@@ -9,6 +10,8 @@ const video = document.getElementById("video");
 const videoTitle = document.getElementById("video-title");
 const qualities = document.getElementById("qualities");
 const sendPage = document.getElementById("send-page");
+const streams = document.getElementById("streams");
+const streamList = document.getElementById("stream-list");
 const message = document.getElementById("message");
 
 function showMessage(text, kind) {
@@ -22,14 +25,15 @@ function formatSize(bytes) {
   return mb >= 1024 ? `~${(mb / 1024).toFixed(1).replace(".", ",")} GB` : `~${Math.round(mb)} MB`;
 }
 
-async function send(url, quality) {
-  const ok = await sendToApp([await describe(url, { referrer: url, quality })]);
+// video: adres bilinen bir video sitesi olmasa da yt-dlp ile video olarak indirilsin.
+async function send(url, quality, video) {
+  const ok = await sendToApp([await describe(url, { referrer: url, quality, video })]);
   showMessage(ok ? "KD Download Manager'a gönderildi." : "Uygulamaya ulaşılamadı.", ok ? "ok" : "error");
   return ok;
 }
 
 // Kalite düğmelerini çizer; uygulama listeyi veremezse sabit liste kullanılır.
-function renderQualities(url, options) {
+function renderQualities(url, options, video) {
   qualities.replaceChildren();
   for (const option of options) {
     const button = document.createElement("button");
@@ -42,7 +46,7 @@ function renderQualities(url, options) {
     button.append(title, size);
     button.addEventListener("click", async () => {
       qualities.querySelectorAll("button").forEach((b) => { b.disabled = true; });
-      const ok = await send(url, option.quality);
+      const ok = await send(url, option.quality, video);
       if (ok) setTimeout(() => window.close(), 900);
       else qualities.querySelectorAll("button").forEach((b) => { b.disabled = false; });
     });
@@ -60,6 +64,55 @@ async function showVideo(url) {
   } else {
     videoTitle.textContent = "Kalite seçin";
     renderQualities(url, fallback);
+  }
+}
+
+// Video sitesi olmayan sayfa: yt-dlp sayfada video bulabilirse kaliteleri gösterilir, bulamazsa
+// "Bu sayfayı indir" düğmesi. Sayfa oynatırken yakalanan akışlar ayrıca listelenir.
+async function showAnyPage(tab) {
+  video.hidden = false;
+  videoTitle.textContent = "Video aranıyor…";
+  const [formats] = await Promise.all([fetchFormats(tab.url), showStreams(tab)]);
+  if (formats?.options?.length) {
+    videoTitle.textContent = formats.title;
+    renderQualities(tab.url, formats.options.map((o) => ({ ...o, title: o.quality === "auto" ? "Otomatik (önerilen)" : o.title })), true);
+    return;
+  }
+  video.hidden = true;
+  sendPage.hidden = false;
+  sendPage.addEventListener("click", async () => {
+    sendPage.disabled = true;
+    await send(tab.url);
+    sendPage.disabled = false;
+  });
+}
+
+async function showStreams(tab) {
+  const key = `streams:${tab.id}`;
+  const found = (await chrome.storage.session.get(key))[key] ?? [];
+  if (found.length === 0) return;
+  streams.hidden = false;
+  streamList.replaceChildren();
+  for (const stream of found) {
+    const label = streamLabel(stream);
+    const button = document.createElement("button");
+    const text = document.createElement("span");
+    text.className = "stream";
+    const kind = document.createElement("span");
+    kind.textContent = label.kind + label.size;
+    const name = document.createElement("span");
+    name.textContent = label.name;
+    text.append(kind, name);
+    button.title = stream.url;
+    button.append(text);
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      const ok = await sendStream(stream, { pageUrl: tab.url, pageTitle: tab.title });
+      showMessage(ok ? "KD Download Manager'a gönderildi." : "Uygulamaya ulaşılamadı.", ok ? "ok" : "error");
+      if (ok) setTimeout(() => window.close(), 900);
+      else button.disabled = false;
+    });
+    streamList.append(button);
   }
 }
 
@@ -85,12 +138,7 @@ async function init() {
   if (isVideoPage(tab.url)) {
     showVideo(tab.url);
   } else {
-    sendPage.hidden = false;
-    sendPage.addEventListener("click", async () => {
-      sendPage.disabled = true;
-      await send(tab.url);
-      sendPage.disabled = false;
-    });
+    showAnyPage(tab);
   }
 }
 

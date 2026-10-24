@@ -26,10 +26,16 @@ sayesinde sabit). Uygulama yalnızca bu kimlikten gelen istekleri kabul eder.
 - **Magnet linklerini yakalar:** Sayfalardaki `magnet:` linklerine tıklanınca uygulamaya gönderir
   (değiştirici tuşla tıklanırsa tarayıcıya bırakır). Eklentisi olmayan tarayıcılar (Safari) için
   uygulamada **Ayarlar > Torrent > Bununla aç** kullanılabilir.
-- **Video kalitesi:** Video sitelerinde açılır pencere, videonun sunduğu çözünürlükleri tahmini
-  boyutlarıyla listeler (uygulama yt-dlp ile öğrenir). Sağ tık menüsünde de kalite alt menüsü var.
-- **Sağ tık menüsü:** Linklerde "KD Download Manager ile indir"; videolarda ve video linklerinde
-  kalite seçerek indirme.
+- **Video kalitesi:** Açılır pencere her sayfada video arar ve bulursa sunduğu çözünürlükleri tahmini
+  boyutlarıyla listeler (uygulama yt-dlp ile öğrenir; ~1.800 site tanınıyor). Sağ tık menüsünde de
+  kalite alt menüsü var.
+- **Her sitede videolar:** YouTube'da oynatıcının üstünde, diğer sitelerde fare videonun üzerine
+  gelince sağ üst köşesinde "İndir" butonu çıkar. yt-dlp'nin tanımadığı sitelerde de sayfa oynatırken
+  açtığı akışlar (HLS `.m3u8`, DASH `.mpd`, doğrudan video dosyaları) yakalanır; araç çubuğu ikonunda
+  o sekmede bulunan akış sayısı görünür, butondan ya da açılır pencereden indirilebilir. Akışlar
+  sayfanın başlığıyla kaydedilir.
+- **Sağ tık menüsü:** Linklerde "KD Download Manager ile indir"; sayfalarda, videolarda ve video
+  linklerinde kalite seçerek indirme.
 
 Giriş gerektiren indirmeler için linkle birlikte o sitenin çerezleri, referrer ve tarayıcı kimliği de
 gönderilir. Uygulama bunları yalnızca indirme sırasında kullanır; çerezler diske yazılmaz.

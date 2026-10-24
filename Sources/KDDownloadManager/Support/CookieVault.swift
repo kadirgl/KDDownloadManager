@@ -48,8 +48,10 @@ final class CookieVault {
     }
 
     /// Çerez yoksa ya da eskidiyse eklentiden ister (bir sonraki dakikalık sinyalin cevabında).
+    /// Eklenti dakikalık sinyalde sadece bilinen video sitelerinin çerezlerini gönderiyor; diğer
+    /// sitelerin çerezleri zaten indirme isteğiyle birlikte geliyor.
     func requestIfNeeded(for url: String) {
-        guard let site = Self.site(of: url) else { return }
+        guard DownloadSource.isKnownVideoSite(url), let site = Self.site(of: url) else { return }
         if let jar = jars[site], Date().timeIntervalSince(jar.date) < Self.freshness { return }
         wanted.insert(site)
     }
@@ -59,7 +61,8 @@ final class CookieVault {
 
     /// Çerezler eski olmasa da eklentiden yenisini iste (örn. çerezlerle bile robot doğrulaması çıktıysa).
     func requestFresh(for url: String) {
-        if let site = Self.site(of: url) { wanted.insert(site) }
+        guard DownloadSource.isKnownVideoSite(url), let site = Self.site(of: url) else { return }
+        wanted.insert(site)
     }
 
     /// Bir site için çerez geldiğinde haber verir (bekleyen indirmeleri yeniden denemek için).
@@ -67,12 +70,15 @@ final class CookieVault {
         observers.append(handler)
     }
 
-    /// www.youtube.com → youtube.com gibi; eklentideki VIDEO_HOSTS ile aynı liste.
+    /// www.youtube.com → youtube.com gibi; bilinen video siteleri eklentideki VIDEO_HOSTS ile aynı,
+    /// diğer sitelerde adresin alan adı (www. olmadan).
     static func site(of url: String) -> String? {
         guard let host = URL(string: url)?.host?.lowercased() else { return nil }
-        let site = DownloadSource.videoHostList.first { host == $0 || host.hasSuffix("." + $0) }
-        // youtu.be kısa linklerinin çerezleri youtube.com'da.
-        return site == "youtu.be" ? "youtube.com" : site
+        if let known = DownloadSource.videoHostList.first(where: { host == $0 || host.hasSuffix("." + $0) }) {
+            // youtu.be kısa linklerinin çerezleri youtube.com'da.
+            return known == "youtu.be" ? "youtube.com" : known
+        }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
     /// yt-dlp'nin okuduğu Netscape biçiminde çerez dosyası yazar (izinler 0600).

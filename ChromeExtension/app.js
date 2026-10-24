@@ -124,7 +124,7 @@ export async function fetchFormats(url) {
     const response = await fetch(`${APP_URL}/formats`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, cookieJar: await siteCookies(videoSite(url)) }),
+      body: JSON.stringify({ url, cookieJar: await siteCookies(videoSite(url) ?? hostSite(url)) }),
       signal: AbortSignal.timeout(30000),
     });
     return response.ok ? await response.json() : null;
@@ -134,14 +134,18 @@ export async function fetchFormats(url) {
 }
 
 // Bir indirme isteğini, giriş gerektiren siteler için çerez ve referrer bilgisiyle hazırlar.
-export async function describe(url, { referrer, filename, quality } = {}) {
+export async function describe(url, { referrer, filename, quality, video, saveAs } = {}) {
   const request = { url, userAgent: navigator.userAgent };
   if (referrer) request.referrer = referrer;
   if (filename) request.filename = filename;
   if (quality) request.quality = quality;
+  if (video) request.video = true;
+  if (saveAs) request.saveAs = saveAs;
   const site = videoSite(url);
-  if (site) {
-    request.cookieJar = await siteCookies(site);
+  if (site || video) {
+    // yt-dlp'ye gidecek: video sitesinin (ya da akışın ve bulunduğu sayfanın) tüm çerezleri.
+    const sites = new Set([site ?? hostSite(url), referrer && hostSite(referrer)].filter(Boolean));
+    request.cookieJar = (await Promise.all([...sites].map(siteCookies))).flat();
   } else if (/^https?:/i.test(url)) {
     try {
       const cookies = await chrome.cookies.getAll({ url });
@@ -153,6 +157,77 @@ export async function describe(url, { referrer, filename, quality } = {}) {
     }
   }
   return request;
+}
+
+// Adresin alan adı (www. olmadan): çerezleri o alan ve alt alanları için okumak için.
+export function hostSite(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+// --- Sayfalarda oynatılan video akışlarını yakalama -------------------------------------------
+
+const MIN_VIDEO_FILE = 1024 * 1024;
+
+// Bir ağ yanıtı indirilebilir bir video akışı mı: HLS/DASH listesi ya da doğrudan video dosyası.
+// Akışın parçaları (.ts, .m4s), altyazılar ve küçük dosyalar (önizleme, reklam) sayılmaz.
+// YouTube'un kendi parçalı adresleri (googlevideo) zaten yt-dlp ile indiriliyor.
+export function classifyStream(url, headers = []) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (!/^https?:$/.test(parsed.protocol)) return null;
+  if (/(^|\.)googlevideo\.com$/.test(parsed.hostname)) return null;
+  const path = parsed.pathname.toLowerCase();
+  if (/\.(ts|m4s|m4a|aac|mp3|vtt|webvtt|srt|key|jpg|png|webp)$/.test(path)) return null;
+
+  const header = (name) => headers.find((h) => h.name.toLowerCase() === name)?.value ?? "";
+  const type = header("content-type").split(";")[0].trim().toLowerCase();
+  if (path.endsWith(".m3u8") || type === "application/vnd.apple.mpegurl" || type === "application/x-mpegurl") {
+    return { kind: "hls" };
+  }
+  if (path.endsWith(".mpd") || type === "application/dash+xml") {
+    return { kind: "dash" };
+  }
+  if (type.startsWith("video/") || /\.(mp4|webm|m4v|mov|mkv)$/.test(path)) {
+    // Parça parça (Range) istenen dosyada toplam boyut Content-Range'te: "bytes 0-1/12345678".
+    const total = Number(header("content-range").split("/")[1]) || Number(header("content-length")) || 0;
+    if (total < MIN_VIDEO_FILE) return null;
+    const extension = path.match(/\.(mp4|webm|m4v|mov|mkv)$/)?.[1]
+      ?? { "video/webm": "webm", "video/quicktime": "mov", "video/x-matroska": "mkv" }[type] ?? "mp4";
+    return { kind: "file", size: total, extension };
+  }
+  return null;
+}
+
+// Yakalanan akışın kaydedileceği ad: sayfanın başlığı (akış adresleri "index.m3u8" gibi anlamsız).
+export function streamSaveAs(stream, pageTitle) {
+  const title = (pageTitle || "Video").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  return stream.kind === "file" ? `${title}.${stream.extension}` : title;
+}
+
+// Yakalanan akışı uygulamaya gönderir: HLS/DASH yt-dlp ile, doğrudan dosya parçalı aria2 ile iner.
+export async function sendStream(stream, { pageUrl, pageTitle, quality } = {}) {
+  const request = await describe(stream.url, {
+    referrer: pageUrl,
+    video: stream.kind !== "file",
+    quality,
+    saveAs: streamSaveAs(stream, pageTitle),
+  });
+  return sendToApp([request]);
+}
+
+export function streamLabel(stream) {
+  const name = decodeURIComponent(new URL(stream.url).pathname.split("/").pop() || "akış");
+  const kind = { hls: "HLS akışı", dash: "DASH akışı", file: "Video dosyası" }[stream.kind];
+  const size = stream.size ? ` · ${(stream.size / 1048576).toFixed(0)} MB` : "";
+  return { kind, name: name.length > 40 ? `${name.slice(0, 37)}…` : name, size };
 }
 
 // İstekleri uygulamaya yollar; uygulama kabul ettiyse true döner.

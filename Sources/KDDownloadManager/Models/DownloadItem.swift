@@ -30,7 +30,18 @@ enum DownloadSource: Equatable {
            videoHostList.contains(where: { host == $0 || host.hasSuffix("." + $0) }) {
             return .video
         }
+        // HLS/DASH akışları (eklentinin sayfalarda yakaladığı .m3u8/.mpd) parça parça iner; yt-dlp birleştirir.
+        if let path = URL(string: lower)?.path, path.hasSuffix(".m3u8") || path.hasSuffix(".mpd") {
+            return .video
+        }
         return .direct
+    }
+
+    /// yt-dlp'nin özel olarak tanıdığı siteler (YouTube vb.); diğer sitelerde yt-dlp'ye referrer ve
+    /// tarayıcı kimliği de verilir.
+    static func isKnownVideoSite(_ link: String) -> Bool {
+        guard let host = URL(string: link.lowercased())?.host else { return false }
+        return videoHostList.contains { host == $0 || host.hasSuffix("." + $0) }
     }
 
     static func looksLikeLink(_ text: String) -> Bool {
@@ -76,6 +87,9 @@ final class DownloadItem: Identifiable {
     var userAgent: String?
     /// Çerezler güvenlik için diske yazılmaz; uygulama yeniden açılınca kaybolur.
     var cookies: String?
+    /// Dosyaya verilecek ad: akış adresleri anlamsız ("index.m3u8", karma kod) olduğunda eklenti sayfanın
+    /// başlığını gönderiyor. Normal dosyada uzantılı tam ad, videoda (yt-dlp) uzantısız.
+    var preferredName: String?
     /// Video sitelerinde indirilecek kalite.
     var quality: VideoQuality = .auto {
         didSet {
@@ -95,9 +109,11 @@ final class DownloadItem: Identifiable {
         folder: URL = SettingsKey.downloadFolderURL,
         totalBytes: Int64 = 0,
         downloadedBytes: Int64 = 0,
-        status: DownloadStatus = .queued
+        status: DownloadStatus = .queued,
+        forceVideo: Bool = false
     ) {
-        let source = DownloadSource.detect(url)
+        // Eklenti, yt-dlp'nin herhangi bir sitede video bulduğu sayfaları "video" olarak işaretleyebiliyor.
+        let source = forceVideo ? .video : DownloadSource.detect(url)
         let name = fileName ?? Self.suggestedName(for: url, source: source)
         self.id = id
         self.folder = folder

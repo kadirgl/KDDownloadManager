@@ -187,6 +187,8 @@ final class Aria2Engine: DownloadEngine {
         if let referrer = item.referrer { options["referer"] = .string(referrer) }
         if let userAgent = item.userAgent { options["user-agent"] = .string(userAgent) }
         if let cookies = item.cookies { options["header"] = [.string("Cookie: " + cookies)] }
+        // Sayfada yakalanan video dosyaları anlamsız adlarla geliyor; eklentinin verdiği adla kaydet.
+        if let name = item.preferredName { options["out"] = .string(name) }
         Task {
             do {
                 let client = try await connected()
