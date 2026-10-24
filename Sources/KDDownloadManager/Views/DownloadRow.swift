@@ -54,6 +54,8 @@ struct DownloadRow: View {
             Text(ByteFormat.speed(item.speed))
         case .queued:
             Text("Sırada").foregroundStyle(Theme.secondaryText)
+        case .processing:
+            Text("Birleştiriliyor…").foregroundStyle(Theme.secondaryText)
         case .paused:
             Text("Duraklatıldı").foregroundStyle(Theme.secondaryText)
         case .completed:

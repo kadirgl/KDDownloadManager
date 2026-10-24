@@ -29,6 +29,15 @@ enum SettingsKey {
 
     static let defaultMaxConcurrent = 3
 
+    /// Parçalı indirme: bir dosya/video bu kadar paralel bağlantıyla indirilir (aria2 en fazla 16).
+    static let connections = "connections"
+    static let defaultConnections = 8
+
+    static var connectionCount: Int {
+        let value = UserDefaults.standard.object(forKey: connections) as? Int ?? defaultConnections
+        return min(max(value, 1), 16)
+    }
+
     private static let importedDevelopmentSettings = "importedDevelopmentSettings"
 
     /// `swift run` ile çalışırken ayarlar "KDDownloadManager" alanına yazılıyor, .app ise paket kimliğini

@@ -8,6 +8,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.globalLimitEnabled) private var limitEnabled = false
     @AppStorage(SettingsKey.globalLimitMB) private var limitMB = 5.0
     @AppStorage(SettingsKey.maxConcurrent) private var maxConcurrent = SettingsKey.defaultMaxConcurrent
+    @AppStorage(SettingsKey.connections) private var connections = SettingsKey.defaultConnections
     @AppStorage(SettingsKey.showSpeedInMenuBar) private var showSpeed = true
     @AppStorage(SettingsKey.appTheme) private var theme = AppTheme.system.rawValue
     @AppStorage(SettingsKey.accentColor) private var accent = AccentChoice.orange.rawValue
@@ -76,6 +77,20 @@ struct SettingsView: View {
                             Text("\(maxConcurrent) indirme")
                                 .monospacedDigit()
                             Stepper("Aynı anda en fazla", value: $maxConcurrent, in: 1...10)
+                                .labelsHidden()
+                        }
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Bağlantı sayısı")
+                                Text("Parçalı indirme: her dosya ve video bu kadar paralel bağlantıyla iner. Sunucu izin vermezse o indirme tek bağlantıya düşer.")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(Theme.secondaryText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer()
+                            Text("\(connections)")
+                                .monospacedDigit()
+                            Stepper("Bağlantı sayısı", value: $connections, in: 1...16)
                                 .labelsHidden()
                         }
                     }

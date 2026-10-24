@@ -178,10 +178,11 @@ final class Aria2Engine: DownloadEngine {
             "dir": .string(item.folder.path),
             "max-download-limit": .string(String(limitAtAdd ?? 0))
         ]
-        if singleConnection.contains(item.id) {
-            options["split"] = "1"
-            options["max-connection-per-server"] = "1"
-        }
+        // Parçalı indirme: dosya Ayarlar'daki sayıda parçaya bölünüp paralel indirilir. Sunucu buna
+        // izin vermeyip hata verdiyse bu indirme tek bağlantıyla sürer.
+        let connections = singleConnection.contains(item.id) ? 1 : SettingsKey.connectionCount
+        options["split"] = .string(String(connections))
+        options["max-connection-per-server"] = .string(String(connections))
         // Tarayıcıdan geldiyse aynı istek bilgileriyle indir; giriş gerektiren siteler bunları bekliyor.
         if let referrer = item.referrer { options["referer"] = .string(referrer) }
         if let userAgent = item.userAgent { options["user-agent"] = .string(userAgent) }

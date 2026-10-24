@@ -73,7 +73,7 @@ struct DownloadArchive {
     func encode(_ items: [DownloadItem]) -> Data {
         let records = items.map { item in
             let (state, error): (Record.State, String?) = switch item.status {
-            case .queued, .downloading: (.active, nil)
+            case .queued, .downloading, .processing: (.active, nil)
             case .paused: (.paused, nil)
             case .completed: (.completed, nil)
             case .failed(let message): (.failed, message)

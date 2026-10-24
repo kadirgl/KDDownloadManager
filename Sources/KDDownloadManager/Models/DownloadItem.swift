@@ -7,10 +7,19 @@ enum DownloadSource: Equatable {
     case video    // YouTube vb. → yt-dlp
     case torrent  // magnet / .torrent → aria2
 
-    static let videoHostList = [
-        "youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "twitch.tv",
-        "twitter.com", "x.com", "instagram.com", "tiktok.com", "facebook.com"
-    ]
+    static let videoHostList: [String] = {
+        let hosts = [
+            "youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "twitch.tv",
+            "twitter.com", "x.com", "instagram.com", "tiktok.com", "facebook.com"
+        ]
+        #if DEBUG
+        // Denemelerde video yolunu (yt-dlp) YouTube'a gitmeden çalıştırmak için ek siteler.
+        if let extra = ProcessInfo.processInfo.environment["KD_VIDEO_HOSTS"] {
+            return hosts + extra.split(separator: ",").map(String.init)
+        }
+        #endif
+        return hosts
+    }()
 
     static func detect(_ link: String) -> DownloadSource {
         let lower = link.lowercased()
@@ -33,6 +42,9 @@ enum DownloadSource: Equatable {
 enum DownloadStatus: Equatable {
     case queued
     case downloading
+    /// İndirme bitti, dosya işleniyor (video ile sesi birleştirme, MP3'e dönüştürme). Bu sırada
+    /// ilerleme bilgisi gelmiyor; hız 0 göründüğü için ayrı gösteriliyor.
+    case processing
     case paused
     case completed
     case failed(String)

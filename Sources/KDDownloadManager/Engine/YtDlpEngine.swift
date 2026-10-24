@@ -20,6 +20,8 @@ final class YtDlpEngine: DownloadEngine {
 
         /// Tarayıcı çerezleriyle mi çalıştırıldı (robot doğrulaması hatasını yorumlamak için).
         var usedCookies = false
+        /// Parçalı indirme için aria2c'ye devredildi mi (başarısız olursa yerleşik indiriciyle denenir).
+        var usedSegmented = false
 
         init(process: Process) {
             self.process = process
@@ -38,6 +40,14 @@ final class YtDlpEngine: DownloadEngine {
     private var parts: [UUID: [String: Int64]] = [:]
     /// yt-dlp'nin indirme öncesi bildirdiği toplam boyut (tüm parçalar).
     private var expectedTotal: [UUID: Int64] = [:]
+    /// aria2c ile inmekte olan parçanın baytı; aria2c yt-dlp'ye ilerleme bildirmiyor, kendi konsol
+    /// satırlarından okunuyor.
+    private var segmentedBytes: [UUID: Int64] = [:]
+    /// Beklenen parça sayısı (görüntü + ses = 2) ve bitenler; hepsi bitince "birleştiriliyor".
+    private var expectedParts: [UUID: Int] = [:]
+    private var finishedParts: [UUID: Set<String>] = [:]
+    /// Parçalı indirmesi başarısız olanlar; yt-dlp'nin kendi tek bağlantılı indiricisiyle sürer.
+    private var singleConnection: Set<UUID> = []
 
     private var maxConcurrent = SettingsKey.defaultMaxConcurrent
     private var globalLimit: Int64?
@@ -54,7 +64,7 @@ final class YtDlpEngine: DownloadEngine {
                 // Durumları değişmesin; liste "inmekte" olarak kaydedilip açılışta devam etsin.
                 self?.jobs.values.forEach { job in
                     job.stopReason = .pause
-                    job.process.terminate()
+                    ProcessTree.terminate(job.process.processIdentifier)
                 }
             }
         }
@@ -91,6 +101,10 @@ final class YtDlpEngine: DownloadEngine {
     func cancel(_ item: DownloadItem) {
         items[item.id] = nil
         awaitingCookies.remove(item.id)
+        singleConnection.remove(item.id)
+        segmentedBytes[item.id] = nil
+        expectedParts[item.id] = nil
+        finishedParts[item.id] = nil
         queue.removeAll { $0 == item.id }
         expectedTotal[item.id] = nil
         parts[item.id] = nil
@@ -143,7 +157,14 @@ final class YtDlpEngine: DownloadEngine {
     private func stop(_ id: UUID, reason: StopReason) {
         guard let job = jobs[id] else { return }
         job.stopReason = reason
-        job.process.terminate()
+        let process = job.process
+        let stopped = ProcessTree.terminate(process.processIdentifier)
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            // Kapanmakta geciken aria2c'ler ve bu arada başlamış olabilecek alt süreçler (örn. ffmpeg).
+            ProcessTree.killSurvivors(stopped)
+            if process.isRunning { ProcessTree.terminate(process.processIdentifier, signal: SIGKILL) }
+        }
     }
 
     private func launch(_ item: DownloadItem) {
@@ -179,6 +200,9 @@ final class YtDlpEngine: DownloadEngine {
         }
         let job = Job(process: process)
         job.usedCookies = cookies != nil
+        job.usedSegmented = process.arguments?.contains("--downloader") == true
+        segmentedBytes[item.id] = 0
+        finishedParts[item.id] = []
         jobs[item.id] = job
         item.setStatus(.downloading)
 
@@ -233,6 +257,12 @@ final class YtDlpEngine: DownloadEngine {
                         : "Site oturum doğrulaması istedi; tarayıcı çerezleri bekleniyor. Eklenti bağlıysa bir dakika içinde yeniden denenecek."))
                     return
                 }
+                if job.usedSegmented, !singleConnection.contains(item.id) {
+                    // Bazı siteler paralel bağlantılara izin vermiyor (403/429); tek bağlantıyla sürdür.
+                    singleConnection.insert(item.id)
+                    launch(item)
+                    return
+                }
                 item.setStatus(.failed(error ?? "yt-dlp hata verdi (kod \(status))"))
                 return
             }
@@ -244,6 +274,9 @@ final class YtDlpEngine: DownloadEngine {
             item.downloadedBytes = item.totalBytes
             parts[item.id] = nil
             expectedTotal[item.id] = nil
+            segmentedBytes[item.id] = nil
+            expectedParts[item.id] = nil
+            finishedParts[item.id] = nil
             Self.removeTemporaryFolder(for: item.id)
             item.setStatus(.completed)
         }
@@ -285,11 +318,32 @@ final class YtDlpEngine: DownloadEngine {
         if let cookies, (try? CookieVault.writeNetscapeFile(cookies, to: Self.cookieFile(for: item.id))) != nil {
             arguments += ["--cookies", Self.cookieFile(for: item.id).path]
         }
+        arguments += segmentedArguments(for: item)
         let limits = [item.speedLimit, globalLimit].compactMap { $0 }
         if let limit = limits.min() {
+            // Parçalı indirmede aria2c'ye --max-overall-download-limit olarak geçiyor.
             arguments += ["--limit-rate", String(limit)]
         }
         return arguments + ["--", item.url]
+    }
+
+    /// Parçalı indirme: YouTube gibi siteler her bağlantıyı ayrı yavaşlattığı için video, gömülü
+    /// aria2c ile Ayarlar'daki sayıda paralel bağlantıyla indirilir. Parça parça gelen akışlarda
+    /// (HLS/DASH) yt-dlp'nin kendi paralel parça indirmesi kullanılır. aria2c, uygulama kapanırsa
+    /// (çökse bile) kendiliğinden durur.
+    private func segmentedArguments(for item: DownloadItem) -> [String] {
+        let connections = SettingsKey.connectionCount
+        var arguments = ["--concurrent-fragments", String(connections)]
+        guard connections > 1, !singleConnection.contains(item.id), Executables.find("aria2c") != nil else {
+            return arguments
+        }
+        let pid = ProcessInfo.processInfo.processIdentifier
+        arguments += [
+            "--downloader", "aria2c",
+            "--downloader-args",
+            "aria2c:-x\(connections) -s\(connections) -j\(connections) -k1M --stop-with-process=\(pid) --summary-interval=1"
+        ]
+        return arguments
     }
 
     /// Kaliteye göre biçim seçimi. Görüntü ve ses ayrı inip ffmpeg ile MP4'te birleşir.
@@ -317,6 +371,10 @@ final class YtDlpEngine: DownloadEngine {
     }
 
     private func handle(_ line: String, for item: DownloadItem) {
+        if line.hasPrefix("[#") {
+            handleSegmentedProgress(line, for: item)
+            return
+        }
         guard let space = line.firstIndex(of: " ") else { return }
         let tag = line[..<space]
         let payload = String(line[line.index(after: space)...])
@@ -333,6 +391,7 @@ final class YtDlpEngine: DownloadEngine {
             let requested = (0..<max(exact.count, approx.count)).reduce(Int64(0)) { sum, index in
                 sum + (exact[safe: index]?.int64Value ?? approx[safe: index]?.int64Value ?? 0)
             }
+            expectedParts[item.id] = max(1, max(exact.count, approx.count))
             let total = requested > 0
                 ? requested
                 : info["filesize"]?.int64Value ?? info["filesize_approx"]?.int64Value ?? 0
@@ -344,18 +403,30 @@ final class YtDlpEngine: DownloadEngine {
         case "KDPROG":
             guard let progress = Self.decode(payload),
                   let file = progress["filename"]?.stringValue else { return }
+            let state = progress["status"]?.stringValue
             var itemParts = parts[item.id, default: [:]]
             itemParts[file] = progress["downloaded_bytes"]?.int64Value ?? itemParts[file] ?? 0
             parts[item.id] = itemParts
-            item.downloadedBytes = itemParts.values.reduce(0, +)
+            if state == "finished" {
+                finishedParts[item.id, default: []].insert(file)
+                segmentedBytes[item.id] = 0
+            }
+            let downloaded = itemParts.values.reduce(0, +) + segmentedBytes[item.id, default: 0]
+            if item.downloadedBytes != downloaded { item.downloadedBytes = downloaded }
 
             if expectedTotal[item.id] == nil,
                let partTotal = progress["total_bytes"]?.int64Value ?? progress["total_bytes_estimate"]?.int64Value {
                 // Toplam baştan bilinmiyorsa: biten parçalar + bu parçanın boyutu.
                 item.totalBytes = item.downloadedBytes - (itemParts[file] ?? 0) + partTotal
             }
-            let downloading = progress["status"]?.stringValue == "downloading"
-            item.setStatus(.downloading, speed: downloading ? progress["speed"]?.int64Value ?? 0 : 0)
+            if finishedParts[item.id, default: []].count >= expectedParts[item.id, default: 1] {
+                // Bütün parçalar indi; şimdi birleştirme/dönüştürme var, ilerleme bilgisi gelmeyecek.
+                item.setStatus(.processing)
+            } else {
+                // yt-dlp her parçanın başında hızı "bilinmiyor" bildiriyor; o an 0 göstermek yerine son
+                // bilinen hız korunur.
+                item.setStatus(.downloading, speed: progress["speed"]?.int64Value ?? item.speed)
+            }
 
         case "KDFILE":
             let url = URL(fileURLWithPath: payload)
@@ -365,6 +436,35 @@ final class YtDlpEngine: DownloadEngine {
         default:
             break
         }
+    }
+
+    /// aria2c'nin her saniye yazdığı satır: "[#24f96e 2.0MiB/29MiB(7%) CN:8 DL:1.0MiB ETA:26s]".
+    private func handleSegmentedProgress(_ line: String, for item: DownloadItem) {
+        guard let match = line.firstMatch(of: Self.readoutPattern),
+              let done = Self.bytes(match.1, match.2) else { return }
+        segmentedBytes[item.id] = done
+        let finished = parts[item.id, default: [:]].values.reduce(0, +)
+        if item.downloadedBytes != finished + done { item.downloadedBytes = finished + done }
+        if expectedTotal[item.id] == nil, let partTotal = Self.bytes(match.3, match.4) {
+            item.totalBytes = finished + partTotal
+        }
+        let speed = line.firstMatch(of: Self.speedPattern).flatMap { Self.bytes($0.1, $0.2) }
+        item.setStatus(.downloading, speed: speed ?? item.speed)
+    }
+
+    private nonisolated(unsafe) static let readoutPattern = #/\[#\w+ ([\d.]+)([KMGT]?i?B)/([\d.]+)([KMGT]?i?B)/#
+    private nonisolated(unsafe) static let speedPattern = #/DL:([\d.]+)([KMGT]?i?B)/#
+
+    private static func bytes(_ value: Substring, _ unit: Substring) -> Int64? {
+        guard let number = Double(value) else { return nil }
+        let multiplier: Double = switch unit {
+        case "KiB": 1024
+        case "MiB": 1_048_576
+        case "GiB": 1_073_741_824
+        case "TiB": 1_099_511_627_776
+        default: 1
+        }
+        return Int64(number * multiplier)
     }
 
     private static func decode(_ json: String) -> JSONValue? {

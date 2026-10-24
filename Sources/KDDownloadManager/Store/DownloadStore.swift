@@ -200,7 +200,7 @@ final class DownloadStore {
 
     func togglePause(_ item: DownloadItem) {
         switch item.status {
-        case .downloading, .queued: engine.pause(item)
+        case .downloading, .queued, .processing: engine.pause(item)
         case .paused, .failed: engine.resume(item)
         case .completed: break
         }
