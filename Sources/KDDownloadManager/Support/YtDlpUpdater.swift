@@ -56,9 +56,11 @@ final class YtDlpUpdater {
     nonisolated private static var downloadedBinary: URL { folder.appendingPathComponent("yt-dlp") }
     nonisolated private static var downloadedVersionFile: URL { folder.appendingPathComponent("yt-dlp.version") }
 
+    /// Paketteki yt-dlp'nin sürümü (package-app.sh, Contents/Resources/yt-dlp.version'a yazar).
     nonisolated private static var bundledVersion: String? {
-        guard let helpers = Executables.bundledFolder?.deletingLastPathComponent() else { return nil }
-        return readVersion(helpers.appendingPathComponent("yt-dlp.version"))
+        guard Executables.bundledFolder != nil,
+              let file = Bundle.main.url(forResource: "yt-dlp", withExtension: "version") else { return nil }
+        return readVersion(file)
     }
 
     nonisolated private static func readVersion(_ file: URL) -> String? {
