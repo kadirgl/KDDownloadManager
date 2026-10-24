@@ -20,4 +20,22 @@ enum SettingsKey {
     }
 
     static let defaultMaxConcurrent = 3
+
+    private static let importedDevelopmentSettings = "importedDevelopmentSettings"
+
+    /// `swift run` ile çalışırken ayarlar "KDDownloadManager" alanına yazılıyor, .app ise paket kimliğini
+    /// kullanıyor. Paketli uygulama ilk açıldığında oradaki ayarları bir kereliğine taşır.
+    static func importDevelopmentSettings() {
+        let defaults = UserDefaults.standard
+        guard Bundle.main.bundleIdentifier != nil,
+              defaults.object(forKey: importedDevelopmentSettings) == nil else { return }
+        defaults.set(true, forKey: importedDevelopmentSettings)
+        guard let development = UserDefaults(suiteName: "KDDownloadManager") else { return }
+        for key in [showSpeedInMenuBar, globalLimitEnabled, globalLimitMB, maxConcurrent, downloadFolder]
+        where defaults.object(forKey: key) == nil {
+            if let value = development.object(forKey: key) {
+                defaults.set(value, forKey: key)
+            }
+        }
+    }
 }

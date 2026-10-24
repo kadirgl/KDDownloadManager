@@ -10,6 +10,9 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.globalLimitMB) private var limitMB = 5.0
     @AppStorage(SettingsKey.maxConcurrent) private var maxConcurrent = SettingsKey.defaultMaxConcurrent
     @AppStorage(SettingsKey.showSpeedInMenuBar) private var showSpeed = true
+    // Kaynak macOS; burada sadece gösterim için tutuluyor.
+    @State private var launchAtLogin = LaunchAtLogin.isEnabled
+    @State private var launchAtLoginError: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,6 +59,17 @@ struct SettingsView: View {
                     SettingsSection(title: "Menü çubuğu") {
                         SettingsToggle(title: "Toplam hızı göster", isOn: $showSpeed)
                     }
+
+                    SettingsSection(title: "Başlangıç") {
+                        SettingsToggle(title: "Oturum açınca başlat", isOn: $launchAtLogin)
+                            .disabled(!LaunchAtLogin.isAvailable)
+                        if let note = launchAtLoginError ?? launchAtLoginNote {
+                            Text(note)
+                                .font(.system(size: 11))
+                                .foregroundStyle(launchAtLoginError == nil ? Theme.secondaryText : .red)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                 }
                 .toggleStyle(.switch)
                 .tint(Theme.accent)
@@ -80,6 +94,22 @@ struct SettingsView: View {
         .onChange(of: limitEnabled) { store.applyGlobalSpeedLimit() }
         .onChange(of: limitMB) { store.applyGlobalSpeedLimit() }
         .onChange(of: maxConcurrent) { store.applyMaxConcurrent() }
+        .onChange(of: launchAtLogin) { _, enabled in
+            guard enabled != LaunchAtLogin.isEnabled else { return }
+            do {
+                try LaunchAtLogin.set(enabled)
+                launchAtLoginError = nil
+            } catch {
+                launchAtLoginError = "Ayarlanamadı: \(error.localizedDescription)"
+                launchAtLogin = LaunchAtLogin.isEnabled
+            }
+        }
+    }
+
+    private var launchAtLoginNote: String? {
+        LaunchAtLogin.isAvailable
+            ? "Chrome eklentisinin çalışması için uygulamanın açık olması gerekir."
+            : "Uygulama .app olarak paketlenip açıldığında kullanılabilir."
     }
 
     private var versionText: String {

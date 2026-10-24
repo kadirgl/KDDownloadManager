@@ -19,10 +19,14 @@ struct KDDownloadManagerApp: App {
 /// Liste ve Chrome köprüsü burada yaşıyor: panel hiç açılmasa da uygulama açılır açılmaz çalışmalılar.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let store = DownloadStore(
-        engine: RoutingEngine(files: Aria2Engine(), videos: YtDlpEngine()),
-        archive: AppDelegate.archive
-    )
+    /// SwiftUI sahneyi açılış bildiriminden önce de kurabildiği için ayar taşıma burada, ilk erişimde yapılıyor.
+    lazy var store: DownloadStore = {
+        SettingsKey.importDevelopmentSettings()
+        return DownloadStore(
+            engine: RoutingEngine(files: Aria2Engine(), videos: YtDlpEngine()),
+            archive: AppDelegate.archive
+        )
+    }()
     private var bridge: ExtensionBridge?
 
     private static var archive: DownloadArchive? {
