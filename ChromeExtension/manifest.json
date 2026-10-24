@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "KD Download Manager",
+  "version": "1.0.0",
+  "description": "Chrome indirmelerini ve video linklerini KD Download Manager'a gönderir.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn0RTTXqv8XpqE7hAnmWvESqoS1RoGF5ATQJviyz/K81xJLcc1k7wEgcrbUst4KbJv8u8LMDYUpr6p+R49C3z1hDEoZMFmNR3oNpjcbH1fULfrucNgggow4aASIax3hPRe2wxj9g1CgMDNhmSi7pGw32XUvUJy5Kc1LEYDLq/5JU0NqHtOSgb6ZDfP7QD4fSOAO/QtMQd/7c/8qKzhbPKxTW3E9qZgu9Zi/EVCs5K7iyvLcEHNBpVZUWjPlKgq1q6CjO3oO9VdJoEJfR08gmzkEiFYvBvCN3UR73TrRK3EI2XJ01WLd0oiE9lqBddd1T1nNtYyTcaFUlRCm6CD5VM1QIDAQAB",
+  "permissions": ["downloads", "contextMenus", "storage", "cookies", "activeTab"],
+  "host_permissions": ["http://127.0.0.1:47615/*", "<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "KD Download Manager",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

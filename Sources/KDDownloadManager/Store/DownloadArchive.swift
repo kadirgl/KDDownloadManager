@@ -6,6 +6,12 @@ struct DownloadArchive {
     let url: URL
 
     static var standard: DownloadArchive {
+        #if DEBUG
+        // Denemelerde gerçek listeye dokunmamak için başka bir dosya verilebilir.
+        if let path = ProcessInfo.processInfo.environment["KD_ARCHIVE"] {
+            return DownloadArchive(url: URL(fileURLWithPath: path))
+        }
+        #endif
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return DownloadArchive(url: support.appendingPathComponent("KDDownloadManager/downloads.json"))
     }
@@ -26,6 +32,9 @@ struct DownloadArchive {
         var state: State
         var error: String?
         var destination: String?
+        // Çerezler bilerek saklanmıyor.
+        var referrer: String?
+        var userAgent: String?
     }
 
     @MainActor
@@ -51,6 +60,8 @@ struct DownloadArchive {
             )
             item.speedLimit = record.speedLimit
             item.destination = record.destination.map { URL(fileURLWithPath: $0) }
+            item.referrer = record.referrer
+            item.userAgent = record.userAgent
             return item
         }
     }
@@ -75,7 +86,9 @@ struct DownloadArchive {
                 speedLimit: item.speedLimit,
                 state: state,
                 error: error,
-                destination: item.destination?.path
+                destination: item.destination?.path,
+                referrer: item.referrer,
+                userAgent: item.userAgent
             )
         }
         let encoder = JSONEncoder()

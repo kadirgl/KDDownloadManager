@@ -142,14 +142,19 @@ final class Aria2Engine: DownloadEngine {
     private func add(_ item: DownloadItem) {
         item.setStatus(.queued)
         let limitAtAdd = item.speedLimit
-        let options: JSONValue = [
+        var options: [String: JSONValue] = [
             "dir": .string(item.folder.path),
             "max-download-limit": .string(String(limitAtAdd ?? 0))
         ]
+        // Tarayıcıdan geldiyse aynı istek bilgileriyle indir; giriş gerektiren siteler bunları bekliyor.
+        if let referrer = item.referrer { options["referer"] = .string(referrer) }
+        if let userAgent = item.userAgent { options["user-agent"] = .string(userAgent) }
+        if let cookies = item.cookies { options["header"] = [.string("Cookie: " + cookies)] }
+        let addOptions = JSONValue.object(options)
         Task {
             do {
                 let client = try await connected()
-                let result = try await client.call("aria2.addUri", [[.string(item.url)], options])
+                let result = try await client.call("aria2.addUri", [[.string(item.url)], addOptions])
                 guard let gid = result.stringValue else {
                     throw Aria2Error(message: "aria2 indirme kimliği vermedi")
                 }

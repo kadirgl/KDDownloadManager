@@ -4,10 +4,26 @@ import AppKit
 @main
 struct KDDownloadManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var store = DownloadStore(
+
+    var body: some Scene {
+        MenuBarExtra {
+            PanelView()
+                .environment(appDelegate.store)
+        } label: {
+            MenuBarLabel(store: appDelegate.store)
+        }
+        .menuBarExtraStyle(.window)
+    }
+}
+
+/// Liste ve Chrome köprüsü burada yaşıyor: panel hiç açılmasa da uygulama açılır açılmaz çalışmalılar.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let store = DownloadStore(
         engine: RoutingEngine(files: Aria2Engine(), videos: YtDlpEngine()),
-        archive: KDDownloadManagerApp.archive
+        archive: AppDelegate.archive
     )
+    private var bridge: ExtensionBridge?
 
     private static var archive: DownloadArchive? {
         #if DEBUG
@@ -17,18 +33,6 @@ struct KDDownloadManagerApp: App {
         return .standard
     }
 
-    var body: some Scene {
-        MenuBarExtra {
-            PanelView()
-                .environment(store)
-        } label: {
-            MenuBarLabel(store: store)
-        }
-        .menuBarExtraStyle(.window)
-    }
-}
-
-final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // .app paketinde Info.plist'teki LSUIElement bunu zaten sağlıyor;
         // `swift run` ile çalışırken de Dock ikonu çıkmasın diye burada da ayarlıyoruz.
@@ -37,6 +41,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DebugSnapshot.runIfRequested()
         DebugEngineTest.runIfRequested()
         DebugPersistenceTest.runIfRequested()
+        // Senaryolar çalışırken asıl uygulamanın portunu işgal etmesinler.
+        if DebugHarness.isActive { return }
         #endif
+
+        let bridge = ExtensionBridge { [store] requests in
+            store.add(requests)
+        }
+        bridge.start()
+        self.bridge = bridge
     }
 }

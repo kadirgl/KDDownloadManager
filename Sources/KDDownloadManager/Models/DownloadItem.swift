@@ -59,6 +59,11 @@ final class DownloadItem: Identifiable {
     /// İndirmenin yapıldığı klasör. Ayarlardaki klasör sonradan değişse de yarım dosya burada
     /// kaldığı için devam ederken bu kullanılır.
     var folder: URL
+    /// Tarayıcıdan gelen istek bilgileri; giriş gerektiren indirmelerde sunucu bunları bekliyor.
+    var referrer: String?
+    var userAgent: String?
+    /// Çerezler güvenlik için diske yazılmaz; uygulama yeniden açılınca kaybolur.
+    var cookies: String?
 
     var progress: Double {
         guard totalBytes > 0 else { return 0 }

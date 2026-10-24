@@ -63,8 +63,19 @@ final class DownloadStore {
 
     /// Her satırdaki linki ayrı bir indirme olarak ekler.
     func add(links text: String) {
-        for link in Self.parseLinks(text) {
-            let item = DownloadItem(url: link)
+        add(Self.parseLinks(text).map { DownloadRequest(url: $0) })
+    }
+
+    /// Panelden ya da Chrome eklentisinden gelen istekleri ekler; link olmayanları atlar.
+    func add(_ requests: [DownloadRequest]) {
+        let valid = requests.filter { DownloadSource.looksLikeLink($0.url) }
+        guard !valid.isEmpty else { return }
+        for request in valid {
+            let name = request.filename.flatMap { $0.isEmpty ? nil : $0 }
+            let item = DownloadItem(url: request.url.trimmingCharacters(in: .whitespacesAndNewlines), fileName: name)
+            item.referrer = request.referrer
+            item.userAgent = request.userAgent
+            item.cookies = request.cookies
             items.insert(item, at: 0)
             engine.start(item)
         }

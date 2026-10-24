@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <title>KD Download Manager</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon32.png" alt="" width="20" height="20">
+    <h1>KD Download Manager</h1>
+  </header>
+
+  <div id="status" class="status" data-state="checking">
+    <span class="dot"></span>
+    <span id="status-text">Uygulama aranıyor…</span>
+  </div>
+
+  <label class="row">
+    <span>
+      <strong>Chrome indirmelerini yakala</strong>
+      <small>Kapalıysa ya da uygulama çalışmıyorsa Chrome kendisi indirir.</small>
+    </span>
+    <input id="intercept" type="checkbox" role="switch">
+  </label>
+
+  <button id="send-page" class="primary" hidden>Bu sayfayı indir</button>
+  <p id="message" class="message" role="status"></p>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
