@@ -84,6 +84,8 @@ struct SettingsView: View {
 
                     TorrentSettings()
 
+                    YtDlpSettings()
+
                     SettingsSection(title: "Bildirimler") {
                         SettingsToggle(title: "İndirme eklendiğinde", isOn: $notifyOnAdd)
                         SettingsToggle(title: "İndirme tamamlandığında", isOn: $notifyOnFinish)
@@ -215,7 +217,7 @@ private struct AccentPicker: View {
 }
 
 /// Etiket solda, anahtar satırın sağında.
-private struct SettingsToggle: View {
+struct SettingsToggle: View {
     let title: String
     @Binding var isOn: Bool
 
@@ -235,10 +237,10 @@ struct SettingsSection<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
+            // Türkçe kurala göre büyüt: "indirici" → "İNDİRİCİ" (textCase sistemin diline göre "INDIRICI" yapıyor).
+            Text(title.uppercased(with: Locale(identifier: "tr_TR")))
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.secondaryText)
-                .textCase(.uppercase)
                 .padding(.horizontal, 4)
             VStack(alignment: .leading, spacing: 12) {
                 content

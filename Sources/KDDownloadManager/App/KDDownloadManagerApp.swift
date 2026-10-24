@@ -49,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DebugPersistenceTest.runIfRequested()
         DebugLimitTest.runIfRequested()
         DebugTorrentTest.runIfRequested()
+        DebugUpdateTest.runIfRequested()
         // Senaryolar çalışırken asıl uygulamanın portunu işgal etmesinler.
         if DebugHarness.isActive { return }
         #endif
@@ -59,6 +60,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         bridge.start()
         self.bridge = bridge
+        // Gömülü yt-dlp'yi günde en fazla bir kez sessizce denetle (Ayarlar'dan kapatılabilir).
+        YtDlpUpdater.shared.checkAutomaticallyIfDue()
         // Kurulu tarayıcı eklentisi uygulamayla birlikte güncellensin (tarayıcı yeniden açılınca alır).
         if FileManager.default.fileExists(atPath: BrowserExtension.folder.path) {
             BrowserExtension.refreshFolder()

@@ -13,6 +13,8 @@ enum SettingsKey {
     static let notifyOnFail = "notifyOnFail"
     static let appTheme = "appTheme"
     static let accentColor = "accentColor"
+    static let ytDlpAutoUpdate = "ytDlpAutoUpdate"
+    static let ytDlpLastCheck = "ytDlpLastCheck"
 
     static var defaultDownloadFolder: String {
         FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path

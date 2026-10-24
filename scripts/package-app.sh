@@ -36,7 +36,7 @@ cp -R "$BIN/${EXECUTABLE}_${EXECUTABLE}.bundle" "$APP/Contents/Resources/"
 cp -R ChromeExtension "$APP/Contents/Resources/BrowserExtension"
 # Gömülü araçlar (her biri bundle-tools.sh'de ayrıca imzalandı); uygulama önce bunları kullanır.
 mkdir -p "$APP/Contents/Helpers"
-cp -R dist/tools/bin dist/tools/lib "$APP/Contents/Helpers/"
+cp -R dist/tools/bin dist/tools/lib dist/tools/yt-dlp.version "$APP/Contents/Helpers/"
 
 ICON_WORK="$(mktemp -d)"
 trap 'rm -rf "$ICON_WORK"' EXIT

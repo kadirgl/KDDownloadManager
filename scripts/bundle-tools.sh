@@ -46,5 +46,7 @@ if [[ -z "$expected" || "$expected" != "$actual" ]]; then
 fi
 cp "$CACHE/yt-dlp_macos" "$OUT/bin/yt-dlp"
 chmod 755 "$OUT/bin/yt-dlp"
+# Uygulama, içindeki sürümü güncellemeyle indirileninkiyle karşılaştırırken bunu okur.
+echo "$YTDLP_VERSION" > "$OUT/yt-dlp.version"
 
 echo "✓ Araçlar hazır: $(du -sh "$OUT" | cut -f1) ($OUT)"

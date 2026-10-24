@@ -13,7 +13,15 @@ enum Theme {
     static let secondaryText = Color(light: 0x6B6B6B, dark: 0x9A9A9A)
 
     static let panelWidth: CGFloat = 480
-    static let panelHeight: CGFloat = 600
+    static let panelHeight: CGFloat = {
+        #if DEBUG
+        // Ekran görüntüsü aracında uzun ekranların (Ayarlar) tamamını çizebilmek için.
+        if let value = ProcessInfo.processInfo.environment["KD_PANEL_HEIGHT"].flatMap(Double.init) {
+            return CGFloat(value)
+        }
+        #endif
+        return 600
+    }()
     static let cornerRadius: CGFloat = 16
 }
 
