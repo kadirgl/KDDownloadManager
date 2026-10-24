@@ -8,7 +8,8 @@ import Network
 ///   Web sayfaları Origin başlığını değiştiremediği için bir site uygulamaya indirme başlatamaz.
 ///
 /// Uç noktalar:
-/// - `GET /ping` → uygulama çalışıyor mu (eklentinin durum göstergesi için)
+/// - `POST /ping` → uygulama çalışıyor mu (eklentinin durum göstergesi için). Chrome, izinli
+///   adreslere giden GET isteklerinde Origin göndermediği için durum sorgusu da POST ile yapılır.
 /// - `POST /hello` → `{"browser": "Google Chrome", "version": "1.1.0"}`; eklenti bunu dakikada bir
 ///   gönderir, Ayarlar'daki "bağlı" göstergesi buradan beslenir
 /// - `POST /add` → `{"links": [DownloadRequest, ...]}`
@@ -107,7 +108,7 @@ final class ExtensionBridge {
         case ("OPTIONS", _):
             Self.send(status: 204, nil, origin: origin, on: connection)
 
-        case ("GET", "/ping"):
+        case ("GET", "/ping"), ("POST", "/ping"):
             Self.send(status: 200, ["app": "KD Download Manager"], origin: origin, on: connection)
 
         case ("POST", "/hello"):

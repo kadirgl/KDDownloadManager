@@ -37,7 +37,8 @@ export function isDownloadable(url) {
 
 export async function isAppRunning() {
   try {
-    const response = await fetch(`${APP_URL}/ping`, { signal: AbortSignal.timeout(1500) });
+    // GET olursa Chrome Origin başlığını göndermiyor ve uygulama isteği reddediyor; POST kullan.
+    const response = await fetch(`${APP_URL}/ping`, { method: "POST", signal: AbortSignal.timeout(1500) });
     return response.ok;
   } catch {
     return false;
