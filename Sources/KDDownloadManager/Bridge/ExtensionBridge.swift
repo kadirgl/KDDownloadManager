@@ -109,7 +109,9 @@ final class ExtensionBridge {
             Self.send(status: 204, nil, origin: origin, on: connection)
 
         case ("GET", "/ping"), ("POST", "/ping"):
-            Self.send(status: 200, ["app": "KD Download Manager"], origin: origin, on: connection)
+            // Eklenti, uygulamada seçilen vurgu rengini kullanıyor.
+            Self.send(status: 200, ["app": "KD Download Manager", "accent": .string(AccentChoice.current.hex)],
+                      origin: origin, on: connection)
 
         case ("POST", "/hello"):
             let hello = try? JSONDecoder().decode(JSONValue.self, from: request.body)

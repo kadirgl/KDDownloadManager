@@ -107,11 +107,23 @@ final class DownloadItem: Identifiable {
             return URL(string: url)?.lastPathComponent ?? "Torrent"
         case .video:
             // Gerçek başlık yt-dlp'den gelecek.
-            return URL(string: url)?.host.map { "\($0) videosu" } ?? "Video"
+            return "\(Self.siteName(for: url)) videosu"
         case .direct:
             let name = URL(string: url)?.lastPathComponent ?? ""
             guard !name.isEmpty, name != "/" else { return "İndirme" }
             return name.removingPercentEncoding ?? name
         }
+    }
+
+    /// "www.youtube.com" yerine "YouTube" gibi okunur site adı (bildirimde ve listede, başlık gelene kadar).
+    private static func siteName(for url: String) -> String {
+        let host = (URL(string: url)?.host ?? "").replacingOccurrences(of: "www.", with: "")
+        let names = [
+            "youtube.com": "YouTube", "youtu.be": "YouTube", "m.youtube.com": "YouTube",
+            "vimeo.com": "Vimeo", "dailymotion.com": "Dailymotion", "twitch.tv": "Twitch",
+            "twitter.com": "X", "x.com": "X", "instagram.com": "Instagram",
+            "tiktok.com": "TikTok", "facebook.com": "Facebook"
+        ]
+        return names[host] ?? (host.isEmpty ? "Video" : host)
     }
 }

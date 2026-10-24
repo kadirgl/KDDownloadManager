@@ -9,6 +9,11 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.globalLimitMB) private var limitMB = 5.0
     @AppStorage(SettingsKey.maxConcurrent) private var maxConcurrent = SettingsKey.defaultMaxConcurrent
     @AppStorage(SettingsKey.showSpeedInMenuBar) private var showSpeed = true
+    @AppStorage(SettingsKey.appTheme) private var theme = AppTheme.system.rawValue
+    @AppStorage(SettingsKey.accentColor) private var accent = AccentChoice.orange.rawValue
+    @AppStorage(SettingsKey.notifyOnAdd) private var notifyOnAdd = true
+    @AppStorage(SettingsKey.notifyOnFinish) private var notifyOnFinish = true
+    @AppStorage(SettingsKey.notifyOnFail) private var notifyOnFail = true
     // Kaynak macOS; burada sadece gösterim için tutuluyor.
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var launchAtLoginError: String?
@@ -36,6 +41,24 @@ struct SettingsView: View {
                         }
                     }
 
+                    SettingsSection(title: "Görünüm") {
+                        HStack {
+                            Text("Tema")
+                            Spacer()
+                            Picker("Tema", selection: $theme) {
+                                ForEach(AppTheme.allCases) { Text($0.title).tag($0.rawValue) }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.segmented)
+                            .fixedSize()
+                        }
+                        HStack {
+                            Text("Vurgu rengi")
+                            Spacer()
+                            AccentPicker(selection: $accent)
+                        }
+                    }
+
                     SettingsSection(title: "Hız") {
                         SettingsToggle(title: "Genel hız sınırı", isOn: $limitEnabled)
                         if limitEnabled {
@@ -60,6 +83,17 @@ struct SettingsView: View {
                     ExtensionSettings()
 
                     TorrentSettings()
+
+                    SettingsSection(title: "Bildirimler") {
+                        SettingsToggle(title: "İndirme eklendiğinde", isOn: $notifyOnAdd)
+                        SettingsToggle(title: "İndirme tamamlandığında", isOn: $notifyOnFinish)
+                        SettingsToggle(title: "Hata olduğunda", isOn: $notifyOnFail)
+                        if !Notifier.isAvailable {
+                            Text("Uygulama .app olarak paketlenip açıldığında çalışır.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.secondaryText)
+                        }
+                    }
 
                     SettingsSection(title: "Menü çubuğu") {
                         SettingsToggle(title: "Toplam hızı göster", isOn: $showSpeed)
@@ -106,6 +140,7 @@ struct SettingsView: View {
             }
         }
         .onChange(of: maxConcurrent) { store.applyMaxConcurrent() }
+        .onChange(of: theme) { AppTheme.apply() }
         .onChange(of: launchAtLogin) { _, enabled in
             guard enabled != LaunchAtLogin.isEnabled else { return }
             do {
@@ -140,6 +175,41 @@ struct SettingsView: View {
         NSApp.activate()
         if panel.runModal() == .OK, let url = panel.url {
             downloadFolder = url.path
+        }
+    }
+}
+
+/// Vurgu rengi seçimi: renk yuvarlakları, seçili olanın çevresinde halka.
+private struct AccentPicker: View {
+    @Binding var selection: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(AccentChoice.allCases) { choice in
+                Button { selection = choice.rawValue } label: {
+                    Circle()
+                        .fill(choice.color)
+                        .frame(width: 16, height: 16)
+                        .overlay {
+                            if choice == .system {
+                                // Sistem rengini diğerlerinden ayırmak için ortasında küçük bir nokta.
+                                Circle().fill(.white.opacity(0.85)).frame(width: 5, height: 5)
+                            }
+                        }
+                        .padding(3)
+                        .overlay(
+                            Circle().strokeBorder(
+                                selection == choice.rawValue ? Theme.primaryText.opacity(0.6) : .clear,
+                                lineWidth: 1.5
+                            )
+                        )
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help(choice.title)
+                .accessibilityLabel(choice.title)
+                .accessibilityAddTraits(selection == choice.rawValue ? .isSelected : [])
+            }
         }
     }
 }

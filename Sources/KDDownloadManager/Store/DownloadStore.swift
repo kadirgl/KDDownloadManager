@@ -24,6 +24,15 @@ final class DownloadStore {
     @ObservationIgnored private var autosave: Task<Void, Never>?
     /// "Devam eden vardı → kalmadı" geçişini yakalamak için.
     @ObservationIgnored private var hadActive = false
+    @ObservationIgnored private var speedTicker: Task<Void, Never>?
+    /// Bildirimler için her indirmenin son bilinen durumu (tamamlandı/başarısız geçişlerini yakalamak).
+    @ObservationIgnored private var lastStatuses: [UUID: DownloadStatus] = [:]
+
+    /// Menü çubuğunda ve alt şeritte gösterilen toplam hız: saniyede bir güncellenen, yumuşatılmış
+    /// değer. Ham değer yarım saniyede bir zıplayıp durduğu için kullanıcıya "bir sorun var" hissi veriyordu.
+    private(set) var displaySpeed: Int64 = 0
+    /// Yeni ölçümün ağırlığı (üstel hareketli ortalama).
+    private static let speedSmoothing = 0.35
 
     /// Liste değişikliklerini (ilerleme dahil) bu aralıkla diske yazar; değişmediyse yazmaz.
     private static let autosaveInterval = 2.0
@@ -53,7 +62,25 @@ final class DownloadStore {
             }
         }
         hadActive = hasActive
+        lastStatuses = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.status) })
         watchActivity()
+        startSpeedTicker()
+    }
+
+    private func startSpeedTicker() {
+        speedTicker = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                self?.updateDisplaySpeed()
+            }
+        }
+    }
+
+    private func updateDisplaySpeed() {
+        let raw = totalSpeed
+        // İndirme yokken (ya da hepsi duraklatılınca) hemen sıfırla; yavaşça sönmesin.
+        let next = raw == 0 ? 0 : Int64(Double(displaySpeed) * (1 - Self.speedSmoothing) + Double(raw) * Self.speedSmoothing)
+        if next != displaySpeed { displaySpeed = next }
     }
 
     private var hasActive: Bool { items.contains { ListTab.active.includes($0.status) } }
@@ -77,9 +104,29 @@ final class DownloadStore {
                     self.showCompletedIfIdle()
                 }
                 self.hadActive = active
+                self.notifyStatusChanges()
                 self.watchActivity()
             }
         }
+    }
+
+    /// Tamamlanan ve (otomatik denemeler bittikten sonra) başarısız olan indirmeler için bildirim.
+    private func notifyStatusChanges() {
+        var current: [UUID: DownloadStatus] = [:]
+        for item in items {
+            current[item.id] = item.status
+            guard let previous = lastStatuses[item.id], previous != item.status else { continue }
+            switch item.status {
+            case .completed:
+                Notifier.shared.downloadFinished(item)
+            case .failed(let message):
+                if case .failed = previous { break }
+                Notifier.shared.downloadFailed(item, message: message)
+            default:
+                break
+            }
+        }
+        lastStatuses = current
     }
 
     var visibleItems: [DownloadItem] {
@@ -126,6 +173,7 @@ final class DownloadStore {
 
     private func insert(_ requests: [DownloadRequest]) {
         guard !requests.isEmpty else { return }
+        var names: [String] = []
         for request in requests {
             let name = request.filename.flatMap { $0.isEmpty ? nil : $0 }
             let item = DownloadItem(url: request.url.trimmingCharacters(in: .whitespacesAndNewlines), fileName: name)
@@ -135,7 +183,9 @@ final class DownloadStore {
             item.quality = request.quality ?? .auto
             items.insert(item, at: 0)
             engine.start(item)
+            names.append(item.fileName)
         }
+        Notifier.shared.downloadsAdded(names)
         tab = .active
         category = .all
         route = .list

@@ -8,10 +8,16 @@ struct MenuBarLabel: View {
 
     var body: some View {
         Image(nsImage: Self.icon)
-        if showSpeed, store.totalSpeed > 0 {
-            Text(ByteFormat.speed(store.totalSpeed))
+        if showSpeed, store.displaySpeed > 0 {
+            Text(Self.fixedWidth(ByteFormat.speed(store.displaySpeed)))
                 .monospacedDigit()
         }
+    }
+
+    /// Menü çubuğu etiketi frame kabul etmediği için genişliği rakam genişliğindeki boşlukla
+    /// (U+2007) sabitliyoruz; hız değiştikçe yanındaki ikonlar kaymasın.
+    private static func fixedWidth(_ text: String) -> String {
+        String(repeating: "\u{2007}", count: max(0, 8 - text.count)) + text
     }
 
     /// MenuBarExtra etiketi SwiftUI frame'lerini yok saydığı için

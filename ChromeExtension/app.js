@@ -35,14 +35,28 @@ export function isDownloadable(url) {
   return /^(https?|ftp):\/\//i.test(url ?? "") || /^magnet:/i.test(url ?? "");
 }
 
+export const DEFAULT_ACCENT = "#FF8500";
+
+// Uygulama çalışıyor mu; çalışıyorsa uygulamada seçilen vurgu rengini de saklar (açılır pencere ve
+// YouTube butonu aynı rengi kullanıyor).
 export async function isAppRunning() {
   try {
     // GET olursa Chrome Origin başlığını göndermiyor ve uygulama isteği reddediyor; POST kullan.
     const response = await fetch(`${APP_URL}/ping`, { method: "POST", signal: AbortSignal.timeout(1500) });
-    return response.ok;
+    if (!response.ok) return false;
+    const info = await response.json().catch(() => ({}));
+    if (/^#[0-9A-F]{6}$/i.test(info.accent ?? "")) {
+      await chrome.storage.local.set({ accent: info.accent });
+    }
+    return true;
   } catch {
     return false;
   }
+}
+
+export async function accentColor() {
+  const { accent } = await chrome.storage.local.get("accent");
+  return accent ?? DEFAULT_ACCENT;
 }
 
 // Uygulamanın Ayarlar ekranında görünen ad (Google Chrome, Microsoft Edge, Brave…).

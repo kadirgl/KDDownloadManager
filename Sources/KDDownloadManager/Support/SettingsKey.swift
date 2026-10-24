@@ -8,6 +8,11 @@ enum SettingsKey {
     static let maxConcurrent = "maxConcurrent"
     static let downloadFolder = "downloadFolder"
     static let extensionSeen = "extensionSeen"
+    static let notifyOnAdd = "notifyOnAdd"
+    static let notifyOnFinish = "notifyOnFinish"
+    static let notifyOnFail = "notifyOnFail"
+    static let appTheme = "appTheme"
+    static let accentColor = "accentColor"
 
     static var defaultDownloadFolder: String {
         FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path

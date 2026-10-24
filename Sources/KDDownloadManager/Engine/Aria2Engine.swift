@@ -331,7 +331,8 @@ final class Aria2Engine: DownloadEngine {
         let code = status["errorCode"]?.stringValue ?? ""
         let attempt = autoRetries[item.id, default: 0]
         guard item.source == .direct, attempt < Self.retryDelays.count,
-              Self.connectionErrorCodes.contains(code) || message.contains("No URI available") else { return false }
+              Self.connectionErrorCodes.contains(code) || message.contains("No URI available"),
+              !Self.isPermanentHTTPError(message) else { return false }
         autoRetries[item.id] = attempt + 1
         singleConnection.insert(item.id)
         if let old = gids.removeValue(forKey: item.id) {
@@ -346,6 +347,13 @@ final class Aria2Engine: DownloadEngine {
             add(item)
         }
         return true
+    }
+
+    /// "status=404" gibi 4xx hataları beklemekle düzelmez (dosya yok, yasak…); 408 ve 429 hariç.
+    private static func isPermanentHTTPError(_ message: String) -> Bool {
+        guard let range = message.range(of: #"status=(\d{3})"#, options: .regularExpression),
+              let status = Int(message[range].dropFirst("status=".count)) else { return false }
+        return (400..<500).contains(status) && status != 408 && status != 429
     }
 
     // MARK: - Torrent

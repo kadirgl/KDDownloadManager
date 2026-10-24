@@ -85,7 +85,7 @@ private struct BottomBar: View {
             Spacer()
             HStack(spacing: 4) {
                 PhIcon(.arrowDown, weight: .bold, size: 14)
-                Text(ByteFormat.speed(store.totalSpeed))
+                Text(ByteFormat.speed(store.displaySpeed))
                     .monospacedDigit()
                     .contentTransition(.numericText())
             }

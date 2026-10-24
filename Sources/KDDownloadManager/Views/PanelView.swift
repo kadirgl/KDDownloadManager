@@ -3,6 +3,8 @@ import SwiftUI
 /// Menü çubuğundan açılan panelin kökü; `store.route`'a göre ekran değiştirir.
 struct PanelView: View {
     @Environment(DownloadStore.self) private var store
+    /// Vurgu rengi değişince tüm paneli yeniden çizmek için.
+    @AppStorage(SettingsKey.accentColor) private var accent = AccentChoice.orange.rawValue
 
     var body: some View {
         Group {
@@ -15,6 +17,8 @@ struct PanelView: View {
         .frame(width: Theme.panelWidth, height: Theme.panelHeight)
         .background(Theme.background)
         .foregroundStyle(Theme.primaryText)
+        .tint(Theme.accent)
+        .id(accent)
         .onAppear { store.showCompletedIfIdle() }
         // .torrent dosyası ya da tarayıcıdan link sürükleyip bırakmak.
         .dropDestination(for: URL.self) { urls, _ in

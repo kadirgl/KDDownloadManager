@@ -1,5 +1,5 @@
 import {
-  QUALITIES, describe, fetchFormats, isAppRunning, isDownloadable, isVideoPage, sendToApp,
+  QUALITIES, accentColor, describe, fetchFormats, isAppRunning, isDownloadable, isVideoPage, sendToApp,
 } from "./app.js";
 
 const status = document.getElementById("status");
@@ -71,6 +71,8 @@ async function init() {
   });
 
   const running = await isAppRunning();
+  // Uygulamada seçilen vurgu rengi.
+  document.documentElement.style.setProperty("--accent", await accentColor());
   status.dataset.state = running ? "connected" : "offline";
   statusText.textContent = running ? "Uygulamaya bağlı" : "Uygulama çalışmıyor";
   if (!running) {

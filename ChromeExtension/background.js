@@ -1,5 +1,6 @@
 import {
-  QUALITIES, VIDEO_HOSTS, describe, flashBadge, isDownloadable, sayHello, sendToApp,
+  QUALITIES, VIDEO_HOSTS, accentColor, describe, fetchFormats, flashBadge, isAppRunning, isDownloadable,
+  isVideoPage, sayHello, sendToApp,
 } from "./app.js";
 
 const MENU_LINK = "kd-link";
@@ -99,6 +100,25 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
   const ok = await sendToApp([await describe(url, { referrer: tab?.url, quality })]);
   flashBadge(ok);
+});
+
+// YouTube sayfasındaki "İndir" butonu: uygulama durumu, kalite listesi ve indirme.
+// İçerik betikleri sayfanın kökeninde çalıştığı için uygulamaya istekleri arka plan yapıyor.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  const handlers = {
+    "video-status": async () => ({ running: await isAppRunning(), accent: await accentColor() }),
+    "video-formats": async () => (isVideoPage(message.url) ? fetchFormats(message.url) : null),
+    "video-download": async () => {
+      if (!isVideoPage(message.url)) return false;
+      const ok = await sendToApp([await describe(message.url, { referrer: sender.tab?.url, quality: message.quality })]);
+      flashBadge(ok);
+      return ok;
+    },
+  };
+  const handler = handlers[message?.type];
+  if (!handler) return false;
+  handler().then(sendResponse, () => sendResponse(null));
+  return true; // Cevap asenkron.
 });
 
 // İçerik betiğinden gelen magnet tıklamaları; cevap false ise sayfa linki normal şekilde açar.
