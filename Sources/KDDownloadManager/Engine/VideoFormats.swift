@@ -24,7 +24,8 @@ struct VideoFormats: Sendable {
         let data = try await Task.detached { () throws -> Data in
             let process = Process()
             process.executableURL = binary
-            process.arguments = ["-J", "--no-playlist", "--no-warnings", "--socket-timeout", "15", "--", url]
+            process.arguments = ["-J", "--no-playlist", "--no-warnings", "--socket-timeout", "15"]
+                + Executables.javaScriptRuntimeArguments + ["--", url]
             process.environment = Executables.environment
             let output = Pipe()
             process.standardOutput = output

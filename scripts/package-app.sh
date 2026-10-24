@@ -5,6 +5,8 @@
 #   scripts/package-app.sh --install   → ayrıca /Applications'a kopyalayıp açar
 #
 # Sürüm: VERSION=1.2.0 scripts/package-app.sh (varsayılan 1.0.0; derleme numarası commit sayısı).
+# aria2c, yt-dlp, ffmpeg ve QuickJS uygulamanın içine gömülür (scripts/bundle-tools.sh); hedef Mac'te
+# Homebrew gerekmez ama paket sadece Apple Silicon'da çalışır.
 # İmza yerel (ad-hoc): bu Mac'te sorunsuz açılır. Başka Mac'lere dağıtmak için Developer ID
 # imzası ve notarization gerekir.
 set -euo pipefail
@@ -16,6 +18,9 @@ BUNDLE_ID="com.kadirgul.KDDownloadManager"
 VERSION="${VERSION:-1.0.0}"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 APP="dist/$EXECUTABLE.app"
+
+echo "→ Yardımcı programlar hazırlanıyor (aria2c, yt-dlp, ffmpeg, QuickJS)…"
+scripts/bundle-tools.sh
 
 echo "→ Release derleniyor…"
 swift build -c release
@@ -29,6 +34,9 @@ cp "$BIN/$EXECUTABLE" "$APP/Contents/MacOS/"
 cp -R "$BIN/${EXECUTABLE}_${EXECUTABLE}.bundle" "$APP/Contents/Resources/"
 # Tarayıcı eklentisi: Ayarlar'daki "Kur" butonu buradan kopyalar.
 cp -R ChromeExtension "$APP/Contents/Resources/BrowserExtension"
+# Gömülü araçlar (her biri bundle-tools.sh'de ayrıca imzalandı); uygulama önce bunları kullanır.
+mkdir -p "$APP/Contents/Helpers"
+cp -R dist/tools/bin dist/tools/lib "$APP/Contents/Helpers/"
 
 ICON_WORK="$(mktemp -d)"
 trap 'rm -rf "$ICON_WORK"' EXIT

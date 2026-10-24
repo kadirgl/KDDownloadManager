@@ -234,6 +234,7 @@ final class YtDlpEngine: DownloadEngine {
             "download:KDPROG %(progress.{status,downloaded_bytes,total_bytes,total_bytes_estimate,speed,filename})j"
         ]
         arguments += Self.formatArguments(for: item.quality, ffmpeg: Executables.find("ffmpeg"))
+        arguments += Executables.javaScriptRuntimeArguments
         let limits = [item.speedLimit, globalLimit].compactMap { $0 }
         if let limit = limits.min() {
             arguments += ["--limit-rate", String(limit)]
