@@ -8,7 +8,8 @@
   let host = null;
   let shadow = null;
   let boundUrl = null;
-  let formatsCache = { url: null, data: null };
+  // Video başına tek istek: fare butonun üzerine gelince başlar, tıklayınca aynı istek beklenir.
+  let formatsCache = { url: null, promise: null };
 
   // İzlenen videonun adresi (/watch?v=… ya da /shorts/…); video sayfası değilse null.
   function videoUrl() {
@@ -130,6 +131,11 @@
       host.addEventListener(type, (event) => event.stopPropagation());
     }
     shadow.querySelector(".button").addEventListener("click", toggleMenu);
+    // Kalite listesi yt-dlp ile birkaç saniye sürüyor; fare üzerine gelince başlat ki menü hazır açılsın.
+    // Her video sayfasında önceden istenmiyor: YouTube'a fazladan istek robot korumasını tetikleyebilir.
+    shadow.querySelector(".button").addEventListener("pointerenter", () => {
+      if (boundUrl) loadFormats(boundUrl);
+    });
     shadow.addEventListener("keydown", (event) => {
       if (event.key === "Escape") closeMenu();
     });
@@ -158,6 +164,18 @@
     return element;
   }
 
+  function loadFormats(url) {
+    if (formatsCache.url !== url) {
+      const promise = send({ type: "video-formats", url }).then((data) => {
+        // Başarısız olduysa bir sonraki denemede yeniden istensin.
+        if (!data && formatsCache.promise === promise) formatsCache = { url: null, promise: null };
+        return data;
+      });
+      formatsCache = { url, promise };
+    }
+    return formatsCache.promise;
+  }
+
   async function toggleMenu() {
     const panel = menu();
     if (!panel.hidden) {
@@ -175,11 +193,9 @@
       panel.replaceChildren(note("KD Download Manager çalışmıyor. Uygulamayı açıp tekrar deneyin.", "error"));
       return;
     }
-    if (formatsCache.url !== url) {
-      formatsCache = { url, data: await send({ type: "video-formats", url }) };
-    }
+    const formats = await loadFormats(url);
     if (url !== boundUrl || panel.hidden) return; // Bu arada video değişti ya da menü kapandı.
-    renderOptions(url, formatsCache.data);
+    renderOptions(url, formats);
   }
 
   function renderOptions(url, formats) {

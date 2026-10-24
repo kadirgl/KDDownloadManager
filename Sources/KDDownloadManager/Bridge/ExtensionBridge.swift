@@ -13,7 +13,9 @@ import Network
 /// - `POST /hello` → `{"browser": "Google Chrome", "version": "1.1.0"}`; eklenti bunu dakikada bir
 ///   gönderir, Ayarlar'daki "bağlı" göstergesi buradan beslenir
 /// - `POST /add` → `{"links": [DownloadRequest, ...]}`
-/// - `POST /formats` → `{"url": "..."}`; videonun sunduğu kaliteler ve tahmini boyutları
+/// - `POST /formats` → `{"url": "...", "cookieJar": [...]}`; videonun sunduğu kaliteler ve tahmini boyutları
+/// - `POST /cookies` → `{"site": "youtube.com", "cookieJar": [...]}`; `/hello` cevabındaki
+///   `wantsCookies` listesine karşılık eklentinin gönderdiği çerezler
 @MainActor
 final class ExtensionBridge {
     nonisolated static let port: UInt16 = {
@@ -117,15 +119,37 @@ final class ExtensionBridge {
             let hello = try? JSONDecoder().decode(JSONValue.self, from: request.body)
             let browser = hello?["browser"]?.stringValue.map { String($0.prefix(60)) } ?? "Tarayıcı"
             onHello(browser)
-            Self.send(status: 200, ["app": "KD Download Manager"], origin: origin, on: connection)
+            // Çerezi gereken video siteleri; eklenti hemen /cookies ile gönderir.
+            let wanted = JSONValue.array(CookieVault.shared.wantedSites.map { .string($0) })
+            Self.send(status: 200, ["app": "KD Download Manager", "wantsCookies": wanted], origin: origin, on: connection)
+
+        case ("POST", "/cookies"):
+            struct Payload: Decodable {
+                var site: String
+                var cookieJar: [BrowserCookie]
+            }
+            guard let payload = try? JSONDecoder().decode(Payload.self, from: request.body),
+                  DownloadSource.videoHostList.contains(payload.site) else {
+                Self.send(status: 400, ["error": "Geçersiz çerez listesi"], origin: origin, on: connection)
+                return
+            }
+            CookieVault.shared.store(payload.cookieJar, for: payload.site)
+            Self.send(status: 200, ["stored": .number(Double(payload.cookieJar.count))], origin: origin, on: connection)
 
         case ("POST", "/formats"):
-            guard let url = (try? JSONDecoder().decode(JSONValue.self, from: request.body))?["url"]?.stringValue,
-                  DownloadSource.looksLikeLink(url), DownloadSource.detect(url) == .video else {
+            struct Payload: Decodable {
+                var url: String
+                var cookieJar: [BrowserCookie]?
+            }
+            guard let payload = try? JSONDecoder().decode(Payload.self, from: request.body),
+                  DownloadSource.looksLikeLink(payload.url), DownloadSource.detect(payload.url) == .video else {
                 Self.send(status: 422, ["error": "Video linki değil"], origin: origin, on: connection)
                 return
             }
-            sendFormats(for: url, origin: origin, on: connection)
+            if let jar = payload.cookieJar, let site = CookieVault.site(of: payload.url) {
+                CookieVault.shared.store(jar, for: site)
+            }
+            sendFormats(for: payload.url, origin: origin, on: connection)
 
         case ("POST", "/add"):
             struct Payload: Decodable {
@@ -156,7 +180,9 @@ final class ExtensionBridge {
         }
         Task {
             do {
-                let formats = try await VideoFormats.fetch(url)
+                let formats = try await VideoFormats.fetch(url, cookies: CookieVault.shared.cookies(for: url))
+                // Süresi geçenleri at; önbellek sınırsız büyümesin.
+                formatsCache = formatsCache.filter { Date().timeIntervalSince($0.value.date) < Self.formatsCacheLifetime }
                 formatsCache[url] = (Date(), formats)
                 Self.send(status: 200, Self.json(formats), origin: origin, on: connection)
             } catch {

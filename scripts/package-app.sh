@@ -37,8 +37,9 @@ cp -R ChromeExtension "$APP/Contents/Resources/BrowserExtension"
 # Gömülü araçlar (her biri bundle-tools.sh'de ayrıca imzalandı); uygulama önce bunları kullanır.
 mkdir -p "$APP/Contents/Helpers"
 cp -R dist/tools/bin dist/tools/lib "$APP/Contents/Helpers/"
-# Düz dosyalar Helpers'ta olamaz (imza oradaki her şeyi program sayıyor); sürüm bilgisi Resources'ta.
-cp dist/tools/yt-dlp.version "$APP/Contents/Resources/"
+# Düz dosyalar Helpers'ta olamaz (imza oradaki her şeyi program sayıyor). yt-dlp'nin klasör hali
+# Python dosyaları da içerdiği için o ve sürüm bilgisi Resources'ta.
+cp -R dist/tools/yt-dlp dist/tools/yt-dlp.version "$APP/Contents/Resources/"
 
 ICON_WORK="$(mktemp -d)"
 trap 'rm -rf "$ICON_WORK"' EXIT

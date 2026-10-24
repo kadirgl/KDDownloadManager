@@ -17,15 +17,24 @@ struct VideoFormats: Sendable {
         var errorDescription: String? { message }
     }
 
-    static func fetch(_ url: String) async throws -> VideoFormats {
+    /// `cookies` verilirse yt-dlp'ye geçici bir çerez dosyasıyla verilir (YouTube robot doğrulaması için).
+    static func fetch(_ url: String, cookies: [BrowserCookie]? = nil) async throws -> VideoFormats {
         guard let binary = Executables.find("yt-dlp") else {
             throw FetchError(message: "yt-dlp bulunamadı (brew install yt-dlp)")
+        }
+        let work = FileManager.default.temporaryDirectory.appendingPathComponent("kd-formats-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: work) }
+        var cookieArguments: [String] = []
+        if let cookies, !cookies.isEmpty {
+            let file = work.appendingPathComponent("cookies.txt")
+            try CookieVault.writeNetscapeFile(cookies, to: file)
+            cookieArguments = ["--cookies", file.path]
         }
         let data = try await Task.detached { () throws -> Data in
             let process = Process()
             process.executableURL = binary
             process.arguments = ["-J", "--no-playlist", "--no-warnings", "--socket-timeout", "15"]
-                + Executables.javaScriptRuntimeArguments + ["--", url]
+                + cookieArguments + Executables.javaScriptRuntimeArguments + ["--", url]
             process.environment = Executables.environment
             let output = Pipe()
             process.standardOutput = output

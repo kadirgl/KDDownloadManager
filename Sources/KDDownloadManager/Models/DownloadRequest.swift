@@ -12,6 +12,8 @@ struct DownloadRequest: Decodable, Sendable {
     var cookies: String?
     /// Video sitelerinde istenen kalite; yoksa otomatik.
     var quality: VideoQuality?
+    /// Video sitelerinde (YouTube vb.) o sitenin tüm çerezleri; yt-dlp'ye verilir.
+    var cookieJar: [BrowserCookie]?
 
     init(url: String, filename: String? = nil, referrer: String? = nil, userAgent: String? = nil,
          cookies: String? = nil, quality: VideoQuality? = nil) {
@@ -24,7 +26,7 @@ struct DownloadRequest: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case url, filename, referrer, userAgent, cookies, quality
+        case url, filename, referrer, userAgent, cookies, quality, cookieJar
     }
 
     init(from decoder: Decoder) throws {
@@ -36,5 +38,6 @@ struct DownloadRequest: Decodable, Sendable {
         cookies = try container.decodeIfPresent(String.self, forKey: .cookies)
         // Tanınmayan kalite (eklentinin daha yeni bir sürümü) bütün isteği bozmasın; otomatik sayılır.
         quality = try? container.decodeIfPresent(VideoQuality.self, forKey: .quality)
+        cookieJar = try? container.decodeIfPresent([BrowserCookie].self, forKey: .cookieJar)
     }
 }

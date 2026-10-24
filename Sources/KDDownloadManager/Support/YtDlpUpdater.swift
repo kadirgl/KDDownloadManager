@@ -5,7 +5,8 @@ import Observation
 /// Gömülü yt-dlp'yi güncel tutar. YouTube sık değiştiği için yt-dlp birkaç haftada bir güncellenmezse
 /// video indirmeleri bozulabiliyor.
 ///
-/// Yeni sürüm imzalı uygulama paketine değil, Application Support/KDDownloadManager/Tools'a indirilir
+/// Yeni sürüm (resmi sürümün klasör hali, yt-dlp_macos.zip) imzalı uygulama paketine değil,
+/// Application Support/KDDownloadManager/Tools'a indirilir
 /// (paketin içi değişirse imza bozulur). `Executables`, paketteki ile indirilmiş olandan hangisi
 /// yeniyse onu kullanır. İndirme yalnızca resmi GitHub sürümünden yapılır ve aynı sürümdeki
 /// SHA2-256SUMS ile doğrulanır; dosya çalıştırılıp sürümü kontrol edildikten sonra yerine konur.
@@ -53,12 +54,29 @@ final class YtDlpUpdater {
         return AppFolders.support.appendingPathComponent("Tools", isDirectory: true)
     }
 
-    nonisolated private static var downloadedBinary: URL { folder.appendingPathComponent("yt-dlp") }
+    /// yt-dlp'nin klasör hali (onedir): içinde yt-dlp_macos ve _internal. Her sürüm kendi klasöründe
+    /// (yt-dlp-2026.10.21); çalışan bir indirme eski klasördeki dosyaları kullanmaya devam edebildiği için
+    /// eski klasörler hemen değil, bir sonraki açılışta silinir.
+    nonisolated private static func versionFolder(_ version: String) -> URL {
+        folder.appendingPathComponent("yt-dlp-\(version)", isDirectory: true)
+    }
+
     nonisolated private static var downloadedVersionFile: URL { folder.appendingPathComponent("yt-dlp.version") }
+
+    nonisolated private static var downloadedBinary: URL? {
+        readVersion(downloadedVersionFile).map { versionFolder($0).appendingPathComponent("yt-dlp_macos") }
+    }
+
+    /// Paketteki yt-dlp (Contents/Resources/yt-dlp/yt-dlp_macos); `swift run` ile çalışırken yok.
+    nonisolated static var bundledBinary: URL? {
+        guard let folder = Bundle.main.url(forResource: "yt-dlp", withExtension: nil) else { return nil }
+        let binary = folder.appendingPathComponent("yt-dlp_macos")
+        return FileManager.default.isExecutableFile(atPath: binary.path) ? binary : nil
+    }
 
     /// Paketteki yt-dlp'nin sürümü (package-app.sh, Contents/Resources/yt-dlp.version'a yazar).
     nonisolated private static var bundledVersion: String? {
-        guard Executables.bundledFolder != nil,
+        guard bundledBinary != nil,
               let file = Bundle.main.url(forResource: "yt-dlp", withExtension: "version") else { return nil }
         return readVersion(file)
     }
@@ -69,7 +87,7 @@ final class YtDlpUpdater {
 
     /// İndirilmiş güncelleme, paketteki sürümden yeniyse onun yolu; değilse nil (paketteki kullanılır).
     nonisolated static func preferredBinary() -> URL? {
-        guard FileManager.default.isExecutableFile(atPath: downloadedBinary.path),
+        guard let downloadedBinary, FileManager.default.isExecutableFile(atPath: downloadedBinary.path),
               let downloaded = readVersion(downloadedVersionFile) else { return nil }
         if let bundled = bundledVersion, !isNewer(downloaded, than: bundled) { return nil }
         return downloadedBinary
@@ -103,6 +121,17 @@ final class YtDlpUpdater {
         switch state {
         case .checking, .downloading: true
         default: false
+        }
+    }
+
+    /// Açılışta (henüz yt-dlp çalışmıyorken): kullanılmayan eski sürüm klasörlerini ve tek dosyalık
+    /// eski biçimi siler.
+    nonisolated static func removeOldVersions() {
+        let manager = FileManager.default
+        let current = readVersion(downloadedVersionFile).map { "yt-dlp-\($0)" }
+        for name in (try? manager.contentsOfDirectory(atPath: folder.path)) ?? []
+        where name.hasPrefix("yt-dlp") && name != "yt-dlp.version" && name != current {
+            try? manager.removeItem(at: folder.appendingPathComponent(name))
         }
     }
 
@@ -158,39 +187,91 @@ final class YtDlpUpdater {
         guard let expected = String(decoding: sums, as: UTF8.self)
             .split(whereSeparator: \.isNewline)
             .map({ $0.split(separator: " ", omittingEmptySubsequences: true) })
-            .first(where: { $0.count == 2 && $0[1] == "yt-dlp_macos" })?[0] else {
+            .first(where: { $0.count == 2 && $0[1] == "yt-dlp_macos.zip" })?[0] else {
             throw UpdateError(message: "Doğrulama listesi okunamadı")
         }
 
-        let (temporary, response) = try await URLSession.shared.download(from: base.appendingPathComponent("yt-dlp_macos"))
+        let (temporary, response) = try await URLSession.shared.download(from: base.appendingPathComponent("yt-dlp_macos.zip"))
         defer { try? FileManager.default.removeItem(at: temporary) }
         guard (response as? HTTPURLResponse)?.statusCode == 200 else {
             throw UpdateError(message: "yt-dlp indirilemedi")
         }
-        let binary = corruptedForTesting(try Data(contentsOf: temporary))
-        let actual = SHA256.hash(data: binary).map { String(format: "%02x", $0) }.joined()
+        let archive = corruptedForTesting(try Data(contentsOf: temporary))
+        let actual = SHA256.hash(data: archive).map { String(format: "%02x", $0) }.joined()
         guard actual == String(expected) else {
             throw UpdateError(message: "İndirilen dosya doğrulanamadı (SHA-256 uyuşmuyor); kurulmadı")
         }
 
         let manager = FileManager.default
         try manager.createDirectory(at: folder, withIntermediateDirectories: true)
-        let staged = folder.appendingPathComponent("yt-dlp.new")
-        try? manager.removeItem(at: staged)
-        try binary.write(to: staged)
-        try manager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: staged.path)
-
-        guard try await reportedVersion(of: staged) == version else {
+        let zip = folder.appendingPathComponent("yt-dlp-\(version).zip")
+        let staged = folder.appendingPathComponent("yt-dlp-\(version).new", isDirectory: true)
+        defer {
+            try? manager.removeItem(at: zip)
             try? manager.removeItem(at: staged)
+        }
+        try archive.write(to: zip)
+        try await run("/usr/bin/ditto", ["-x", "-k", zip.path, staged.path])
+        try deduplicate(staged)
+
+        guard try await reportedVersion(of: staged.appendingPathComponent("yt-dlp_macos")) == version else {
             throw UpdateError(message: "İndirilen yt-dlp çalıştırılamadı; kurulmadı")
         }
-        // Yerine koyma tek adımda; çalışan yt-dlp süreçleri eski dosyayla bitirir.
-        if manager.fileExists(atPath: downloadedBinary.path) {
-            _ = try manager.replaceItemAt(downloadedBinary, withItemAt: staged)
-        } else {
-            try manager.moveItem(at: staged, to: downloadedBinary)
-        }
+        let target = versionFolder(version)
+        try? manager.removeItem(at: target)
+        try manager.moveItem(at: staged, to: target)
+        // Sürüm dosyası en son yazılır: yeni klasör hazır olmadan kullanılmaya başlanmasın.
         try version.write(to: downloadedVersionFile, atomically: true, encoding: .utf8)
+    }
+
+    private static func run(_ tool: String, _ arguments: [String]) async throws {
+        try await Task.detached {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: tool)
+            process.arguments = arguments
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                throw UpdateError(message: "İndirilen yt-dlp açılamadı")
+            }
+        }.value
+    }
+
+    /// Zip'te sembolik bağlantı olmadığından aynı dosyalar (Python çekirdeği gibi) birkaç kez geliyor;
+    /// birebir aynı olan büyük kopyalar ilkini gösteren göreli bağlantıyla değiştirilir.
+    private static func deduplicate(_ root: URL) throws {
+        let manager = FileManager.default
+        guard let walker = manager.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey]) else { return }
+        var files: [(url: URL, size: Int)] = []
+        for case let url as URL in walker {
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+            if values.isRegularFile == true, let size = values.fileSize, size > 64 * 1024 {
+                files.append((url, size))
+            }
+        }
+        // Klasörde daha üstte olan asıl kopya sayılır.
+        files.sort { ($0.url.pathComponents.count, $0.url.path) < ($1.url.pathComponents.count, $1.url.path) }
+        var originals: [String: URL] = [:]
+        for file in files {
+            let digest = SHA256.hash(data: try Data(contentsOf: file.url, options: .mappedIfSafe))
+                .map { String(format: "%02x", $0) }.joined()
+            guard let original = originals[digest] else {
+                originals[digest] = file.url
+                continue
+            }
+            let relative = relativePath(from: file.url.deletingLastPathComponent(), to: original)
+            try manager.removeItem(at: file.url)
+            try manager.createSymbolicLink(atPath: file.url.path, withDestinationPath: relative)
+        }
+    }
+
+    private static func relativePath(from directory: URL, to file: URL) -> String {
+        let from = directory.standardizedFileURL.pathComponents
+        let to = file.standardizedFileURL.pathComponents
+        let common = zip(from, to).prefix { $0 == $1 }.count
+        return (Array(repeating: "..", count: from.count - common) + to[common...]).joined(separator: "/")
     }
 
     /// DEBUG'da `KD_UPDATE_CORRUPT` ile dosyayı bozar; doğrulamanın bozuk dosyayı reddettiğini denemek için.

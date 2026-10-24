@@ -61,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bridge.start()
         self.bridge = bridge
         // Gömülü yt-dlp'yi günde en fazla bir kez sessizce denetle (Ayarlar'dan kapatılabilir).
+        YtDlpUpdater.removeOldVersions()
         YtDlpUpdater.shared.checkAutomaticallyIfDue()
         // Kurulu tarayıcı eklentisi uygulamayla birlikte güncellensin (tarayıcı yeniden açılınca alır).
         if FileManager.default.fileExists(atPath: BrowserExtension.folder.path) {

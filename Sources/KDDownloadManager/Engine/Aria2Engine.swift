@@ -35,10 +35,20 @@ final class Aria2Engine: DownloadEngine {
     private var globalLimit: Int64?
 
     private static let pollInterval = 0.5
+    /// Her sorguda istenen hafif alanlar.
     private static let statusKeys: JSONValue = [
-        "status", "totalLength", "completedLength", "downloadSpeed",
-        "errorMessage", "errorCode", "files", "followedBy", "bittorrent", "dir"
+        "status", "totalLength", "completedLength", "downloadSpeed", "errorMessage", "errorCode", "followedBy"
     ]
+    /// Dosya listesi ve torrent bilgisi: binlerce dosyalı bir torrentte yüzlerce KB tutuyor. Sadece dosya
+    /// adı ve yolu öğrenilene kadar istenir, sonra her yarım saniyede tekrar çekilmez.
+    private static let detailedStatusKeys: JSONValue = [
+        "status", "totalLength", "completedLength", "downloadSpeed", "errorMessage", "errorCode", "followedBy",
+        "files", "bittorrent", "dir"
+    ]
+    /// Dosya adı/yolu öğrenilmiş indirmeler (gid); ayrıntılı sorgu artık gerekmiyor.
+    private var detailsKnown: Set<String> = []
+    /// Tamamlanınca gösterilecek yer: tek dosyada dosya, çok dosyalı torrent'te klasör.
+    private var roots: [UUID: String] = [:]
 
     init() {
         // --stop-with-process birkaç saniye geç fark ediyor; uygulama hemen yeniden açılırsa
@@ -87,6 +97,7 @@ final class Aria2Engine: DownloadEngine {
 
     func cancel(_ item: DownloadItem) {
         items[item.id] = nil
+        roots[item.id] = nil
         singleConnection.remove(item.id)
         autoRetries[item.id] = nil
         pausedByUser.remove(item.id)
@@ -145,7 +156,14 @@ final class Aria2Engine: DownloadEngine {
         self.startup = startup
         do {
             let client = try await startup.value
-            self.client = client
+            if self.client == nil {
+                self.client = client
+                // aria2c başlarken genel ayarlar değiştiyse başlangıç değerleri eskidi; güncelini uygula.
+                _ = try? await client.call("aria2.changeGlobalOption", [[
+                    "max-overall-download-limit": .string(String(globalLimit ?? 0)),
+                    "max-concurrent-downloads": .string(String(maxConcurrent))
+                ]])
+            }
             return client
         } catch {
             self.startup = nil
@@ -240,13 +258,18 @@ final class Aria2Engine: DownloadEngine {
         guard let client, !tracked.isEmpty else { return false }
 
         let ids = Array(tracked.keys)
-        let calls = ids.map { (method: "aria2.tellStatus", params: [JSONValue.string(tracked[$0]!), Self.statusKeys]) }
+        let calls = ids.map { id -> (method: String, params: [JSONValue]) in
+            let gid = tracked[id]!
+            let keys = detailsKnown.contains(gid) ? Self.statusKeys : Self.detailedStatusKeys
+            return (method: "aria2.tellStatus", params: [.string(gid), keys])
+        }
         do {
             let results = try await client.multicall(calls)
             for (id, result) in zip(ids, results) {
                 // Beklerken iptal edildiyse ya da kimliği değiştiyse atla.
-                guard let item = items[id], gids[id] == tracked[id], case .success(let status) = result else { continue }
-                apply(status, to: item)
+                guard let item = items[id], let gid = tracked[id], gids[id] == gid,
+                      case .success(let status) = result else { continue }
+                apply(status, to: item, gid: gid)
             }
         } catch {
             if !daemon.isRunning {
@@ -257,27 +280,33 @@ final class Aria2Engine: DownloadEngine {
         return true
     }
 
-    private func apply(_ status: JSONValue, to item: DownloadItem) {
-        let paths = (status["files"]?.arrayValue ?? [])
-            .compactMap { $0["path"]?.stringValue }
-            .filter { !$0.isEmpty && !$0.hasPrefix("[METADATA]") }
-        let torrentName = status["bittorrent"]?["info"]?["name"]?.stringValue
-        // Tek dosyada dosyanın kendisi, çok dosyalı torrent'te "<dir>/<isim>" klasörü.
-        let root = torrentName.flatMap { name in status["dir"]?.stringValue.map { "\($0)/\(name)" } }
-            ?? paths.first
+    private func apply(_ status: JSONValue, to item: DownloadItem, gid: String) {
+        // Ayrıntılar (dosya listesi) sadece istendiyse gelir.
+        if let files = status["files"]?.arrayValue {
+            let paths = files
+                .compactMap { $0["path"]?.stringValue }
+                .filter { !$0.isEmpty && !$0.hasPrefix("[METADATA]") }
+            let torrentName = status["bittorrent"]?["info"]?["name"]?.stringValue
+            // Tek dosyada dosyanın kendisi, çok dosyalı torrent'te "<dir>/<isim>" klasörü.
+            let root = torrentName.flatMap { name in status["dir"]?.stringValue.map { "\($0)/\(name)" } }
+                ?? paths.first
 
-        if let name = torrentName ?? paths.first.map({ URL(fileURLWithPath: $0).lastPathComponent }),
-           item.fileName != name {
-            item.fileName = name
-            item.category = DownloadCategory.forFile(named: name)
-        }
-        if let root, !paths.isEmpty {
-            partialFiles[item.id] = paths + [root + ".aria2"]
+            if let name = torrentName ?? paths.first.map({ URL(fileURLWithPath: $0).lastPathComponent }),
+               item.fileName != name {
+                item.fileName = name
+                item.category = DownloadCategory.forFile(named: name)
+            }
+            if let root, !paths.isEmpty {
+                partialFiles[item.id] = paths + [root + ".aria2"]
+                roots[item.id] = root
+                detailsKnown.insert(gid)
+            }
         }
         if let total = status["totalLength"]?.int64Value, total > 0, item.totalBytes != total {
             item.totalBytes = total
         }
-        if let done = status["completedLength"]?.int64Value {
+        // Değişmeyen değeri yeniden yazmak ekranı boşuna yeniden çizdiriyor.
+        if let done = status["completedLength"]?.int64Value, item.downloadedBytes != done {
             item.downloadedBytes = done
         }
 
@@ -306,7 +335,8 @@ final class Aria2Engine: DownloadEngine {
             }
             item.totalBytes = max(item.totalBytes, item.downloadedBytes)
             item.downloadedBytes = item.totalBytes
-            item.destination = root.map { URL(fileURLWithPath: $0) }
+            item.destination = roots[item.id].map { URL(fileURLWithPath: $0) }
+            detailsKnown.remove(gid)
             item.setStatus(.completed)
         default:
             break

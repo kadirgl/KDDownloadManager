@@ -24,6 +24,8 @@ final class DownloadStore {
     @ObservationIgnored private var autosave: Task<Void, Never>?
     /// "Devam eden vardı → kalmadı" geçişini yakalamak için.
     @ObservationIgnored private var hadActive = false
+    /// Son kayıttan beri bir indirmenin durumu değişti mi (otomatik kayıt için).
+    @ObservationIgnored private var statusChangedSinceSave = false
     @ObservationIgnored private var speedTicker: Task<Void, Never>?
     /// Bildirimler için her indirmenin son bilinen durumu (tamamlandı/başarısız geçişlerini yakalamak).
     @ObservationIgnored private var lastStatuses: [UUID: DownloadStatus] = [:]
@@ -104,6 +106,7 @@ final class DownloadStore {
                     self.showCompletedIfIdle()
                 }
                 self.hadActive = active
+                self.statusChangedSinceSave = true
                 self.notifyStatusChanges()
                 self.watchActivity()
             }
@@ -181,6 +184,9 @@ final class DownloadStore {
             item.userAgent = request.userAgent
             item.cookies = request.cookies
             item.quality = request.quality ?? .auto
+            if let jar = request.cookieJar, let site = CookieVault.site(of: item.url) {
+                CookieVault.shared.store(jar, for: site)
+            }
             items.insert(item, at: 0)
             engine.start(item)
             names.append(item.fileName)
@@ -213,6 +219,8 @@ final class DownloadStore {
 
     func setSpeedLimit(_ limit: Int64?, for item: DownloadItem) {
         engine.setSpeedLimit(limit, for: item)
+        // Duraklatılmış bir indirmenin sınırı değişince de kaydedilsin (otomatik kayıt boşta çalışmıyor).
+        save()
     }
 
     func applyGlobalSpeedLimit() {
@@ -252,7 +260,11 @@ final class DownloadStore {
         autosave = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(Self.autosaveInterval))
-                self?.save()
+                guard let self else { return }
+                // Boşta (inen yok, durum değişmedi) listeyi her 2 sn'de JSON'a çevirmeye gerek yok.
+                guard self.hasActive || self.statusChangedSinceSave else { continue }
+                self.statusChangedSinceSave = false
+                self.save()
             }
         }
     }

@@ -18,10 +18,17 @@ final class YtDlpEngine: DownloadEngine {
         /// Süreci biz durdurduysak nedeni; nil ise kendi kendine bitti.
         var stopReason: StopReason?
 
+        /// Tarayıcı çerezleriyle mi çalıştırıldı (robot doğrulaması hatasını yorumlamak için).
+        var usedCookies = false
+
         init(process: Process) {
             self.process = process
         }
     }
+
+    /// YouTube "robot olmadığınızı doğrulayın" diyerek reddettiği için çerez bekleyen indirmeler;
+    /// eklentiden yeni çerezler gelince kendiliğinden yeniden denenir.
+    private var awaitingCookies: Set<UUID> = []
 
     private var items: [UUID: DownloadItem] = [:]
     /// Başlamayı bekleyenler, ekleme sırasıyla.
@@ -36,6 +43,9 @@ final class YtDlpEngine: DownloadEngine {
     private var globalLimit: Int64?
 
     init() {
+        CookieVault.shared.observe { [weak self] site in
+            self?.cookiesArrived(for: site)
+        }
         // Uygulama kapanırken yt-dlp süreçleri sahipsiz kalıp inmeye devam etmesin.
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
@@ -66,11 +76,21 @@ final class YtDlpEngine: DownloadEngine {
     func resume(_ item: DownloadItem) {
         // Önceki oturumdan kalıp bu oturumda hiç başlatılmamış olabilir.
         items[item.id] = item
+        awaitingCookies.remove(item.id)
         enqueue(item)
+    }
+
+    private func cookiesArrived(for site: String) {
+        for id in awaitingCookies {
+            guard let item = items[id], CookieVault.site(of: item.url) == site,
+                  case .failed = item.status else { continue }
+            resume(item)
+        }
     }
 
     func cancel(_ item: DownloadItem) {
         items[item.id] = nil
+        awaitingCookies.remove(item.id)
         queue.removeAll { $0 == item.id }
         expectedTotal[item.id] = nil
         parts[item.id] = nil
@@ -133,7 +153,9 @@ final class YtDlpEngine: DownloadEngine {
         }
         let process = Process()
         process.executableURL = binary
-        process.arguments = arguments(for: item)
+        let cookies = CookieVault.shared.cookies(for: item.url)
+        process.arguments = arguments(for: item, cookies: cookies)
+        CookieVault.shared.requestIfNeeded(for: item.url)
         var environment = Executables.environment
         // Boruya yazarken Python çıktıyı tamponluyor; satırlar geç ve toplu gelmesin.
         environment["PYTHONUNBUFFERED"] = "1"
@@ -156,6 +178,7 @@ final class YtDlpEngine: DownloadEngine {
             return
         }
         let job = Job(process: process)
+        job.usedCookies = cookies != nil
         jobs[item.id] = job
         item.setStatus(.downloading)
 
@@ -185,6 +208,8 @@ final class YtDlpEngine: DownloadEngine {
     private func finish(_ item: DownloadItem, job: Job, status: Int32, error: String?) {
         jobs[item.id] = nil
         defer { launchNext() }
+        // Çerez dosyası sadece süreç çalışırken dursun.
+        try? FileManager.default.removeItem(at: Self.cookieFile(for: item.id))
 
         switch job.stopReason {
         case .cancel:
@@ -199,6 +224,15 @@ final class YtDlpEngine: DownloadEngine {
         case nil:
             guard items[item.id] != nil else { return }
             guard status == 0 else {
+                if let error, Self.isBotCheck(error) {
+                    // Çerezler gelince (ya da değişince, örn. YouTube'a giriş yapılınca) yeniden denenir.
+                    awaitingCookies.insert(item.id)
+                    CookieVault.shared.requestFresh(for: item.url)
+                    item.setStatus(.failed(job.usedCookies
+                        ? "Site oturum doğrulaması istedi (robot ya da yaş kontrolü). Tarayıcıda siteye giriş yapın; indirme kendiliğinden yeniden denenecek."
+                        : "Site oturum doğrulaması istedi; tarayıcı çerezleri bekleniyor. Eklenti bağlıysa bir dakika içinde yeniden denenecek."))
+                    return
+                }
                 item.setStatus(.failed(error ?? "yt-dlp hata verdi (kod \(status))"))
                 return
             }
@@ -217,12 +251,25 @@ final class YtDlpEngine: DownloadEngine {
 
     // MARK: - yt-dlp çıktısı
 
-    private func arguments(for item: DownloadItem) -> [String] {
+    /// "Sign in to confirm you’re not a bot", "Sign in to confirm your age" ve benzerleri;
+    /// hepsi tarayıcı oturumunun çerezleriyle aşılıyor.
+    private static func isBotCheck(_ message: String) -> Bool {
+        let lower = message.lowercased()
+        return lower.contains("not a bot") || lower.contains("confirm you")
+    }
+
+    private static func cookieFile(for id: UUID) -> URL {
+        temporaryFolder(for: id).appendingPathComponent("cookies.txt")
+    }
+
+    private func arguments(for item: DownloadItem, cookies: [BrowserCookie]?) -> [String] {
         var arguments = [
             "--no-playlist",
             "--newline",
             // --print sessiz moda geçiriyor; ilerleme satırlarını yine de istiyoruz.
             "--progress",
+            // Varsayılan her parçada satır yazıyor (saniyede onlarca); yarım saniyede bir yeter.
+            "--progress-delta", "0.5",
             "--no-simulate",
             "-P", item.folder.path,
             "-P", "temp:" + Self.temporaryFolder(for: item.id).path,
@@ -235,6 +282,9 @@ final class YtDlpEngine: DownloadEngine {
         ]
         arguments += Self.formatArguments(for: item.quality, ffmpeg: Executables.find("ffmpeg"))
         arguments += Executables.javaScriptRuntimeArguments
+        if let cookies, (try? CookieVault.writeNetscapeFile(cookies, to: Self.cookieFile(for: item.id))) != nil {
+            arguments += ["--cookies", Self.cookieFile(for: item.id).path]
+        }
         let limits = [item.speedLimit, globalLimit].compactMap { $0 }
         if let limit = limits.min() {
             arguments += ["--limit-rate", String(limit)]

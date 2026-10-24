@@ -7,7 +7,7 @@ enum DownloadSource: Equatable {
     case video    // YouTube vb. → yt-dlp
     case torrent  // magnet / .torrent → aria2
 
-    private static let videoHosts = [
+    static let videoHostList = [
         "youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "twitch.tv",
         "twitter.com", "x.com", "instagram.com", "tiktok.com", "facebook.com"
     ]
@@ -18,7 +18,7 @@ enum DownloadSource: Equatable {
             return .torrent
         }
         if let host = URL(string: lower)?.host,
-           videoHosts.contains(where: { host == $0 || host.hasSuffix("." + $0) }) {
+           videoHostList.contains(where: { host == $0 || host.hasSuffix("." + $0) }) {
             return .video
         }
         return .direct

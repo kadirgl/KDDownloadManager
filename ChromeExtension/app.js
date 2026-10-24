@@ -69,16 +69,52 @@ export function browserName() {
 }
 
 // Uygulamaya "buradayım" der; Ayarlar'daki bağlantı göstergesi bundan beslenir.
+// Uygulama cevapta çereze ihtiyaç duyduğu video sitelerini bildirir (örn. panelden eklenen ya da
+// yeniden açılışta devam eden bir YouTube indirmesi); o sitelerin çerezleri hemen gönderilir.
 export async function sayHello() {
   try {
-    await fetch(`${APP_URL}/hello`, {
+    const response = await fetch(`${APP_URL}/hello`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ browser: browserName(), version: chrome.runtime.getManifest().version }),
       signal: AbortSignal.timeout(1500),
     });
+    const { wantsCookies = [] } = await response.json().catch(() => ({}));
+    for (const site of wantsCookies.filter((s) => VIDEO_HOSTS.includes(s))) {
+      await fetch(`${APP_URL}/cookies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site, cookieJar: await siteCookies(site) }),
+        signal: AbortSignal.timeout(3000),
+      });
+    }
   } catch {
     // Uygulama kapalı; bir sonraki denemede.
+  }
+}
+
+// Video sitelerinin ana alan adı (www.youtube.com → youtube.com); video sitesi değilse null.
+export function videoSite(url) {
+  try {
+    const host = new URL(url).hostname;
+    const site = VIDEO_HOSTS.find((h) => host === h || host.endsWith("." + h)) ?? null;
+    return site === "youtu.be" ? "youtube.com" : site; // Kısa linklerin çerezleri youtube.com'da.
+  } catch {
+    return null;
+  }
+}
+
+// Bir sitenin tüm çerezleri, yt-dlp'nin istediği ayrıntılarla. YouTube çerezsiz isteklere sık sık
+// "robot olmadığınızı doğrulayın" diyor; tarayıcıdaki oturumun çerezleriyle bu aşılıyor.
+export async function siteCookies(site) {
+  try {
+    const cookies = await chrome.cookies.getAll({ domain: site });
+    return cookies.map((c) => ({
+      domain: c.domain, path: c.path, name: c.name, value: c.value, secure: c.secure,
+      httpOnly: c.httpOnly, hostOnly: c.hostOnly, expirationDate: c.expirationDate,
+    }));
+  } catch {
+    return [];
   }
 }
 
@@ -88,7 +124,7 @@ export async function fetchFormats(url) {
     const response = await fetch(`${APP_URL}/formats`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, cookieJar: await siteCookies(videoSite(url)) }),
       signal: AbortSignal.timeout(30000),
     });
     return response.ok ? await response.json() : null;
@@ -103,7 +139,10 @@ export async function describe(url, { referrer, filename, quality } = {}) {
   if (referrer) request.referrer = referrer;
   if (filename) request.filename = filename;
   if (quality) request.quality = quality;
-  if (/^https?:/i.test(url)) {
+  const site = videoSite(url);
+  if (site) {
+    request.cookieJar = await siteCookies(site);
+  } else if (/^https?:/i.test(url)) {
     try {
       const cookies = await chrome.cookies.getAll({ url });
       if (cookies.length > 0) {
