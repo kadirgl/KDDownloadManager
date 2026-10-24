@@ -27,6 +27,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/$EXECUTABLE" "$APP/Contents/MacOS/"
 # Phosphor ikonları Bundle.main.resourceURL altında aranıyor; yoksa uygulama açılışta çöker.
 cp -R "$BIN/PhosphorSwift_PhosphorSwift.bundle" "$APP/Contents/Resources/"
+# Tarayıcı eklentisi: Ayarlar'daki "Kur" butonu buradan kopyalar.
+cp -R ChromeExtension "$APP/Contents/Resources/BrowserExtension"
 
 ICON_WORK="$(mktemp -d)"
 trap 'rm -rf "$ICON_WORK"' EXIT
@@ -65,6 +67,58 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <!-- Tarayıcılardaki magnet: linkleri (Ayarlar > Torrent ile varsayılan yapılabilir). -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>BitTorrent Magnet URL</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>magnet</string>
+            </array>
+        </dict>
+    </array>
+    <!-- Finder'dan .torrent dosyası açmak. -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>BitTorrent dosyası</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>org.bittorrent.torrent</string>
+            </array>
+        </dict>
+    </array>
+    <key>UTImportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>org.bittorrent.torrent</string>
+            <key>UTTypeDescription</key>
+            <string>BitTorrent dosyası</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.data</string>
+            </array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>torrent</string>
+                </array>
+                <key>public.mime-type</key>
+                <array>
+                    <string>application/x-bittorrent</string>
+                </array>
+            </dict>
+        </dict>
+    </array>
 </dict>
 </plist>
 PLIST

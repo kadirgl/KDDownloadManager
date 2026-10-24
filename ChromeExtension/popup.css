@@ -131,6 +131,49 @@ button.primary {
 button.primary:disabled { opacity: 0.5; cursor: default; }
 button.primary:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
+.video {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  margin-bottom: 10px;
+}
+
+.video-title {
+  margin: 0 0 8px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qualities {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qualities button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.qualities button:hover { background: var(--track); }
+.qualities button.recommended { background: var(--accent); color: #fff; font-weight: 600; }
+.qualities button.recommended .size { color: rgba(255, 255, 255, 0.85); }
+.qualities button:disabled { opacity: 0.5; cursor: default; }
+.qualities button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.qualities .size { color: var(--secondary); font-size: 12px; }
+
 .message {
   min-height: 1em;
   margin: 8px 2px 0;

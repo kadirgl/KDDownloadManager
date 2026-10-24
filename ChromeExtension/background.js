@@ -1,18 +1,39 @@
-import { VIDEO_HOSTS, describe, flashBadge, isDownloadable, sendToApp } from "./app.js";
+import {
+  QUALITIES, VIDEO_HOSTS, describe, flashBadge, isDownloadable, sayHello, sendToApp,
+} from "./app.js";
 
 const MENU_LINK = "kd-link";
 const MENU_MEDIA = "kd-media";
+// Kalite alt menüleri: "kd-page:1080", "kd-video-link:audio" gibi.
 const MENU_PAGE = "kd-page";
+const MENU_VIDEO_LINK = "kd-video-link";
+const HELLO_ALARM = "kd-hello";
 
-const VIDEO_PAGE_PATTERNS = VIDEO_HOSTS.flatMap((host) => [`*://${host}/*`, `*://*.${host}/*`]);
+const VIDEO_PATTERNS = VIDEO_HOSTS.flatMap((host) => [`*://${host}/*`, `*://*.${host}/*`]);
 
 chrome.runtime.onInstalled.addListener(async () => {
-  // Varsayılan: Chrome indirmelerini uygulamaya devret.
+  // Varsayılan: Chrome indirmelerini ve magnet linklerini uygulamaya devret.
   const { intercept } = await chrome.storage.local.get("intercept");
   if (intercept === undefined) {
     await chrome.storage.local.set({ intercept: true });
   }
+  await createMenus();
+  startHeartbeat();
+});
 
+chrome.runtime.onStartup.addListener(startHeartbeat);
+
+// Uygulamanın Ayarlar ekranı eklentinin bağlı olduğunu bu sinyalden anlıyor.
+function startHeartbeat() {
+  chrome.alarms.create(HELLO_ALARM, { periodInMinutes: 1 });
+  sayHello();
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === HELLO_ALARM) sayHello();
+});
+
+async function createMenus() {
   // Eklenti yeniden yüklendiğinde aynı kimlikle tekrar oluşturmak hata verir; önce temizle.
   await chrome.contextMenus.removeAll();
   chrome.contextMenus.create({
@@ -25,18 +46,37 @@ chrome.runtime.onInstalled.addListener(async () => {
     title: "Bu medyayı KD Download Manager ile indir",
     contexts: ["video", "audio"],
   });
+
+  // Video sitelerinde kalite seçerek indirme: sayfanın kendisi ve video linkleri (örn. küçük resimler).
   chrome.contextMenus.create({
     id: MENU_PAGE,
-    title: "Bu sayfadaki videoyu KD Download Manager ile indir",
+    title: "Bu videoyu KD Download Manager ile indir",
     contexts: ["page"],
-    documentUrlPatterns: VIDEO_PAGE_PATTERNS,
+    documentUrlPatterns: VIDEO_PATTERNS,
   });
-});
+  chrome.contextMenus.create({
+    id: MENU_VIDEO_LINK,
+    title: "Videoyu kalite seçerek indir",
+    contexts: ["link"],
+    targetUrlPatterns: VIDEO_PATTERNS,
+  });
+  for (const quality of QUALITIES) {
+    for (const parentId of [MENU_PAGE, MENU_VIDEO_LINK]) {
+      chrome.contextMenus.create({
+        id: `${parentId}:${quality.id}`,
+        parentId,
+        title: quality.title,
+        contexts: parentId === MENU_PAGE ? ["page"] : ["link"],
+      });
+    }
+  }
+}
 
 // Sağ tık menüsü
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  const [menu, quality] = String(info.menuItemId).split(":");
   let url;
-  switch (info.menuItemId) {
+  switch (menu) {
     case MENU_LINK:
       url = info.linkUrl;
       break;
@@ -47,6 +87,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     case MENU_PAGE:
       url = info.pageUrl;
       break;
+    case MENU_VIDEO_LINK:
+      url = info.linkUrl;
+      break;
     default:
       return;
   }
@@ -54,8 +97,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     flashBadge(false);
     return;
   }
-  const ok = await sendToApp([await describe(url, { referrer: tab?.url })]);
+  const ok = await sendToApp([await describe(url, { referrer: tab?.url, quality })]);
   flashBadge(ok);
+});
+
+// İçerik betiğinden gelen magnet tıklamaları; cevap false ise sayfa linki normal şekilde açar.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type !== "magnet") return false;
+  (async () => {
+    const { intercept } = await chrome.storage.local.get("intercept");
+    if (intercept === false || sender.tab?.incognito || !isDownloadable(message.url)) {
+      sendResponse(false);
+      return;
+    }
+    const ok = await sendToApp([{ url: message.url, referrer: message.referrer }]);
+    if (ok) flashBadge(true);
+    sendResponse(ok);
+  })();
+  return true; // Cevap asenkron.
 });
 
 // Chrome'un başlattığı indirmeleri yakala: uygulama kabul ederse Chrome'unkini iptal et.

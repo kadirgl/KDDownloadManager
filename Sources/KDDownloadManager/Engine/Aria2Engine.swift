@@ -19,6 +19,17 @@ final class Aria2Engine: DownloadEngine {
     /// Kullanıcının duraklattıkları. aria2 komutları ve durum sorguları birbirini geçebildiği için
     /// "duraklatıldı" bilgisini aria2'nin anlık cevabından değil buradan alıyoruz.
     private var pausedByUser: Set<UUID> = []
+    /// Bağlantı hatasıyla düşüp tek bağlantıyla devam edenler. Bazı sunucular aynı IP'den
+    /// birkaç bağlantıdan fazlasına 429/503 dönüyor; aria2 o zaman indirmeyi tamamen bırakıyor.
+    private var singleConnection: Set<UUID> = []
+    /// Kendiliğinden yapılan yeniden deneme sayısı; kullanıcı elle devam ettirince sıfırlanır.
+    private var autoRetries: [UUID: Int] = [:]
+    /// Yeniden denemeden önceki bekleme (sn). 429 gibi geçici engellerde sunucuya zaman tanır.
+    private static let retryDelays: [Double] = [0, 5, 15, 30, 60]
+
+    /// aria2 hata kodları: 1 bilinmeyen, 2 zaman aşımı, 6 ağ sorunu, 22 sunucu HTTP hatası (429/503 vb.).
+    /// "Bulunamadı", disk ve yetki hataları tek bağlantıyla da düzelmeyeceği için listede yok.
+    private static let connectionErrorCodes: Set<String> = ["1", "2", "6", "22"]
 
     private var maxConcurrent = 3
     private var globalLimit: Int64?
@@ -26,7 +37,7 @@ final class Aria2Engine: DownloadEngine {
     private static let pollInterval = 0.5
     private static let statusKeys: JSONValue = [
         "status", "totalLength", "completedLength", "downloadSpeed",
-        "errorMessage", "files", "followedBy", "bittorrent", "dir"
+        "errorMessage", "errorCode", "files", "followedBy", "bittorrent", "dir"
     ]
 
     init() {
@@ -59,6 +70,7 @@ final class Aria2Engine: DownloadEngine {
         // Önceki oturumdan kalıp bu oturumda hiç başlatılmamış olabilir.
         items[item.id] = item
         pausedByUser.remove(item.id)
+        autoRetries[item.id] = nil
         guard item.status == .paused, let gid = gids[item.id] else {
             // Hata almış ya da önceki oturumdan kalmış: yeniden ekle;
             // --continue ve .aria2 kontrol dosyası sayesinde kaldığı yerden devam eder.
@@ -75,6 +87,8 @@ final class Aria2Engine: DownloadEngine {
 
     func cancel(_ item: DownloadItem) {
         items[item.id] = nil
+        singleConnection.remove(item.id)
+        autoRetries[item.id] = nil
         pausedByUser.remove(item.id)
         let files = partialFiles.removeValue(forKey: item.id) ?? []
         guard let gid = gids.removeValue(forKey: item.id) else {
@@ -146,15 +160,33 @@ final class Aria2Engine: DownloadEngine {
             "dir": .string(item.folder.path),
             "max-download-limit": .string(String(limitAtAdd ?? 0))
         ]
+        if singleConnection.contains(item.id) {
+            options["split"] = "1"
+            options["max-connection-per-server"] = "1"
+        }
         // Tarayıcıdan geldiyse aynı istek bilgileriyle indir; giriş gerektiren siteler bunları bekliyor.
         if let referrer = item.referrer { options["referer"] = .string(referrer) }
         if let userAgent = item.userAgent { options["user-agent"] = .string(userAgent) }
         if let cookies = item.cookies { options["header"] = [.string("Cookie: " + cookies)] }
-        let addOptions = JSONValue.object(options)
         Task {
             do {
                 let client = try await connected()
-                let result = try await client.call("aria2.addUri", [[.string(item.url)], addOptions])
+                let result: JSONValue
+                if let file = URL(string: item.url), file.isFileURL {
+                    // Diskteki .torrent dosyası: içeriği base64 olarak verilir.
+                    guard let torrent = try? Data(contentsOf: file) else {
+                        throw Aria2Error(message: "Torrent dosyası okunamadı")
+                    }
+                    if !Self.isPrivate(torrent) {
+                        options["bt-tracker"] = .string(Self.publicTrackers.joined(separator: ","))
+                    }
+                    result = try await client.call("aria2.addTorrent", [.string(torrent.base64EncodedString()), [], .object(options)])
+                } else {
+                    if Self.isTrackerlessMagnet(item.url) {
+                        options["bt-tracker"] = .string(Self.publicTrackers.joined(separator: ","))
+                    }
+                    result = try await client.call("aria2.addUri", [[.string(item.url)], .object(options)])
+                }
                 guard let gid = result.stringValue else {
                     throw Aria2Error(message: "aria2 indirme kimliği vermedi")
                 }
@@ -264,6 +296,7 @@ final class Aria2Engine: DownloadEngine {
             // Devam komutu henüz işlenmediyse eski "paused" cevabı gelebilir; sırada say.
             item.setStatus(pausedByUser.contains(item.id) ? .paused : .queued)
         case "error":
+            if retryWithSingleConnection(item, status: status) { return }
             item.setStatus(.failed(status["errorMessage"]?.stringValue ?? "İndirme başarısız"))
         case "complete":
             if let next = status["followedBy"]?[0]?.stringValue {
@@ -289,6 +322,53 @@ final class Aria2Engine: DownloadEngine {
             }
         }
         gids.removeAll()
+    }
+
+    /// Bağlantı kaynaklı hatayla düşen HTTP/FTP indirmesini tek bağlantıyla, artan aralıklarla
+    /// kaldığı yerden yeniden başlatır (.aria2 kontrol dosyası korunuyor). Denemeler bitince false.
+    private func retryWithSingleConnection(_ item: DownloadItem, status: JSONValue) -> Bool {
+        let message = status["errorMessage"]?.stringValue ?? ""
+        let code = status["errorCode"]?.stringValue ?? ""
+        let attempt = autoRetries[item.id, default: 0]
+        guard item.source == .direct, attempt < Self.retryDelays.count,
+              Self.connectionErrorCodes.contains(code) || message.contains("No URI available") else { return false }
+        autoRetries[item.id] = attempt + 1
+        singleConnection.insert(item.id)
+        if let old = gids.removeValue(forKey: item.id) {
+            send("aria2.removeDownloadResult", [.string(old)])
+        }
+        item.setStatus(.queued)
+        Task {
+            try? await Task.sleep(for: .seconds(Self.retryDelays[attempt]))
+            // Beklerken iptal edildiyse, duraklatıldıysa ya da elle devam ettirildiyse dokunma.
+            guard items[item.id] != nil, gids[item.id] == nil, !pausedByUser.contains(item.id),
+                  item.status == .queued else { return }
+            add(item)
+        }
+        return true
+    }
+
+    // MARK: - Torrent
+
+    /// aria2'nin DHT'si çoğu zaman eş bulamadığından, kendi takipçisi olmayan magnet'lere ve
+    /// herkese açık .torrent dosyalarına eklenen, yaygın kullanılan açık takipçiler.
+    private static let publicTrackers = [
+        "udp://tracker.opentrackr.org:1337/announce",
+        "udp://open.stealth.si:80/announce",
+        "udp://tracker.torrent.eu.org:451/announce",
+        "udp://exodus.desync.com:6969/announce",
+        "udp://open.demonii.com:1337/announce"
+    ]
+
+    private static func isTrackerlessMagnet(_ url: String) -> Bool {
+        guard url.lowercased().hasPrefix("magnet:") else { return false }
+        return !(URLComponents(string: url)?.queryItems ?? []).contains { $0.name == "tr" }
+    }
+
+    /// Özel (üyelik isteyen) sitelerin torrent'leri "private" işaretlidir; bunlara yabancı takipçi
+    /// eklemek hesabın engellenmesine yol açabilir. Bencode'da anahtar "7:private", değer "i1e".
+    private static func isPrivate(_ torrent: Data) -> Bool {
+        torrent.firstRange(of: Data("7:privatei1e".utf8)) != nil
     }
 
     /// Önceki oturumdan kalmış, bu oturumda aria2'ye hiç verilmemiş bir indirmenin yarım dosyaları.

@@ -7,6 +7,7 @@ enum SettingsKey {
     static let globalLimitMB = "globalLimitMB"
     static let maxConcurrent = "maxConcurrent"
     static let downloadFolder = "downloadFolder"
+    static let extensionSeen = "extensionSeen"
 
     static var defaultDownloadFolder: String {
         FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path

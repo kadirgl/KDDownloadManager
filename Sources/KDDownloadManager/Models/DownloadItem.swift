@@ -64,6 +64,12 @@ final class DownloadItem: Identifiable {
     var userAgent: String?
     /// Çerezler güvenlik için diske yazılmaz; uygulama yeniden açılınca kaybolur.
     var cookies: String?
+    /// Video sitelerinde indirilecek kalite.
+    var quality: VideoQuality = .auto {
+        didSet {
+            if source == .video { category = quality == .audio ? .music : .video }
+        }
+    }
 
     var progress: Double {
         guard totalBytes > 0 else { return 0 }

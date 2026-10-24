@@ -87,7 +87,8 @@ final class YtDlpEngine: DownloadEngine {
         stop(item.id, reason: .restart)
     }
 
-    /// yt-dlp'de toplam sınır yok; her sürece ayrı ayrı uygulanıyor (indirmenin kendi sınırıyla en küçüğü).
+    /// yt-dlp'de toplam sınır yok; bu değer her sürece ayrı ayrı uygulanır (indirmenin kendi sınırıyla
+    /// en küçüğü). Genel sınırın süreçler arasında paylaştırılmasını `RoutingEngine` yapıyor.
     func setGlobalSpeedLimit(_ limit: Int64?) {
         guard globalLimit != limit else { return }
         globalLimit = limit
@@ -232,23 +233,36 @@ final class YtDlpEngine: DownloadEngine {
             "--progress-template",
             "download:KDPROG %(progress.{status,downloaded_bytes,total_bytes,total_bytes_estimate,speed,filename})j"
         ]
-        if let ffmpeg = Executables.find("ffmpeg") {
-            // Mac'te QuickTime'ın açabildiği H.264/AAC tercih ediliyor; görüntü ve ses ayrı inip MP4'te birleşir.
-            arguments += [
-                "-f", "bv*+ba/b",
-                "-S", "vcodec:h264,res,acodec:aac",
-                "--merge-output-format", "mp4",
-                "--ffmpeg-location", ffmpeg.path
-            ]
-        } else {
-            // ffmpeg yoksa birleştirme gerektirmeyen tek dosyalık en iyi biçim.
-            arguments += ["-f", "b"]
-        }
+        arguments += Self.formatArguments(for: item.quality, ffmpeg: Executables.find("ffmpeg"))
         let limits = [item.speedLimit, globalLimit].compactMap { $0 }
         if let limit = limits.min() {
             arguments += ["--limit-rate", String(limit)]
         }
         return arguments + ["--", item.url]
+    }
+
+    /// Kaliteye göre biçim seçimi. Görüntü ve ses ayrı inip ffmpeg ile MP4'te birleşir.
+    static func formatArguments(for quality: VideoQuality, ffmpeg: URL?) -> [String] {
+        guard let ffmpeg else {
+            // ffmpeg yoksa birleştirme/dönüştürme gerektirmeyen tek dosyalık biçimler.
+            switch quality {
+            case .audio: return ["-f", "ba[ext=m4a]/ba/b"]
+            case .auto: return ["-f", "b"]
+            default: return ["-f", "b", "-S", "res:\(quality.rawValue)"]
+            }
+        }
+        let tools = ["--ffmpeg-location", ffmpeg.path]
+        switch quality {
+        case .audio:
+            return tools + ["-f", "ba/b", "-x", "--audio-format", "mp3", "--audio-quality", "0"]
+        case .auto:
+            // Mac'te QuickTime'ın açabildiği H.264/AAC'nin en iyisi.
+            return tools + ["-f", "bv*+ba/b", "-S", "vcodec:h264,res,acodec:aac", "--merge-output-format", "mp4"]
+        default:
+            // Seçilen yüksekliği aşmayan en iyi çözünürlük; o çözünürlükte H.264 varsa o tercih edilir.
+            // 1080p üstü YouTube'da genelde VP9/AV1'dir (IINA/VLC oynatır, QuickTime oynatmayabilir).
+            return tools + ["-f", "bv*+ba/b", "-S", "res:\(quality.rawValue),vcodec:h264,acodec:aac", "--merge-output-format", "mp4"]
+        }
     }
 
     private func handle(_ line: String, for item: DownloadItem) {

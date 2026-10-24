@@ -9,10 +9,21 @@ import Network
 ///
 /// Uç noktalar:
 /// - `GET /ping` → uygulama çalışıyor mu (eklentinin durum göstergesi için)
+/// - `POST /hello` → `{"browser": "Google Chrome", "version": "1.1.0"}`; eklenti bunu dakikada bir
+///   gönderir, Ayarlar'daki "bağlı" göstergesi buradan beslenir
 /// - `POST /add` → `{"links": [DownloadRequest, ...]}`
+/// - `POST /formats` → `{"url": "..."}`; videonun sunduğu kaliteler ve tahmini boyutları
 @MainActor
 final class ExtensionBridge {
-    nonisolated static let port: UInt16 = 47615
+    nonisolated static let port: UInt16 = {
+        #if DEBUG
+        // Denemelerde kurulu uygulamanın portuyla çakışmamak için.
+        if let value = ProcessInfo.processInfo.environment["KD_BRIDGE_PORT"].flatMap(UInt16.init) {
+            return value
+        }
+        #endif
+        return 47615
+    }()
 
     /// Eklentinin manifest'indeki "key" alanından türeyen sabit kimlik.
     /// Eklenti Chrome Web Mağazası'na konursa mağazanın verdiği kimlik de buraya eklenmeli.
@@ -21,10 +32,16 @@ final class ExtensionBridge {
     private static let maxLinksPerRequest = 100
 
     private let onAdd: ([DownloadRequest]) -> Void
+    private let onHello: (String) -> Void
     private var listener: NWListener?
 
-    init(onAdd: @escaping ([DownloadRequest]) -> Void) {
+    /// yt-dlp'nin kalite listesi birkaç saniye sürüyor; açılır pencere tekrar açıldığında beklemesin.
+    private var formatsCache: [String: (date: Date, formats: VideoFormats)] = [:]
+    private static let formatsCacheLifetime: TimeInterval = 600
+
+    init(onAdd: @escaping ([DownloadRequest]) -> Void, onHello: @escaping (String) -> Void) {
         self.onAdd = onAdd
+        self.onHello = onHello
     }
 
     func start() {
@@ -93,6 +110,20 @@ final class ExtensionBridge {
         case ("GET", "/ping"):
             Self.send(status: 200, ["app": "KD Download Manager"], origin: origin, on: connection)
 
+        case ("POST", "/hello"):
+            let hello = try? JSONDecoder().decode(JSONValue.self, from: request.body)
+            let browser = hello?["browser"]?.stringValue.map { String($0.prefix(60)) } ?? "Tarayıcı"
+            onHello(browser)
+            Self.send(status: 200, ["app": "KD Download Manager"], origin: origin, on: connection)
+
+        case ("POST", "/formats"):
+            guard let url = (try? JSONDecoder().decode(JSONValue.self, from: request.body))?["url"]?.stringValue,
+                  DownloadSource.looksLikeLink(url), DownloadSource.detect(url) == .video else {
+                Self.send(status: 422, ["error": "Video linki değil"], origin: origin, on: connection)
+                return
+            }
+            sendFormats(for: url, origin: origin, on: connection)
+
         case ("POST", "/add"):
             struct Payload: Decodable {
                 var links: [DownloadRequest]
@@ -115,10 +146,39 @@ final class ExtensionBridge {
         }
     }
 
+    private func sendFormats(for url: String, origin: String, on connection: NWConnection) {
+        if let cached = formatsCache[url], Date().timeIntervalSince(cached.date) < Self.formatsCacheLifetime {
+            Self.send(status: 200, Self.json(cached.formats), origin: origin, on: connection)
+            return
+        }
+        Task {
+            do {
+                let formats = try await VideoFormats.fetch(url)
+                formatsCache[url] = (Date(), formats)
+                Self.send(status: 200, Self.json(formats), origin: origin, on: connection)
+            } catch {
+                Self.send(status: 502, ["error": .string(error.localizedDescription)], origin: origin, on: connection)
+            }
+        }
+    }
+
+    private static func json(_ formats: VideoFormats) -> JSONValue {
+        [
+            "title": .string(formats.title),
+            "options": .array(formats.options.map { option in
+                [
+                    "quality": .string(option.quality.rawValue),
+                    "title": .string(option.quality.title),
+                    "size": option.size.map { .number(Double($0)) } ?? .null
+                ]
+            })
+        ]
+    }
+
     private static func send(status: Int, _ json: JSONValue?, origin: String?, on connection: NWConnection) {
         let body = json.flatMap { try? JSONEncoder().encode($0) } ?? Data()
         let reason = [200: "OK", 204: "No Content", 400: "Bad Request", 403: "Forbidden",
-                      404: "Not Found", 422: "Unprocessable Content"][status] ?? "OK"
+                      404: "Not Found", 422: "Unprocessable Content", 502: "Bad Gateway"][status] ?? "OK"
         var head = "HTTP/1.1 \(status) \(reason)\r\n"
             + "Content-Type: application/json; charset=utf-8\r\n"
             + "Content-Length: \(body.count)\r\n"

@@ -1,14 +1,17 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 import PhosphorSwift
 
 /// Link yapıştırıp indirme başlatma ekranı.
 struct AddLinkView: View {
     @Environment(DownloadStore.self) private var store
     @State private var text = ""
+    @State private var quality: VideoQuality = .auto
     @FocusState private var editorFocused: Bool
 
     private var links: [String] { DownloadStore.parseLinks(text) }
+    private var hasVideoLinks: Bool { links.contains { DownloadSource.detect($0) == .video } }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,6 +24,23 @@ struct AddLinkView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 editor
+
+                if hasVideoLinks {
+                    HStack {
+                        Text("Video kalitesi")
+                            .font(.system(size: 12, weight: .semibold))
+                        Spacer()
+                        Picker("Video kalitesi", selection: $quality) {
+                            ForEach(VideoQuality.allCases) { Text($0.title).tag($0) }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .fixedSize()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.surface))
+                }
 
                 if !links.isEmpty {
                     Text("\(links.count) link bulundu")
@@ -47,9 +67,18 @@ struct AddLinkView: View {
                 }
                 .buttonStyle(PillButtonStyle(prominent: false))
 
+                Button(action: chooseTorrentFiles) {
+                    HStack(spacing: 6) {
+                        PhIcon(.magnet, weight: .bold, size: 14)
+                        Text("Torrent dosyası")
+                    }
+                }
+                .buttonStyle(PillButtonStyle(prominent: false))
+                .help("Bilgisayardaki .torrent dosyalarını ekle (panele sürükleyip bırakmak da olur)")
+
                 Spacer()
 
-                Button { store.add(links: text) } label: {
+                Button { store.add(links: text, quality: quality) } label: {
                     HStack(spacing: 6) {
                         PhIcon(.downloadSimple, weight: .bold, size: 14)
                         Text(links.count > 1 ? "\(links.count) dosyayı indir" : "İndir")
@@ -57,7 +86,6 @@ struct AddLinkView: View {
                 }
                 .buttonStyle(PillButtonStyle())
                 .disabled(links.isEmpty)
-                .opacity(links.isEmpty ? 0.5 : 1)
                 .keyboardShortcut(.return, modifiers: .command)
                 .help("İndir (⌘↩)")
             }
@@ -91,6 +119,17 @@ struct AddLinkView: View {
                         .allowsHitTesting(false)
                 }
             }
+    }
+
+    private func chooseTorrentFiles() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "torrent") ?? .data]
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Ekle"
+        NSApp.activate()
+        if panel.runModal() == .OK {
+            store.addTorrentFiles(panel.urls)
+        }
     }
 
     /// Panodaki metinden çıkan linkler (yoksa nil).

@@ -18,11 +18,16 @@
 
   <label class="row">
     <span>
-      <strong>Chrome indirmelerini yakala</strong>
-      <small>Kapalıysa ya da uygulama çalışmıyorsa Chrome kendisi indirir.</small>
+      <strong>İndirmeleri ve magnet linklerini yakala</strong>
+      <small>Kapalıysa ya da uygulama çalışmıyorsa tarayıcı kendisi indirir/açar.</small>
     </span>
     <input id="intercept" type="checkbox" role="switch">
   </label>
+
+  <section id="video" class="video" hidden>
+    <p id="video-title" class="video-title">Kaliteler alınıyor…</p>
+    <div id="qualities" class="qualities"></div>
+  </section>
 
   <button id="send-page" class="primary" hidden>Bu sayfayı indir</button>
   <p id="message" class="message" role="status"></p>

@@ -14,11 +14,16 @@ final class DownloadStore {
     var category: DownloadCategory = .all
     var tab: ListTab = .active
     var route: Route = .list
+    /// Tarayıcı eklentilerinin en son ne zaman bağlandığı (Ayarlar'daki durum için); kalıcı.
+    private(set) var extensionSeen: [String: Date] =
+        UserDefaults.standard.dictionary(forKey: SettingsKey.extensionSeen) as? [String: Date] ?? [:]
 
     @ObservationIgnored private let engine: any DownloadEngine
     @ObservationIgnored private let archive: DownloadArchive?
     @ObservationIgnored private var lastSaved: Data?
     @ObservationIgnored private var autosave: Task<Void, Never>?
+    /// "Devam eden vardı → kalmadı" geçişini yakalamak için.
+    @ObservationIgnored private var hadActive = false
 
     /// Liste değişikliklerini (ilerleme dahil) bu aralıkla diske yazar; değişmediyse yazmaz.
     private static let autosaveInterval = 2.0
@@ -39,10 +44,40 @@ final class DownloadStore {
             // Kapanırken inmekte olanlar kaldığı yerden devam etsin; duraklatılan ve hatalılar beklesin.
             items.filter { $0.status == .queued }.forEach(engine.start)
             startAutosave()
+            // Devam eden bir şey yoksa liste tamamlananlarla açılsın.
+            showCompletedIfIdle()
             NotificationCenter.default.addObserver(
                 forName: NSApplication.willTerminateNotification, object: nil, queue: .main
             ) { [weak self] _ in
                 MainActor.assumeIsolated { self?.save() }
+            }
+        }
+        hadActive = hasActive
+        watchActivity()
+    }
+
+    private var hasActive: Bool { items.contains { ListTab.active.includes($0.status) } }
+
+    /// Devam eden indirme yoksa ve tamamlanan varsa "Tamamlanan" sekmesine geçer (panel açılırken).
+    func showCompletedIfIdle() {
+        guard route == .list, !hasActive, items.contains(where: { $0.status == .completed }) else { return }
+        tab = .completed
+    }
+
+    /// Devam eden son indirme bitince (ya da iptal edilince) "Tamamlanan" sekmesine geçer.
+    /// Sadece geçiş anında; kullanıcı sonra "Devam Eden"e dönerse zorla geri götürülmez.
+    private func watchActivity() {
+        withObservationTracking {
+            _ = items.map(\.status)
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                let active = self.hasActive
+                if self.hadActive, !active {
+                    self.showCompletedIfIdle()
+                }
+                self.hadActive = active
+                self.watchActivity()
             }
         }
     }
@@ -61,21 +96,43 @@ final class DownloadStore {
 
     // MARK: - İşlemler
 
-    /// Her satırdaki linki ayrı bir indirme olarak ekler.
-    func add(links text: String) {
-        add(Self.parseLinks(text).map { DownloadRequest(url: $0) })
+    /// Her satırdaki linki ayrı bir indirme olarak ekler; video linkleri `quality` kalitesinde iner.
+    func add(links text: String, quality: VideoQuality = .auto) {
+        add(Self.parseLinks(text).map { DownloadRequest(url: $0, quality: quality) })
     }
 
     /// Panelden ya da Chrome eklentisinden gelen istekleri ekler; link olmayanları atlar.
     func add(_ requests: [DownloadRequest]) {
-        let valid = requests.filter { DownloadSource.looksLikeLink($0.url) }
-        guard !valid.isEmpty else { return }
-        for request in valid {
+        insert(requests.filter { DownloadSource.looksLikeLink($0.url) })
+    }
+
+    /// Finder'dan açılan, panele sürüklenen ya da tarayıcıdan gelen (magnet:) adresleri ekler.
+    func open(_ urls: [URL]) {
+        let torrents = urls.filter { $0.isFileURL && $0.pathExtension.lowercased() == "torrent" }
+        addTorrentFiles(torrents)
+        add(urls.filter { !$0.isFileURL }.map { DownloadRequest(url: $0.absoluteString) })
+    }
+
+    /// Diskteki .torrent dosyalarını ekler. Dosya uygulamanın klasörüne kopyalanır; asıl dosya
+    /// silinse ya da taşınsa da indirme (uygulama yeniden açıldıktan sonra da) devam ettirilebilsin.
+    func addTorrentFiles(_ files: [URL]) {
+        let requests = files.compactMap { file -> DownloadRequest? in
+            let copy = AppFolders.torrents.appendingPathComponent(UUID().uuidString + ".torrent")
+            guard (try? FileManager.default.copyItem(at: file, to: copy)) != nil else { return nil }
+            return DownloadRequest(url: copy.absoluteString, filename: file.deletingPathExtension().lastPathComponent)
+        }
+        insert(requests)
+    }
+
+    private func insert(_ requests: [DownloadRequest]) {
+        guard !requests.isEmpty else { return }
+        for request in requests {
             let name = request.filename.flatMap { $0.isEmpty ? nil : $0 }
             let item = DownloadItem(url: request.url.trimmingCharacters(in: .whitespacesAndNewlines), fileName: name)
             item.referrer = request.referrer
             item.userAgent = request.userAgent
             item.cookies = request.cookies
+            item.quality = request.quality ?? .auto
             items.insert(item, at: 0)
             engine.start(item)
         }
@@ -96,6 +153,11 @@ final class DownloadStore {
     func cancel(_ item: DownloadItem) {
         engine.cancel(item)
         items.removeAll { $0.id == item.id }
+        // Diskten eklenmiş torrent'in bizim kopyamızı da sil (kullanıcının asıl dosyasına dokunulmaz).
+        if let file = URL(string: item.url), file.isFileURL,
+           file.deletingLastPathComponent().standardizedFileURL == AppFolders.torrents.standardizedFileURL {
+            try? FileManager.default.removeItem(at: file)
+        }
         save()
     }
 
@@ -117,6 +179,12 @@ final class DownloadStore {
         } else {
             NSWorkspace.shared.open(item.folder)
         }
+    }
+
+    /// Eklenti kendini bildirdi (açılışta ve dakikada bir).
+    func extensionDidConnect(_ browser: String) {
+        extensionSeen[browser] = Date()
+        UserDefaults.standard.set(extensionSeen, forKey: SettingsKey.extensionSeen)
     }
 
     // MARK: - Kayıt

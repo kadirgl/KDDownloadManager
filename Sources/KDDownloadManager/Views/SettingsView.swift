@@ -13,6 +13,8 @@ struct SettingsView: View {
     // Kaynak macOS; burada sadece gösterim için tutuluyor.
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var launchAtLoginError: String?
+    /// Kaydırıcı sürüklenirken her adımda uygulamamak için (video indirmeleri yeniden başlatılıyor).
+    @State private var pendingLimit: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,6 +58,10 @@ struct SettingsView: View {
                         }
                     }
 
+                    ExtensionSettings()
+
+                    TorrentSettings()
+
                     SettingsSection(title: "Menü çubuğu") {
                         SettingsToggle(title: "Toplam hızı göster", isOn: $showSpeed)
                     }
@@ -92,7 +98,14 @@ struct SettingsView: View {
             }
         }
         .onChange(of: limitEnabled) { store.applyGlobalSpeedLimit() }
-        .onChange(of: limitMB) { store.applyGlobalSpeedLimit() }
+        .onChange(of: limitMB) {
+            pendingLimit?.cancel()
+            pendingLimit = Task {
+                try? await Task.sleep(for: .milliseconds(600))
+                guard !Task.isCancelled else { return }
+                store.applyGlobalSpeedLimit()
+            }
+        }
         .onChange(of: maxConcurrent) { store.applyMaxConcurrent() }
         .onChange(of: launchAtLogin) { _, enabled in
             guard enabled != LaunchAtLogin.isEnabled else { return }
@@ -147,7 +160,7 @@ private struct SettingsToggle: View {
     }
 }
 
-private struct SettingsSection<Content: View>: View {
+struct SettingsSection<Content: View>: View {
     let title: String
     @ViewBuilder var content: Content
 

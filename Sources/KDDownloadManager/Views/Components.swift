@@ -49,14 +49,25 @@ struct PillButtonStyle: ButtonStyle {
     var fontSize: CGFloat = 13
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: fontSize, weight: .medium))
-            .padding(.horizontal, horizontalPadding)
-            .padding(.vertical, 7)
-            .foregroundStyle(prominent ? Color.white : Theme.primaryText)
-            .background(Capsule().fill(prominent ? Theme.accent : inactiveFill))
-            .opacity(configuration.isPressed ? 0.75 : 1)
-            .contentShape(Capsule())
+        PillBody(style: self, configuration: configuration)
+    }
+
+    /// `isEnabled` ortam değeri ButtonStyle'da okunamadığı için ayrı görünüm.
+    private struct PillBody: View {
+        let style: PillButtonStyle
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: style.fontSize, weight: .medium))
+                .padding(.horizontal, style.horizontalPadding)
+                .padding(.vertical, 7)
+                .foregroundStyle(style.prominent ? Color.white : Theme.primaryText)
+                .background(Capsule().fill(style.prominent ? Theme.accent : style.inactiveFill))
+                .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.45)
+                .contentShape(Capsule())
+        }
     }
 }
 

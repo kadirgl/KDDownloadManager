@@ -16,6 +16,12 @@ struct PanelView: View {
         .frame(width: Theme.panelWidth, height: Theme.panelHeight)
         .background(Theme.background)
         .foregroundStyle(Theme.primaryText)
+        .onAppear { store.showCompletedIfIdle() }
+        // .torrent dosyası ya da tarayıcıdan link sürükleyip bırakmak.
+        .dropDestination(for: URL.self) { urls, _ in
+            store.open(urls)
+            return !urls.isEmpty
+        }
     }
 }
 

@@ -35,6 +35,7 @@ struct DownloadArchive {
         // Çerezler bilerek saklanmıyor.
         var referrer: String?
         var userAgent: String?
+        var quality: VideoQuality?
     }
 
     @MainActor
@@ -62,6 +63,7 @@ struct DownloadArchive {
             item.destination = record.destination.map { URL(fileURLWithPath: $0) }
             item.referrer = record.referrer
             item.userAgent = record.userAgent
+            item.quality = record.quality ?? .auto
             return item
         }
     }
@@ -88,7 +90,8 @@ struct DownloadArchive {
                 error: error,
                 destination: item.destination?.path,
                 referrer: item.referrer,
-                userAgent: item.userAgent
+                userAgent: item.userAgent,
+                quality: item.quality == .auto ? nil : item.quality
             )
         }
         let encoder = JSONEncoder()

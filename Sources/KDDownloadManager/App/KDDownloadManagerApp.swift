@@ -45,14 +45,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DebugSnapshot.runIfRequested()
         DebugEngineTest.runIfRequested()
         DebugPersistenceTest.runIfRequested()
+        DebugLimitTest.runIfRequested()
+        DebugTorrentTest.runIfRequested()
         // Senaryolar çalışırken asıl uygulamanın portunu işgal etmesinler.
         if DebugHarness.isActive { return }
         #endif
 
-        let bridge = ExtensionBridge { [store] requests in
-            store.add(requests)
-        }
+        let bridge = ExtensionBridge(
+            onAdd: { [store] requests in store.add(requests) },
+            onHello: { [store] browser in store.extensionDidConnect(browser) }
+        )
         bridge.start()
         self.bridge = bridge
+        // Kurulu tarayıcı eklentisi uygulamayla birlikte güncellensin (tarayıcı yeniden açılınca alır).
+        if FileManager.default.fileExists(atPath: BrowserExtension.folder.path) {
+            BrowserExtension.refreshFolder()
+        }
+    }
+
+    /// Finder'dan açılan .torrent dosyaları ve tarayıcılardan gelen magnet: linkleri
+    /// (Info.plist'teki dosya türü ve adres şeması kayıtları sayesinde).
+    func application(_ application: NSApplication, open urls: [URL]) {
+        store.open(urls)
     }
 }

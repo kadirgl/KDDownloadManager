@@ -29,10 +29,23 @@ final class Aria2Daemon {
             "--split=8",
             "--min-split-size=1M",
             "--file-allocation=none",
+            // Sunucu 503/429 dönerse bırakmadan bekleyip tekrar denesin.
+            "--retry-wait=3",
+            "--max-tries=8",
             "--max-concurrent-downloads=\(maxConcurrent)",
             "--max-overall-download-limit=\(globalLimit ?? 0)",
             // Torrent bitince paylaşmaya devam etmesin; aksi halde hiç "tamamlandı" olmaz.
             "--seed-time=0",
+            // Linkten inen .torrent dosyası indirme klasörüne bırakılmasın, bellekten devam edilsin.
+            "--follow-torrent=mem",
+            // Diskten eklenen torrent'lerin kopyasını biz tutuyoruz; aria2 indirme klasörüne bırakmasın.
+            "--rpc-save-upload-metadata=false",
+            // Takipçisi (tracker) olmayan magnet'ler eşleri DHT'den bulur; DHT'nin başlangıç noktası
+            // yoksa hiç eş bulamaz. Öğrenilen düğümler bir sonraki açılış için saklanır.
+            "--enable-dht=true",
+            "--dht-entry-point=dht.transmissionbt.com:6881",
+            "--dht-file-path=\(AppFolders.support.appendingPathComponent("dht.dat").path)",
+            "--dht-file-path6=\(AppFolders.support.appendingPathComponent("dht6.dat").path)",
             "--console-log-level=warn"
         ]
         process.standardOutput = FileHandle.nullDevice
