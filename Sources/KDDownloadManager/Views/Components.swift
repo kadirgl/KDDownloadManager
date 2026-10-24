@@ -1,5 +1,4 @@
 import SwiftUI
-import PhosphorSwift
 
 /// Phosphor ikonunu sabit boyutta çizer; rengi `foregroundStyle` ile verilir.
 struct PhIcon: View {

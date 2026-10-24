@@ -1,5 +1,4 @@
 import SwiftUI
-import PhosphorSwift
 
 /// Menü çubuğundan açılan panelin kökü; `store.route`'a göre ekran değiştirir.
 struct PanelView: View {

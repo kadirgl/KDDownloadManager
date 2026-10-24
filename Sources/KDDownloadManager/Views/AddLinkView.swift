@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import PhosphorSwift
 
 /// Link yapıştırıp indirme başlatma ekranı.
 struct AddLinkView: View {
