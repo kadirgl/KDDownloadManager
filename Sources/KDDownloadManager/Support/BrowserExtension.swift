@@ -64,18 +64,26 @@ enum BrowserExtension {
     /// kaldırılınca kayıt hemen silindiği için "kurulu" görünmeye devam etmiyor. Yalnızca eklentinin
     /// kimliğine bakılır; dosyalar değiştikçe yeniden okunur.
     static func installState(in browser: Browser) -> InstallState {
+        installInfo(in: browser).state
+    }
+
+    /// Kurulum durumu ve tarayıcının bu bilgiyi diske en son ne zaman yazdığı. Chrome ayarları kurulumdan
+    /// birkaç saniye sonra yazıyor; o arada gelen eklenti sinyali dosyadan daha yeni bilgi sayılır.
+    static func installInfo(in browser: Browser) -> (state: InstallState, written: Date?) {
         let manager = FileManager.default
-        guard let entries = try? manager.contentsOfDirectory(atPath: browser.dataFolder.path) else { return .unknown }
+        guard let entries = try? manager.contentsOfDirectory(atPath: browser.dataFolder.path) else { return (.unknown, nil) }
         // Opera'da profil klasörün kendisi; diğerlerinde "Default", "Profile 1"…
         let profiles = [browser.dataFolder] + entries
             .filter { $0 == "Default" || $0.hasPrefix("Profile ") }
             .map { browser.dataFolder.appendingPathComponent($0, isDirectory: true) }
         var readAny = false
         var found: InstallState = .notInstalled
+        var written: Date?
         for profile in profiles {
             for file in ["Secure Preferences", "Preferences"] {
-                guard let settings = extensionSettings(at: profile.appendingPathComponent(file)) else { continue }
+                guard let (settings, modified) = extensionSettings(at: profile.appendingPathComponent(file)) else { continue }
                 readAny = true
+                written = max(written ?? modified, modified)
                 // Chrome eklenti kaldırılınca kaydı silmiyor, içi boş bırakıyor; klasörü ya da konumu olmayan
                 // kayıt kurulu sayılmaz.
                 guard let entry = settings[extensionID] as? [String: Any],
@@ -83,11 +91,11 @@ enum BrowserExtension {
                 if isDisabled(entry) {
                     if found == .notInstalled { found = .disabled }
                 } else {
-                    return .installed
+                    return (.installed, written)
                 }
             }
         }
-        return readAny ? found : .unknown
+        return (readAny ? found : .unknown, written)
     }
 
     private static func isDisabled(_ entry: [String: Any]) -> Bool {
@@ -100,17 +108,21 @@ enum BrowserExtension {
     /// Dosya değişmedikçe yeniden ayrıştırılmasın (birkaç MB olabiliyor).
     private static var cache: [URL: (modified: Date, settings: [String: Any])] = [:]
 
-    private static func extensionSettings(at file: URL) -> [String: Any]? {
+    private static func extensionSettings(at file: URL) -> (settings: [String: Any], modified: Date)? {
         guard let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate else {
             return nil
         }
-        if let cached = cache[file], cached.modified == modified { return cached.settings }
+        if let cached = cache[file], cached.modified == modified { return (cached.settings, modified) }
         guard let data = try? Data(contentsOf: file),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         let settings = (root["extensions"] as? [String: Any])?["settings"] as? [String: Any] ?? [:]
         cache[file] = (modified, settings)
-        return settings
+        return (settings, modified)
     }
+
+    /// Kendini markasıyla bildiremeyen tarayıcılar (Arc, Vivaldi, Chromium) eklentide bu adla görünüyor.
+    static let unnamedBrowser = "Chromium tabanlı tarayıcı"
+    static let unnamedBrowsers: Set<String> = ["Arc", "Vivaldi", "Chromium"]
 
     /// Tarayıcıya "paketlenmemiş öğe" olarak yüklenen klasör. Uygulama güncellenince yeni sürüm
     /// buraya kopyalanır; tarayıcı bir sonraki açılışında (ya da uzantılar sayfasında yenileyince) alır.

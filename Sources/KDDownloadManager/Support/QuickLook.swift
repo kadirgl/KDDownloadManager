@@ -1,27 +1,37 @@
 import AppKit
 import QuickLookUI
 
-/// Tamamlanan dosyanın Boşluk tuşuyla Quick Look önizlemesi. Finder'daki gibi: Boşluk açar ve kapatır,
-/// ↑/↓ önizlemedeyken listede bir sonraki dosyaya geçer, kapanınca klavye yeniden panele döner.
+/// Tamamlanan dosyanın Boşluk tuşuyla Quick Look önizlemesi.
+///
+/// Önizleme klavyeyi almadan gösteriliyor: menü çubuğu paneli uygulamayı öne almadan klavye alabiliyor ama
+/// Quick Look penceresi alamıyor; anahtar pencere olunca Boşluk ve ok tuşları öndeki başka bir uygulamaya
+/// gidiyordu. Klavye panelde kalıyor: Boşluk kapatır, ↑/↓ listede gezer ve önizleme seçili dosyaya geçer,
+/// Esc kapatır. Önizlemeye tıklanıp anahtar olursa aynı tuşlar orada da çalışır.
 @MainActor
 final class QuickLook: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
     static let shared = QuickLook()
     private var url: URL?
-    /// ↑/↓: listede seçimi kaydırır ve yeni seçili dosyayı döndürür (tamamlanmamışsa nil).
+    /// Önizleme anahtar penceredeyken ↑/↓: listede seçimi kaydırır ve yeni seçili dosyayı döndürür.
     var onMove: ((Int) -> URL?)?
 
-    private var panelIfOpen: QLPreviewPanel? {
+    private var openPanel: QLPreviewPanel? {
         guard QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(), panel.isVisible else { return nil }
         return panel
     }
 
-    /// Aynı dosya için açıksa kapatır.
+    var isVisible: Bool { openPanel != nil }
+
+    /// Aynı dosya için açıksa kapatır, değilse gösterir.
     func toggle(_ url: URL) {
-        if let open = panelIfOpen, self.url == url {
-            open.orderOut(nil)
-            returnFocus()
-            return
+        if isVisible, self.url == url {
+            close()
+        } else {
+            show(url)
         }
+    }
+
+    /// Önizlemeyi bu dosyaya geçirir; kapalıysa açar.
+    func show(_ url: URL) {
         guard FileManager.default.fileExists(atPath: url.path) else {
             NSSound.beep()
             return
@@ -33,23 +43,48 @@ final class QuickLook: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegat
         // Menü çubuğu panelinin (durum çubuğu seviyesinde) altında kalmasın.
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
         panel.reloadData()
-        panel.makeKeyAndOrderFront(nil)
+        if keyObserver == nil {
+            // Quick Look açılış animasyonu bitince kendini anahtar pencere yapıyor; her seferinde klavye
+            // panele geri verilir (önizlemede kaydırma ve tıklama anahtar olmadan da çalışıyor).
+            keyObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification, object: panel, queue: .main
+            ) { _ in
+                // Quick Look işini bitirsin diye bir sonraki döngüde.
+                DispatchQueue.main.async { QuickLook.shared.returnFocus() }
+            }
+        }
+        panel.becomesKeyOnlyIfNeeded = true
+        if !panel.isVisible {
+            panel.orderFront(nil)
+        }
+        returnFocus()
+        // Açılış animasyonu sırasında anahtar olmayı birkaç kez deniyor; ilk saniye boyunca geri al.
+        for delay in [0.15, 0.4, 0.8] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, isVisible else { return }
+                returnFocus()
+            }
+        }
     }
 
-    /// Menü çubuğu paneli kapanırken önizleme de kapanır.
+    private var keyObserver: (any NSObjectProtocol)?
+
+    /// Önizleme açıkken seçilen satır değişti: tamamlanmış bir dosyaysa önizleme ona geçer.
+    func follow(_ url: URL?) {
+        guard isVisible, let url, url != self.url else { return }
+        show(url)
+    }
+
     func close() {
-        panelIfOpen?.orderOut(nil)
+        openPanel?.orderOut(nil)
+        if let keyObserver { NotificationCenter.default.removeObserver(keyObserver) }
+        keyObserver = nil
+        returnFocus()
     }
 
-    /// Önizleme kapanınca klavye panele dönsün (yoksa ok tuşları ve Boşluk hiçbir yere gitmiyor).
+    /// Önizlemeye tıklanıp anahtar olduysa klavye panele dönsün.
     private func returnFocus() {
         NSApp.windows.first { $0 is PanelWindow && $0.isVisible }?.makeKey()
-    }
-
-    private func move(_ offset: Int, in panel: QLPreviewPanel) {
-        guard let next = onMove?(offset) else { return }
-        url = next
-        panel.reloadData()
     }
 
     // MARK: - QLPreviewPanelDataSource
@@ -64,20 +99,21 @@ final class QuickLook: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegat
 
     // MARK: - QLPreviewPanelDelegate
 
-    /// Önizleme öndeyken tuşlar ona gidiyor; Boşluk ve ok tuşlarını burada karşılıyoruz.
+    /// Önizleme anahtar penceredeyse (üstüne tıklandıysa) tuşlar ona gidiyor.
     nonisolated func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
         guard let event, event.type == .keyDown else { return false }
         let keyCode = event.keyCode
-        // Önizlemeyi açan Boşluk basılı tutulursa tekrar olayları buraya geliyor; kapatmasın.
-        if event.isARepeat, keyCode == 49 { return true }
+        let isRepeat = event.isARepeat
         return MainActor.assumeIsolated {
             switch keyCode {
-            case 49: // Boşluk
-                panel.orderOut(nil)
-                returnFocus()
+            case 49: // Boşluk; basılı tutulunca gelen tekrarlar kapatmasın.
+                if !isRepeat { close() }
+                return true
+            case 53: // Esc
+                close()
                 return true
             case 125, 126: // ↓, ↑
-                move(keyCode == 125 ? 1 : -1, in: panel)
+                if let next = onMove?(keyCode == 125 ? 1 : -1) { show(next) }
                 return true
             default:
                 return false
@@ -85,7 +121,7 @@ final class QuickLook: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegat
         }
     }
 
-    /// Esc ya da kapat düğmesiyle kapanınca da klavye panele dönsün.
+    /// Kapat düğmesiyle kapanınca da klavye panele dönsün.
     nonisolated func windowWillClose(_ notification: Notification) {
         Task { @MainActor in self.returnFocus() }
     }

@@ -45,6 +45,10 @@ enum DebugPanel {
             item.destination = file
         }
         store.searchText = ProcessInfo.processInfo.environment["KD_DEMO_SEARCH"] ?? ""
+        // Eklentiden yeni bir sinyal gelmiş gibi (geliştirme ayarlarına yazılır, uygulamanınkine değil).
+        if let browser = ProcessInfo.processInfo.environment["KD_DEMO_HELLO"] {
+            store.extensionDidConnect(browser)
+        }
         switch screen {
         case "completed", "empty-completed": store.tab = .completed
         case "add-link": store.route = .addLink
@@ -74,6 +78,9 @@ enum DebugPanel {
             if screen == "deleted", let first = store?.items.first {
                 store?.delete(first)
             }
+            if let panel, ProcessInfo.processInfo.environment["KD_DEMO_KEYS"] == nil {
+                report(after: "açılış", panel: panel)
+            }
             if let keys = ProcessInfo.processInfo.environment["KD_DEMO_KEYS"], let panel {
                 try? await Task.sleep(for: .seconds(0.5))
                 for key in keys.split(separator: ",") {
@@ -100,7 +107,10 @@ enum DebugPanel {
         let preview = QLPreviewPanel.sharedPreviewPanelExists() ? QLPreviewPanel.shared() : nil
         let item = store?.items.first { $0.id == store?.selection }
         let previewing = preview?.isVisible == true ? (preview?.currentPreviewItem?.previewItemURL?.lastPathComponent ?? "?") : "kapalı"
-        let line = "KD_DEMO_STATE \(key): panel=\(panel.isVisible ? "açık" : "kapalı") anahtar=\(panel.isKeyWindow) "
+        let extensionStates = BrowserExtension.installedBrowsers.map { browser in
+            "\(browser.name)=\(store.map { String(describing: $0.extensionStatus(for: browser)) } ?? "-")"
+        }
+        let line = "KD_DEMO_STATE \(key): eklenti=\(extensionStates) panel=\(panel.isVisible ? "açık" : "kapalı") anahtar=\(panel.isKeyWindow) "
             + "ekran=\(String(describing: store?.route ?? .list)) sekme=\(String(describing: store?.tab ?? .active)) "
             + "liste=\(store?.items.count ?? 0) seçili=\(item?.fileName ?? "-") önizleme=\(previewing) "
             + "pencereler=\(NSApp.windows.filter(\.isVisible).map { String(describing: type(of: $0)) })\n"

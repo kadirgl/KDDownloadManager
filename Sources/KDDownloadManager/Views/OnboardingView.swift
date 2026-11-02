@@ -85,7 +85,7 @@ struct OnboardingView: View {
             .padding(.horizontal, Theme.margin)
             .padding(.bottom, 12)
         }
-        .onChange(of: browser.flatMap { store.extensionSeen[$0.name] }) { _, seen in
+        .onChange(of: browser.flatMap { store.lastSignal(from: $0) }) { _, seen in
             guard seen != nil, !connected else { return }
             withAnimation(.snappy) { connected = true }
             Task {

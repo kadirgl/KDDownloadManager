@@ -13,7 +13,8 @@ struct ExtensionSettings: View {
             SettingsNote("Eklenti tarayıcıdaki indirmeleri, magnet linklerini ve videoları (kalite seçerek) uygulamaya gönderir.")
 
             // Göreli zamanlar ("2 dk önce") ve bağlantı durumu güncel kalsın.
-            TimelineView(.periodic(from: .now, by: 30)) { context in
+            // Bağlantı durumu ve tarayıcı ayarları değiştikçe görünsün (kaldırma birkaç saniyede yansır).
+            TimelineView(.periodic(from: .now, by: 5)) { context in
                 VStack(alignment: .leading, spacing: 12) {
                     if browsers.isEmpty {
                         Text("Desteklenen bir tarayıcı bulunamadı (Chrome, Edge, Brave, Arc, Vivaldi, Opera).")
@@ -74,7 +75,10 @@ struct ExtensionSettings: View {
     /// Kurulu tarayıcı listesinde olmayan ama son bir günde bağlanmış olanlar (örn. adını bildiremeyen
     /// Chromium türevleri).
     private func otherConnections(now: Date) -> [(name: String, date: Date)] {
-        let known = Set(browsers.map(\.name))
+        var known = Set(browsers.map(\.name))
+        if browsers.contains(where: { BrowserExtension.unnamedBrowsers.contains($0.name) }) {
+            known.insert(BrowserExtension.unnamedBrowser)
+        }
         return store.extensionSeen
             .filter { !known.contains($0.key) && now.timeIntervalSince($0.value) < 86_400 }
             .map { (name: $0.key, date: $0.value) }

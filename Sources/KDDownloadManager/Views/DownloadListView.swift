@@ -103,6 +103,9 @@ struct DownloadListView: View {
             .onKeyPress(keys: [.delete, KeyEquivalent("\u{7F}")]) { press in removeSelection(command: press.modifiers.contains(.command)) }
             .onChange(of: store.selection) { _, id in
                 guard let id else { return }
+                // Önizleme açıkken ↑/↓ ile seçilen dosyaya geçsin.
+                let item = store.items.first { $0.id == id }
+                QuickLook.shared.follow(item?.status == .completed ? item?.destination : nil)
                 // Satıra tıklanınca ok tuşları ve Boşluk listeye gitsin (arama alanında kalmasın).
                 listFocused = true
                 withAnimation(.snappy(duration: 0.2)) { proxy.scrollTo(id) }
@@ -627,14 +630,14 @@ private struct EmptyCategoryView: View {
 
 /// Eklenti kurulu ya da bağlı değilse listenin üstünde sarı band ("Şimdilik geç" denip hiç kurulmadıysa,
 /// sonradan kaldırıldıysa ya da tarayıcı açıkken sinyal gelmiyorsa); kapatılırsa 7 gün sonra yeniden çıkar.
-/// Bağlantı durumu zamanla değiştiği için yarım dakikada bir yeniden bakılır.
+/// Bağlantı durumu zamanla değiştiği için birkaç saniyede bir yeniden bakılır.
 private struct ExtensionBanner: View {
     @Environment(DownloadStore.self) private var store
     @AppStorage(SettingsKey.onboardingSkipped) private var skipped = false
     @AppStorage(SettingsKey.extensionBannerDismissed) private var dismissed = 0.0
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
+        TimelineView(.periodic(from: .now, by: 5)) { context in
             if let message = message(now: context.date) {
                 banner(message)
             }

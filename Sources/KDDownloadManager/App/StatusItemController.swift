@@ -131,7 +131,9 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         // odaktayken Esc doğrudan pencereye geldiği için geri butonunun kısayoluna güvenilemiyor.
         panel.onCancel = { [weak self] in
             guard let self else { return }
-            if store.route == .list {
+            if QuickLook.shared.isVisible {
+                QuickLook.shared.close()
+            } else if store.route == .list {
                 close()
             } else {
                 store.route = .list

@@ -146,15 +146,28 @@ final class DownloadStore {
 
     /// Önce tarayıcının profil ayarlarına (kaldırılınca hemen yansır), sonra eklentinin sinyaline bakılır.
     func extensionStatus(for browser: BrowserExtension.Browser, now: Date = Date()) -> ExtensionStatus {
-        let seen = extensionSeen[browser.name]
-        switch BrowserExtension.installState(in: browser) {
-        case .notInstalled: return .notInstalled
-        case .disabled: return .disabled
-        case .unknown where seen == nil: return .notInstalled
-        case .installed, .unknown: break
+        let seen = lastSignal(from: browser)
+        let recent = seen.map { now.timeIntervalSince($0) < Self.extensionConnectedWindow } ?? false
+        let install = BrowserExtension.installInfo(in: browser)
+        switch install.state {
+        case .notInstalled, .disabled:
+            // Yeni kurulmuş: tarayıcı ayarlarını henüz yazmadı ama eklenti sinyal verdi (dosyadan daha yeni).
+            if recent, let seen, let written = install.written, seen > written { return .connected }
+            return install.state == .disabled ? .disabled : .notInstalled
+        case .unknown where seen == nil:
+            return .notInstalled
+        case .installed, .unknown:
+            break
         }
-        if let seen, now.timeIntervalSince(seen) < Self.extensionConnectedWindow { return .connected }
+        if recent { return .connected }
         return browser.isRunning ? .notConnected(seen) : .browserClosed(seen)
+    }
+
+    /// Tarayıcıdan gelen son sinyal; markasını bildiremeyenlerde ortak adla gelen sinyal.
+    func lastSignal(from browser: BrowserExtension.Browser) -> Date? {
+        if let seen = extensionSeen[browser.name] { return seen }
+        guard BrowserExtension.unnamedBrowsers.contains(browser.name) else { return nil }
+        return extensionSeen[BrowserExtension.unnamedBrowser]
     }
 
     enum ExtensionProblem {
