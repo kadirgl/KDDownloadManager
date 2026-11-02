@@ -18,6 +18,8 @@ enum SettingsKey {
     static let ytDlpLastCheck = "ytDlpLastCheck"
     /// İlk açılıştaki eklenti kurulumunda "Şimdilik geç" seçildi; kurulum ekranı bir daha zorla açılmaz.
     static let onboardingSkipped = "onboardingSkipped"
+    /// Bir tarayıcı eklentisi en az bir kez bağlandı (sonradan kaldırılsa da kurulum ekranı zorla açılmaz).
+    static let extensionEverConnected = "extensionEverConnected"
     /// "Chrome eklentisi bağlı değil" bandının kapatıldığı an (7 gün sonra yeniden çıkar).
     static let extensionBannerDismissed = "extensionBannerDismissed"
     /// Tamamlanan listesinin sırası (CompletedSort).

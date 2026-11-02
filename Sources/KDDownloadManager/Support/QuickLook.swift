@@ -68,6 +68,8 @@ final class QuickLook: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegat
     nonisolated func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
         guard let event, event.type == .keyDown else { return false }
         let keyCode = event.keyCode
+        // Önizlemeyi açan Boşluk basılı tutulursa tekrar olayları buraya geliyor; kapatmasın.
+        if event.isARepeat, keyCode == 49 { return true }
         return MainActor.assumeIsolated {
             switch keyCode {
             case 49: // Boşluk

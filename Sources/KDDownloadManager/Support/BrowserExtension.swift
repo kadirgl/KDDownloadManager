@@ -8,27 +8,105 @@ enum BrowserExtension {
     struct Browser: Identifiable {
         let name: String
         let appURL: URL
+        let bundleID: String
         /// O tarayıcının uzantılar sayfası (chrome://extensions vb.).
         let extensionsPage: String
+        /// Profil klasörlerinin bulunduğu yer (~/Library/Application Support altında).
+        let dataFolder: URL
         var id: String { name }
+
+        var isRunning: Bool {
+            !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
+        }
     }
 
-    private static let candidates: [(name: String, bundleID: String, page: String)] = [
-        ("Google Chrome", "com.google.Chrome", "chrome://extensions"),
-        ("Microsoft Edge", "com.microsoft.edgemac", "edge://extensions"),
-        ("Brave", "com.brave.Browser", "brave://extensions"),
-        ("Arc", "company.thebrowser.Browser", "chrome://extensions"),
-        ("Vivaldi", "com.vivaldi.Vivaldi", "vivaldi://extensions"),
-        ("Opera", "com.operasoftware.Opera", "opera://extensions"),
-        ("Chromium", "org.chromium.Chromium", "chrome://extensions")
+    /// Eklentinin kimliği; manifest'teki "key" sayesinde her tarayıcıda aynı.
+    static let extensionID = "necbfaijhfnnoikbppjdjcpfjekefdbk"
+
+    private static let candidates: [(name: String, bundleID: String, page: String, data: String)] = [
+        ("Google Chrome", "com.google.Chrome", "chrome://extensions", "Google/Chrome"),
+        ("Microsoft Edge", "com.microsoft.edgemac", "edge://extensions", "Microsoft Edge"),
+        ("Brave", "com.brave.Browser", "brave://extensions", "BraveSoftware/Brave-Browser"),
+        ("Arc", "company.thebrowser.Browser", "chrome://extensions", "Arc/User Data"),
+        ("Vivaldi", "com.vivaldi.Vivaldi", "vivaldi://extensions", "Vivaldi"),
+        ("Opera", "com.operasoftware.Opera", "opera://extensions", "com.operasoftware.Opera"),
+        ("Chromium", "org.chromium.Chromium", "chrome://extensions", "Chromium")
     ]
+
+    private static var browserDataRoot: URL {
+        #if DEBUG
+        // Denemelerde gerçek tarayıcı profillerine bakılmasın diye sahte bir klasör verilebilir.
+        if let path = ProcessInfo.processInfo.environment["KD_BROWSER_DATA"] {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        #endif
+        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    }
 
     static var installedBrowsers: [Browser] {
         candidates.compactMap { candidate in
             NSWorkspace.shared.urlForApplication(withBundleIdentifier: candidate.bundleID).map {
-                Browser(name: candidate.name, appURL: $0, extensionsPage: candidate.page)
+                Browser(name: candidate.name, appURL: $0, bundleID: candidate.bundleID, extensionsPage: candidate.page,
+                        dataFolder: browserDataRoot.appendingPathComponent(candidate.data, isDirectory: true))
             }
         }
+    }
+
+    // MARK: - Kurulu mu?
+
+    enum InstallState {
+        case installed, disabled, notInstalled
+        /// Profil ayarları okunamadı; eklentinin sinyaline bakılır.
+        case unknown
+    }
+
+    /// Tarayıcının profil ayarlarında (Preferences / Secure Preferences) eklentinin kaydı var mı. Eklenti
+    /// kaldırılınca kayıt hemen silindiği için "kurulu" görünmeye devam etmiyor. Yalnızca eklentinin
+    /// kimliğine bakılır; dosyalar değiştikçe yeniden okunur.
+    static func installState(in browser: Browser) -> InstallState {
+        let manager = FileManager.default
+        guard let entries = try? manager.contentsOfDirectory(atPath: browser.dataFolder.path) else { return .unknown }
+        // Opera'da profil klasörün kendisi; diğerlerinde "Default", "Profile 1"…
+        let profiles = [browser.dataFolder] + entries
+            .filter { $0 == "Default" || $0.hasPrefix("Profile ") }
+            .map { browser.dataFolder.appendingPathComponent($0, isDirectory: true) }
+        var readAny = false
+        var found: InstallState = .notInstalled
+        for profile in profiles {
+            for file in ["Secure Preferences", "Preferences"] {
+                guard let settings = extensionSettings(at: profile.appendingPathComponent(file)) else { continue }
+                readAny = true
+                guard let entry = settings[extensionID] as? [String: Any] else { continue }
+                if isDisabled(entry) {
+                    if found == .notInstalled { found = .disabled }
+                } else {
+                    return .installed
+                }
+            }
+        }
+        return readAny ? found : .unknown
+    }
+
+    private static func isDisabled(_ entry: [String: Any]) -> Bool {
+        if let state = entry["state"] as? Int, state == 0 { return true }
+        if let reasons = entry["disable_reasons"] as? Int { return reasons != 0 }
+        if let reasons = entry["disable_reasons"] as? [Any] { return !reasons.isEmpty }
+        return false
+    }
+
+    /// Dosya değişmedikçe yeniden ayrıştırılmasın (birkaç MB olabiliyor).
+    private static var cache: [URL: (modified: Date, settings: [String: Any])] = [:]
+
+    private static func extensionSettings(at file: URL) -> [String: Any]? {
+        guard let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate else {
+            return nil
+        }
+        if let cached = cache[file], cached.modified == modified { return cached.settings }
+        guard let data = try? Data(contentsOf: file),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let settings = (root["extensions"] as? [String: Any])?["settings"] as? [String: Any] ?? [:]
+        cache[file] = (modified, settings)
+        return settings
     }
 
     /// Tarayıcıya "paketlenmemiş öğe" olarak yüklenen klasör. Uygulama güncellenince yeni sürüm

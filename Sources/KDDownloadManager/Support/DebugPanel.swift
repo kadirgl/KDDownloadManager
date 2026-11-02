@@ -101,7 +101,8 @@ enum DebugPanel {
         let item = store?.items.first { $0.id == store?.selection }
         let previewing = preview?.isVisible == true ? (preview?.currentPreviewItem?.previewItemURL?.lastPathComponent ?? "?") : "kapalı"
         let line = "KD_DEMO_STATE \(key): panel=\(panel.isVisible ? "açık" : "kapalı") anahtar=\(panel.isKeyWindow) "
-            + "ekran=\(String(describing: store?.route ?? .list)) seçili=\(item?.fileName ?? "-") önizleme=\(previewing) "
+            + "ekran=\(String(describing: store?.route ?? .list)) sekme=\(String(describing: store?.tab ?? .active)) "
+            + "liste=\(store?.items.count ?? 0) seçili=\(item?.fileName ?? "-") önizleme=\(previewing) "
             + "pencereler=\(NSApp.windows.filter(\.isVisible).map { String(describing: type(of: $0)) })\n"
         FileHandle.standardError.write(Data(line.utf8))
     }
@@ -109,7 +110,7 @@ enum DebugPanel {
     private static func press(_ key: String, in window: NSWindow) {
         let table: [String: (code: UInt16, characters: String)] = [
             "down": (125, "\u{F701}"), "up": (126, "\u{F700}"), "space": (49, " "), "return": (36, "\r"),
-            "delete": (51, "\u{7F}"), "z": (6, "z"), "f": (3, "f"), "r": (15, "r"), "escape": (53, "\u{1B}"), "comma": (43, ","), "w": (13, "w")
+            "delete": (51, "\u{7F}"), "z": (6, "z"), "f": (3, "f"), "r": (15, "r"), "escape": (53, "\u{1B}"), "comma": (43, ","), "w": (13, "w"), "n": (45, "n"), "v": (9, "v"), "c": (8, "c"), "one": (18, "1"), "two": (19, "2")
         ]
         let command = key.hasPrefix("cmd-")
         guard let entry = table[command ? String(key.dropFirst(4)) : key] else { return }

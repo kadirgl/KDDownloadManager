@@ -8,9 +8,6 @@ struct ExtensionSettings: View {
     @State private var installing: BrowserExtension.Browser?
     @State private var installFailed = false
 
-    /// Eklenti dakikada bir sinyal gönderiyor; biraz pay bırakarak "bağlı" sayılma süresi.
-    private static let connectedWindow: TimeInterval = 150
-
     var body: some View {
         SettingsSection(title: "Tarayıcı eklentisi") {
             SettingsNote("Eklenti tarayıcıdaki indirmeleri, magnet linklerini ve videoları (kalite seçerek) uygulamaya gönderir.")
@@ -45,21 +42,26 @@ struct ExtensionSettings: View {
     }
 
     private func row(for browser: BrowserExtension.Browser, now: Date) -> some View {
-        let seen = store.extensionSeen[browser.name]
+        let status = store.extensionStatus(for: browser, now: now)
         return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(browser.name).fontWeight(.semibold)
-                status(seen: seen, now: now)
+                statusLine(status)
             }
             Spacer()
-            if seen == nil {
-                // Hiç bağlanmamış: adım adım kurulum ekranı.
+            switch status {
+            case .notInstalled:
+                // Kurulu değil: adım adım kurulum ekranı.
                 Button("Kur") {
                     store.onboardingBrowser = browser.name
                     store.route = .onboarding
                 }
                 .buttonStyle(AccentButtonStyle(height: 30, fontSize: 12))
-            } else {
+            case .disabled:
+                Button("Aç") { openExtensionsPage(of: browser) }
+                    .buttonStyle(AccentButtonStyle(height: 30, fontSize: 12))
+                    .help("Uzantılar sayfasında KD Download Manager'ın anahtarını açın.")
+            default:
                 Button("Yeniden kur") {
                     installFailed = !BrowserExtension.beginInstall(in: browser)
                     installing = installFailed ? nil : browser
@@ -69,11 +71,12 @@ struct ExtensionSettings: View {
         }
     }
 
-    /// Kurulu tarayıcı listesinde olmayan ama bağlanmış olanlar (örn. adını bildiremeyen Chromium türevleri).
+    /// Kurulu tarayıcı listesinde olmayan ama son bir günde bağlanmış olanlar (örn. adını bildiremeyen
+    /// Chromium türevleri).
     private func otherConnections(now: Date) -> [(name: String, date: Date)] {
         let known = Set(browsers.map(\.name))
         return store.extensionSeen
-            .filter { !known.contains($0.key) }
+            .filter { !known.contains($0.key) && now.timeIntervalSince($0.value) < 86_400 }
             .map { (name: $0.key, date: $0.value) }
             .sorted { $0.date > $1.date }
     }
@@ -81,20 +84,27 @@ struct ExtensionSettings: View {
     private func statusLine(name: String, seen: Date, now: Date) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(name).fontWeight(.semibold)
-            status(seen: seen, now: now)
+            statusLine(now.timeIntervalSince(seen) < DownloadStore.extensionConnectedWindow ? .connected : .notConnected(seen))
         }
     }
 
-    private func status(seen: Date?, now: Date) -> some View {
-        let connected = seen.map { now.timeIntervalSince($0) < Self.connectedWindow } ?? false
-        if connected {
-            return StatusLine(text: "Bağlı", kind: .connected)
-        } else if let seen {
-            let ago = seen.formatted(.relative(presentation: .named, unitsStyle: .wide).locale(Locale(identifier: "tr_TR")))
-            return StatusLine(text: "Son bağlantı \(ago)")
-        } else {
-            return StatusLine(text: "Bağlı değil", kind: .error)
+    private func statusLine(_ status: DownloadStore.ExtensionStatus) -> StatusLine {
+        func ago(_ date: Date?) -> String {
+            guard let date else { return "" }
+            return " · son bağlantı " + date.formatted(.relative(presentation: .named, unitsStyle: .wide).locale(Locale(identifier: "tr_TR")))
         }
+        return switch status {
+        case .connected: StatusLine(text: "Bağlı", kind: .connected)
+        case .notInstalled: StatusLine(text: "Kurulu değil", kind: .error)
+        case .disabled: StatusLine(text: "Eklenti kapalı (devre dışı)", kind: .error)
+        case .browserClosed(let seen): StatusLine(text: "Tarayıcı kapalı" + ago(seen))
+        case .notConnected(let seen): StatusLine(text: "Bağlı değil" + ago(seen), kind: .error)
+        }
+    }
+
+    private func openExtensionsPage(of browser: BrowserExtension.Browser) {
+        guard let page = URL(string: browser.extensionsPage) else { return }
+        NSWorkspace.shared.open([page], withApplicationAt: browser.appURL, configuration: NSWorkspace.OpenConfiguration())
     }
 
     private func steps(for browser: BrowserExtension.Browser) -> some View {

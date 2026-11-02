@@ -42,8 +42,11 @@ final class DownloadStore {
     static let undoWindow: TimeInterval = 5
     @ObservationIgnored private var deletionTask: Task<Void, Never>?
     /// Tarayıcı eklentilerinin en son ne zaman bağlandığı (Ayarlar'daki durum için); kalıcı.
-    private(set) var extensionSeen: [String: Date] =
-        UserDefaults.standard.dictionary(forKey: SettingsKey.extensionSeen) as? [String: Date] ?? [:]
+    /// İki haftadır sinyal vermeyenler (eski sürümlerin adsız "Tarayıcı" kaydı gibi) unutulur.
+    private(set) var extensionSeen: [String: Date] = {
+        let saved = UserDefaults.standard.dictionary(forKey: SettingsKey.extensionSeen) as? [String: Date] ?? [:]
+        return saved.filter { Date().timeIntervalSince($0.value) < 14 * 86_400 }
+    }()
 
     @ObservationIgnored private let engine: any DownloadEngine
     @ObservationIgnored private let archive: DownloadArchive?
@@ -88,7 +91,7 @@ final class DownloadStore {
                 forName: NSApplication.willTerminateNotification, object: nil, queue: .main
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    self?.commitPendingDeletion()
+                    self?.commitPendingDeletion(terminating: true)
                     self?.save()
                 }
             }
@@ -119,7 +122,47 @@ final class DownloadStore {
 
     /// İlk açılış: hiçbir tarayıcı eklentisi bağlanmadıysa ve "Şimdilik geç" denmediyse kurulum ekranı.
     var needsOnboarding: Bool {
-        extensionSeen.isEmpty && !UserDefaults.standard.bool(forKey: SettingsKey.onboardingSkipped)
+        !extensionEverConnected && !UserDefaults.standard.bool(forKey: SettingsKey.onboardingSkipped)
+    }
+
+    var extensionEverConnected: Bool {
+        UserDefaults.standard.bool(forKey: SettingsKey.extensionEverConnected) || !extensionSeen.isEmpty
+    }
+
+    // MARK: - Tarayıcı eklentisi durumu
+
+    enum ExtensionStatus: Equatable {
+        case connected
+        /// Tarayıcı kapalı; son sinyal zamanı.
+        case browserClosed(Date?)
+        /// Tarayıcı açık ama eklentiden sinyal gelmiyor.
+        case notConnected(Date?)
+        case disabled
+        case notInstalled
+    }
+
+    /// Eklenti dakikada bir sinyal gönderiyor; biraz pay bırakarak "bağlı" sayılma süresi.
+    static let extensionConnectedWindow: TimeInterval = 150
+
+    /// Önce tarayıcının profil ayarlarına (kaldırılınca hemen yansır), sonra eklentinin sinyaline bakılır.
+    func extensionStatus(for browser: BrowserExtension.Browser, now: Date = Date()) -> ExtensionStatus {
+        let seen = extensionSeen[browser.name]
+        switch BrowserExtension.installState(in: browser) {
+        case .notInstalled: return .notInstalled
+        case .disabled: return .disabled
+        case .unknown where seen == nil: return .notInstalled
+        case .installed, .unknown: break
+        }
+        if let seen, now.timeIntervalSince(seen) < Self.extensionConnectedWindow { return .connected }
+        return browser.isRunning ? .notConnected(seen) : .browserClosed(seen)
+    }
+
+    /// Hiçbir tarayıcıda eklenti kurulu (ya da açık) değil: listenin üstündeki hatırlatma bandı için.
+    var extensionMissing: Bool {
+        let browsers = BrowserExtension.installedBrowsers
+        return !browsers.isEmpty && browsers.allSatisfy {
+            [.notInstalled, .disabled].contains(extensionStatus(for: $0))
+        }
     }
 
     /// Panel açılırken: gerekiyorsa eklenti kurulumu, değilse boştayken "Tamamlanan".
@@ -385,23 +428,37 @@ final class DownloadStore {
         deletionTask?.cancel()
         pendingDeletion = nil
         items.insert(pending.item, at: min(pending.index, items.count))
+        // Son devam eden silinince liste "Tamamlanan"a geçmiş olabilir; geri gelen görünsün.
+        tab = ListTab.active.includes(pending.item.status) ? .active : .completed
+        if category != .all, category != pending.item.category { category = .all }
         selection = pending.item.id
         if pending.wasRunning { engine.resume(pending.item) }
         save()
     }
 
     /// Bekleyen silmeyi hemen uygular (süre doldu, yeni bir silme geldi ya da uygulama kapanıyor).
-    func commitPendingDeletion() {
+    func commitPendingDeletion(terminating: Bool = false) {
         guard let pending = pendingDeletion else { return }
         deletionTask?.cancel()
         pendingDeletion = nil
+        let item = pending.item
         if pending.trashesFile {
-            engine.cancel(pending.item)
-            if let file = pending.item.destination {
+            engine.cancel(item)
+            if let file = item.destination {
                 try? FileManager.default.trashItem(at: file, resultingItemURL: nil)
             }
-        } else {
-            cancel(pending.item)
+            return
+        }
+        cancel(item)
+        // aria2 yarım dosyayı arka planda siliyor; uygulama kapanıyorsa o iş hiç çalışmaz. Yarım dosyayı
+        // kontrol dosyası (.aria2) varsa hemen sil; yoksa aynı adlı bitmiş bir dosyaya dokunulmaz.
+        if terminating, item.source == .direct {
+            let file = item.folder.appendingPathComponent(item.fileName)
+            let control = file.appendingPathExtension("aria2")
+            if FileManager.default.fileExists(atPath: control.path) {
+                try? FileManager.default.removeItem(at: file)
+                try? FileManager.default.removeItem(at: control)
+            }
         }
     }
 
@@ -448,6 +505,7 @@ final class DownloadStore {
     func extensionDidConnect(_ browser: String) {
         extensionSeen[browser] = Date()
         UserDefaults.standard.set(extensionSeen, forKey: SettingsKey.extensionSeen)
+        UserDefaults.standard.set(true, forKey: SettingsKey.extensionEverConnected)
     }
 
     // MARK: - Kayıt

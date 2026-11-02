@@ -23,9 +23,13 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(openFromNotification), name: Self.openPanelNotification, object: nil
         )
-        // Önizleme öndeyken panel anahtar pencere değil; ⌘Tab ile başka uygulamaya geçilince de kapansın.
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(applicationDidResignActive), name: NSApplication.didResignActiveNotification, object: nil
+        // Başka bir uygulama öne geçince (⌘Tab, Dock, bildirim) panel kapansın. Panelin anahtar pencere
+        // olmaktan çıkmasına bakılmıyor: önizleme, hız sınırı menüsü ve dosya seçme penceresi de
+        // anahtar oluyor; macOS uygulamayı her zaman öne almadığı için "uygulama arka planda" kontrolü
+        // önizlemeyi açılır açılmaz kapatıyordu.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(otherApplicationActivated(_:)),
+            name: NSWorkspace.didActivateApplicationNotification, object: nil
         )
         if let button = statusItem.button {
             button.imagePosition = .imageLeading
@@ -45,12 +49,14 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         isOpen ? close() : open()
     }
 
-    @objc private func applicationDidResignActive() {
-        guard !Self.keepsOpenForDemo, NSApp.modalWindow == nil else { return }
+    @objc private func otherApplicationActivated(_ notification: Notification) {
+        let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+        guard !Self.keepsOpenForDemo, app?.processIdentifier != ProcessInfo.processInfo.processIdentifier,
+              NSApp.modalWindow == nil else { return }
         close()
     }
 
-    /// Demo aracı başka bir uygulama öndeyken çalıştığından uygulama etkinleşemiyor; panel açık kalsın.
+    /// Demo aracı çalışırken başka uygulamalar öne geçebiliyor; panel açık kalsın.
     private static var keepsOpenForDemo: Bool {
         #if DEBUG
         return DebugPanel.screen != nil
@@ -96,15 +102,6 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         }
     }
 
-    func windowDidResignKey(_ notification: Notification) {
-        // Odak uygulamadan çıktıysa kapan; hız sınırı menüsü (popover) ya da dosya seçme penceresi gibi
-        // kendi pencerelerimize geçtiyse açık kalsın. Yeni anahtar pencere bir sonraki döngüde belli oluyor.
-        DispatchQueue.main.async { [weak self] in
-            guard !Self.keepsOpenForDemo, NSApp.modalWindow == nil, !NSApp.isActive || NSApp.keyWindow == nil else { return }
-            self?.close()
-        }
-    }
-
     // MARK: - Panel
 
     private func makePanel() -> PanelWindow {
@@ -130,7 +127,17 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         let panel = PanelWindow(size: size)
         panel.contentView = content
         panel.delegate = self
-        panel.onCancel = { [weak self] in self?.close() }
+        // Esc: alt ekranlarda (Link ekle, Ayarlar, kurulum) listeye döner, listede paneli kapatır. Yazı alanı
+        // odaktayken Esc doğrudan pencereye geldiği için geri butonunun kısayoluna güvenilemiyor.
+        panel.onCancel = { [weak self] in
+            guard let self else { return }
+            if store.route == .list {
+                close()
+            } else {
+                store.route = .list
+            }
+        }
+        panel.onClose = { [weak self] in self?.close() }
         return panel
     }
 
@@ -297,6 +304,7 @@ final class StatusItemController: NSObject, NSWindowDelegate {
 /// Kenarlıksız, saydam panel. Uygulamayı öne getirmeden klavye girdisi alabiliyor (Link ekle alanı).
 final class PanelWindow: NSPanel {
     var onCancel: (() -> Void)?
+    var onClose: (() -> Void)?
 
     init(size: NSSize) {
         super.init(
@@ -331,7 +339,7 @@ final class PanelWindow: NSPanel {
 
     override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {}
 
-    /// Esc: açık bir menü ya da geri butonu yakalamadıysa paneli kapatır.
+    /// Esc: açık bir menü yakalamadıysa geri gider ya da paneli kapatır (bkz. StatusItemController).
     override func cancelOperation(_ sender: Any?) {
         onCancel?()
     }
@@ -340,7 +348,7 @@ final class PanelWindow: NSPanel {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
            event.charactersIgnoringModifiers == "w" {
-            onCancel?()
+            onClose?()
             return true
         }
         return super.performKeyEquivalent(with: event)

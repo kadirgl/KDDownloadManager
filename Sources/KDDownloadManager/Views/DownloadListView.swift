@@ -64,7 +64,10 @@ struct DownloadListView: View {
         .background { ListShortcuts(searchFocused: $searchFocused) }
         .onAppear { listFocused = true }
         .onChange(of: store.tab) {
-            store.selection = nil
+            // Seçili satır yeni sekmede yoksa seçimi bırak (geri alınan indirme seçili kalsın).
+            if let selected = store.selection, !store.visibleItems.contains(where: { $0.id == selected }) {
+                store.selection = nil
+            }
             if store.tab == .active { store.searchText = "" }
         }
     }
@@ -94,7 +97,8 @@ struct DownloadListView: View {
             .focusEffectDisabled()
             .onKeyPress(.upArrow) { moveSelection(by: -1) }
             .onKeyPress(.downArrow) { moveSelection(by: 1) }
-            .onKeyPress(.space) { activateSelection() }
+            // Basılı tutulan Boşluk önizlemeyi açıp kapatıp durmasın: sadece ilk basış.
+            .onKeyPress(.space, phases: .down) { _ in activateSelection() }
             .onKeyPress(.return) { openSelection() }
             .onKeyPress(keys: [.delete, KeyEquivalent("\u{7F}")]) { press in removeSelection(command: press.modifiers.contains(.command)) }
             .onChange(of: store.selection) { _, id in
@@ -621,18 +625,24 @@ private struct EmptyCategoryView: View {
 
 // MARK: - Eklenti bandı
 
-/// "Şimdilik geç" denip eklenti hiç bağlanmadıysa listenin üstünde sarı band; kapatılırsa 7 gün sonra yeniden çıkar.
+/// Eklenti kurulu değilse ("Şimdilik geç" denip hiç kurulmadıysa ya da sonradan kaldırıldıysa) listenin
+/// üstünde sarı band; kapatılırsa 7 gün sonra yeniden çıkar.
 private struct ExtensionBanner: View {
     @Environment(DownloadStore.self) private var store
     @AppStorage(SettingsKey.onboardingSkipped) private var skipped = false
     @AppStorage(SettingsKey.extensionBannerDismissed) private var dismissed = 0.0
 
+    private var visible: Bool {
+        guard Date().timeIntervalSince1970 - dismissed > 7 * 86_400 else { return false }
+        return store.extensionEverConnected ? store.extensionMissing : skipped
+    }
+
     var body: some View {
-        if skipped, store.extensionSeen.isEmpty, Date().timeIntervalSince1970 - dismissed > 7 * 86_400 {
+        if visible {
             HStack(spacing: 10) {
                 Image(systemName: "puzzlepiece.extension.fill")
                     .foregroundStyle(Theme.warning)
-                Text("Chrome eklentisi bağlı değil")
+                Text("Tarayıcı eklentisi kurulu değil")
                     .font(.system(size: 12.5, weight: .semibold))
                 Spacer()
                 Button("Kur") { store.route = .onboarding }
