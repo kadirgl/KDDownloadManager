@@ -23,6 +23,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SettingsKey.importDevelopmentSettings()
         #if DEBUG
         if DebugPanel.screen != nil {
+            // KD_DEMO_URLS: örnekler yerine gerçek motorla bu adresleri indir (performans ölçümü).
+            if let urls = ProcessInfo.processInfo.environment["KD_DEMO_URLS"] {
+                let store = DownloadStore(engine: RoutingEngine(files: Aria2Engine(), videos: YtDlpEngine()))
+                store.add(urls.split(separator: " ").map { DownloadRequest(url: String($0)) })
+                return store
+            }
             let store = DownloadStore(engine: MockDownloadEngine(), seedSamples: true)
             DebugPanel.configure(store)
             return store

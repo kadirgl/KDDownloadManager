@@ -273,10 +273,12 @@ struct GlassDivider: View {
     }
 }
 
+/// İlerleme çubuğu. Animasyonsuz: indirmeler saniyede iki kez ilerliyor, her seferinde başlayan animasyon
+/// çubukları neredeyse sürekli ekran yenileme hızında (gölgeli parlamayla) yeniden çizdiriyordu.
 struct ProgressBar: View {
     let value: Double
     var tint: Color = Theme.accent
-    /// Devam eden indirmede çubuğun hafif parlaması.
+    /// Devam eden indirmede çubuğun hafif parlaması (gölge yerine ucuz bir renk geçişi).
     var glows = false
 
     var body: some View {
@@ -284,13 +286,13 @@ struct ProgressBar: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(Theme.track)
                 Capsule()
-                    .fill(tint)
+                    .fill(glows
+                          ? AnyShapeStyle(LinearGradient(colors: [tint.opacity(0.85), tint], startPoint: .leading, endPoint: .trailing))
+                          : AnyShapeStyle(tint))
                     .frame(width: value > 0 ? max(geo.size.width * value, 5) : 0)
-                    .shadow(color: glows ? tint.opacity(0.6) : .clear, radius: 4)
             }
         }
         .frame(height: 5)
-        .animation(.easeOut(duration: 0.4), value: value)
         .accessibilityElement()
         .accessibilityValue("%\(Int(value * 100))")
     }

@@ -12,11 +12,15 @@ struct PanelView: View {
 
     var body: some View {
         Group {
-            switch store.route {
-            case .list: DownloadListView()
-            case .addLink: AddLinkView()
-            case .settings: SettingsView()
-            case .onboarding: OnboardingView()
+            if store.panelVisible {
+                switch store.route {
+                case .list: DownloadListView()
+                case .addLink: AddLinkView()
+                case .settings: SettingsView()
+                case .onboarding: OnboardingView()
+                }
+            } else {
+                Color.clear
             }
         }
         .frame(width: Theme.panelWidth, height: Theme.panelHeight)

@@ -73,9 +73,9 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         guard !isOpen else { return }
         store.panelWillOpen()
         position()
+        store.panelVisible = true
         // Uygulama etkin değilken anahtarlar ve alanlar soluk (pasif) çiziliyor. Kapanırken gizlendiyse
         // önce görünür yapılmalı, yoksa panel ekrana gelmiyor.
-        if NSApp.isHidden { NSApp.unhide(nil) }
         NSApp.activate()
         panel.makeKeyAndOrderFront(nil)
         panel.invalidateShadow()
@@ -90,6 +90,7 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         guard panel.isVisible else { return }
         QuickLook.shared.close()
         panel.orderOut(nil)
+        store.panelVisible = false
         statusItem.button?.highlight(false)
         if let outsideClickMonitor {
             NSEvent.removeMonitor(outsideClickMonitor)
@@ -97,8 +98,10 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         outsideClickMonitor = nil
         // Panel açılırken uygulama öne alınmıştı; kapanınca odağı önceki uygulamaya geri ver, yoksa
         // klavye girdisi penceresi olmayan bu uygulamaya gidiyor.
+        // Gizlemek (hide) yerine yalnızca odak bırakılıyor: gizli uygulamayı macOS App Nap'e alıp
+        // zamanlayıcılarını yavaşlatıyordu.
         if NSApp.isActive, NSApp.modalWindow == nil {
-            NSApp.hide(nil)
+            NSApp.deactivate()
         }
     }
 
@@ -272,14 +275,21 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         return image
     }
 
-    /// İkonun yanındaki anlık toplam hız ("Toplam hızı göster" açıksa ve bir şey iniyorsa).
+    /// İkonun yanındaki anlık toplam hız ("Toplam hızı göster" açıksa ve bir şey iniyorsa). Yalnızca
+    /// saniyede bir değişen toplam hız ve indirme durumları izlenir; bayt sayaçları her indirmede saniyede
+    /// birkaç kez değiştiği için izlenmiyor (ilerleme halkası hızla birlikte saniyede bir güncellenir).
     private func observeLabel() {
         withObservationTracking {
-            updateLabel()
+            _ = store.displaySpeed
+            _ = store.items.map(\.status)
+            _ = store.finishedAt
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeLabel() }
         }
+        updateLabel()
     }
+
+    private var lastTitle = ""
 
     @objc private func defaultsChanged() {
         updateLabel()
@@ -290,13 +300,15 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         guard let button = statusItem.button else { return }
         let showSpeed = UserDefaults.standard.object(forKey: SettingsKey.showSpeedInMenuBar) as? Bool ?? true
         let speed = store.displaySpeed
-        guard showSpeed, speed > 0 else {
-            if !button.title.isEmpty { button.title = "" }
-            return
+        var padded = ""
+        if showSpeed, speed > 0 {
+            // Genişlik rakam genişliğindeki boşlukla (U+2007) sabitleniyor; hız değiştikçe yandaki ikonlar kaymasın.
+            let text = ByteFormat.speed(speed)
+            padded = " " + String(repeating: "\u{2007}", count: max(0, 10 - text.count)) + text
         }
-        // Genişlik rakam genişliğindeki boşlukla (U+2007) sabitleniyor; hız değiştikçe yandaki ikonlar kaymasın.
-        let text = ByteFormat.speed(speed)
-        let padded = " " + String(repeating: "\u{2007}", count: max(0, 10 - text.count)) + text
+        // Menü çubuğu her değişiklikte yeniden çiziliyor; metin aynıysa dokunma.
+        guard padded != lastTitle else { return }
+        lastTitle = padded
         button.attributedTitle = NSAttributedString(string: padded, attributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         ])

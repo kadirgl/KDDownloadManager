@@ -14,6 +14,9 @@ final class DownloadStore {
     var category: DownloadCategory = .all
     var tab: ListTab = .active
     var route: Route = .list
+    /// Panel ekranda mı. Kapalıyken içerik hiç çizilmiyor; gizli pencerede de her ilerlemede yeniden
+    /// hesaplanıp çiziliyordu (açık panelden fazla işlemci).
+    var panelVisible = false
     /// Ayarlar'da "Kur"a basılan tarayıcı; kurulum ekranı onun için açılır (nil: Chrome ya da ilk bulunan).
     var onboardingBrowser: String?
     /// Klavyeyle gezinme, Quick Look ve satır kısayolları için seçili satır.
@@ -97,6 +100,7 @@ final class DownloadStore {
             }
         }
         hadActive = hasActive
+        updateActivityAssertion()
         lastStatuses = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.status) })
         watchActivity()
         startSpeedTicker()
@@ -225,6 +229,7 @@ final class DownloadStore {
             Task { @MainActor in
                 guard let self else { return }
                 let active = self.hasActive
+                self.updateActivityAssertion()
                 if self.hadActive, !active {
                     self.showCompletedIfIdle()
                 }
@@ -233,6 +238,22 @@ final class DownloadStore {
                 self.notifyStatusChanges()
                 self.watchActivity()
             }
+        }
+    }
+
+    /// İndirme sürerken macOS uygulamayı App Nap'e almasın: menü çubuğu uygulamasının penceresi
+    /// görünmediğinde zamanlayıcılar (aria2'den ilerleme okuma, hız göstergesi) yavaşlatılıyor.
+    @ObservationIgnored private var activity: NSObjectProtocol?
+
+    private func updateActivityAssertion() {
+        let running = items.contains { [.downloading, .queued, .processing].contains($0.status) }
+        if running, activity == nil {
+            activity = ProcessInfo.processInfo.beginActivity(
+                options: [.userInitiatedAllowingIdleSystemSleep], reason: "İndirmeler sürüyor"
+            )
+        } else if !running, let current = activity {
+            ProcessInfo.processInfo.endActivity(current)
+            activity = nil
         }
     }
 
@@ -524,6 +545,12 @@ final class DownloadStore {
 
     /// Eklenti kendini bildirdi (açılışta ve dakikada bir).
     func extensionDidConnect(_ browser: String) {
+        // Panel kapalıyken kurulum ekranı görünmediği için geçişi burada yap (açıkken ekran kendisi
+        // kısa bir onay gösterip geçiyor).
+        if route == .onboarding, !panelVisible {
+            route = .list
+            onboardingBrowser = nil
+        }
         extensionSeen[browser] = Date()
         UserDefaults.standard.set(extensionSeen, forKey: SettingsKey.extensionSeen)
         UserDefaults.standard.set(true, forKey: SettingsKey.extensionEverConnected)

@@ -45,6 +45,26 @@ enum DebugPanel {
             item.destination = file
         }
         store.searchText = ProcessInfo.processInfo.environment["KD_DEMO_SEARCH"] ?? ""
+        // Performans ölçümü için çok sayıda örnek indirme: yarısı iniyor, çeyreği duraklatılmış, çeyreği bitmiş.
+        if let count = ProcessInfo.processInfo.environment["KD_DEMO_COUNT"].flatMap(Int.init), count > 0 {
+            let names = ["Rapor", "Sunum", "Kayit", "Yedek", "Kurulum", "Albüm", "Film"]
+            let extensions = ["pdf", "key", "mp4", "zip", "dmg", "mp3", "mkv"]
+            store.add((0..<count).map { index in
+                DownloadRequest(url: "https://files.example.com/\(names[index % 7])_\(index).\(extensions[index % 7])")
+            })
+            for (index, item) in store.items.enumerated() where index < count {
+                item.totalBytes = Int64(20 + index % 40) * 1_073_741_824
+                switch index % 4 {
+                case 2: store.togglePause(item)
+                case 3:
+                    item.downloadedBytes = item.totalBytes
+                    item.status = .completed
+                    item.speed = 0
+                default: break
+                }
+            }
+            store.route = .list
+        }
         // Eklentiden yeni bir sinyal gelmiş gibi (geliştirme ayarlarına yazılır, uygulamanınkine değil).
         if let browser = ProcessInfo.processInfo.environment["KD_DEMO_HELLO"] {
             store.extensionDidConnect(browser)

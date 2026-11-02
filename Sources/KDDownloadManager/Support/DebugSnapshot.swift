@@ -14,6 +14,7 @@ enum DebugSnapshot {
         let folder = URL(fileURLWithPath: dir, isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let store = DownloadStore(engine: MockDownloadEngine(), seedSamples: true)
+        store.panelVisible = true
 
         Task {
             // Sahte motor birkaç adım ilerlesin ki hızlar dolu görünsün.
