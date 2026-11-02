@@ -5,10 +5,13 @@ import AppKit
 struct KDDownloadManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
-    /// Menü çubuğu ikonu ve paneli AppDelegate'teki StatusItemController kuruyor; SwiftUI'nin
-    /// bir sahne istemesi için boş bir Ayarlar sahnesi.
+    /// Menü çubuğu ikonu ve paneli AppDelegate'teki StatusItemController kuruyor. SwiftUI bir sahne
+    /// istediği için menü çubuğuna hiç eklenmeyen boş bir sahne veriliyor. (Boş bir Settings sahnesi
+    /// ⌘, ile, bildirime tıklanınca ya da uygulama yeniden açılınca boş bir "Ayarlar" penceresi açıyordu.)
     var body: some Scene {
-        Settings { EmptyView() }
+        MenuBarExtra("KD Download Manager", isInserted: .constant(false)) {
+            EmptyView()
+        }
     }
 }
 
@@ -74,6 +77,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if FileManager.default.fileExists(atPath: BrowserExtension.folder.path) {
             BrowserExtension.refreshFolder()
         }
+    }
+
+    /// Uygulama zaten açıkken yeniden açılırsa (Finder, Launchpad, Spotlight) paneli göster.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        statusController?.open()
+        return false
     }
 
     /// Finder'dan açılan .torrent dosyaları ve tarayıcılardan gelen magnet: linkleri

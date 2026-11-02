@@ -63,15 +63,15 @@ struct DownloadRow: View {
         .onTapGesture { store.selection = item.id }
         // Çift tık: tamamlanan dosyayı aç (butonların tek tıklamasını geciktirmesin diye eşzamanlı).
         .simultaneousGesture(TapGesture(count: 2).onEnded {
-            if isCompleted, let destination = item.destination {
+            guard isCompleted, let destination = item.destination else { return }
+            if FileManager.default.fileExists(atPath: destination.path) {
                 NSWorkspace.shared.open(destination)
+            } else {
+                NSSound.beep()
             }
         })
-        // Tamamlanan dosya Finder'a ya da başka bir uygulamaya sürüklenebilir.
-        .onDrag {
-            guard isCompleted, let destination = item.destination else { return NSItemProvider() }
-            return NSItemProvider(contentsOf: destination) ?? NSItemProvider()
-        }
+        // Tamamlanan dosya Finder'a ya da başka bir uygulamaya sürüklenebilir; diğer satırlar sürüklenmez.
+        .modifier(FileDrag(file: isCompleted ? item.destination : nil))
         .contextMenu { contextMenu }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(item.fileName), \(accessibilityStatus)")
@@ -265,6 +265,19 @@ struct DownloadRow: View {
         } else {
             Button("İndirmeyi sil", role: .destructive) { store.delete(item) }
                 .keyboardShortcut(.delete, modifiers: .command)
+        }
+    }
+}
+
+/// Satırı dosya olarak sürüklenebilir yapar; dosya yoksa hiçbir şey eklemez (boş sürükleme başlamasın).
+private struct FileDrag: ViewModifier {
+    let file: URL?
+
+    func body(content: Content) -> some View {
+        if let file, FileManager.default.fileExists(atPath: file.path) {
+            content.onDrag { NSItemProvider(contentsOf: file) ?? NSItemProvider() }
+        } else {
+            content
         }
     }
 }

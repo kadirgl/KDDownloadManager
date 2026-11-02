@@ -71,11 +71,13 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
     ) async {
-        guard let path = response.notification.request.content.userInfo[Self.fileKey] as? String else { return }
+        let path = response.notification.request.content.userInfo[Self.fileKey] as? String
         await MainActor.run {
-            let file = URL(fileURLWithPath: path)
-            if FileManager.default.fileExists(atPath: path) {
-                NSWorkspace.shared.activateFileViewerSelecting([file])
+            // Biten dosyanın bildirimi dosyayı Finder'da gösterir; diğerleri (eklendi, hata) paneli açar.
+            if let path, FileManager.default.fileExists(atPath: path) {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+            } else {
+                NotificationCenter.default.post(name: StatusItemController.openPanelNotification, object: nil)
             }
         }
     }

@@ -14,9 +14,19 @@ final class StatusItemController: NSObject, NSWindowDelegate {
     private var iconState: IconState?
     private var doneTimer: Task<Void, Never>?
 
+    /// Bildirime tıklanınca paneli açmak için.
+    static let openPanelNotification = Notification.Name("KDOpenPanel")
+
     init(store: DownloadStore) {
         self.store = store
         super.init()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(openFromNotification), name: Self.openPanelNotification, object: nil
+        )
+        // Önizleme öndeyken panel anahtar pencere değil; ⌘Tab ile başka uygulamaya geçilince de kapansın.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(applicationDidResignActive), name: NSApplication.didResignActiveNotification, object: nil
+        )
         if let button = statusItem.button {
             button.imagePosition = .imageLeading
             button.target = self
@@ -35,10 +45,31 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         isOpen ? close() : open()
     }
 
+    @objc private func applicationDidResignActive() {
+        guard !Self.keepsOpenForDemo, NSApp.modalWindow == nil else { return }
+        close()
+    }
+
+    /// Demo aracı başka bir uygulama öndeyken çalıştığından uygulama etkinleşemiyor; panel açık kalsın.
+    private static var keepsOpenForDemo: Bool {
+        #if DEBUG
+        return DebugPanel.screen != nil
+        #else
+        return false
+        #endif
+    }
+
+    @objc private func openFromNotification() {
+        if !isOpen { open() }
+    }
+
     func open() {
+        guard !isOpen else { return }
         store.panelWillOpen()
         position()
-        // Uygulama etkin değilken anahtarlar ve alanlar soluk (pasif) çiziliyor.
+        // Uygulama etkin değilken anahtarlar ve alanlar soluk (pasif) çiziliyor. Kapanırken gizlendiyse
+        // önce görünür yapılmalı, yoksa panel ekrana gelmiyor.
+        if NSApp.isHidden { NSApp.unhide(nil) }
         NSApp.activate()
         panel.makeKeyAndOrderFront(nil)
         panel.invalidateShadow()
@@ -51,19 +82,25 @@ final class StatusItemController: NSObject, NSWindowDelegate {
 
     func close() {
         guard panel.isVisible else { return }
+        QuickLook.shared.close()
         panel.orderOut(nil)
         statusItem.button?.highlight(false)
         if let outsideClickMonitor {
             NSEvent.removeMonitor(outsideClickMonitor)
         }
         outsideClickMonitor = nil
+        // Panel açılırken uygulama öne alınmıştı; kapanınca odağı önceki uygulamaya geri ver, yoksa
+        // klavye girdisi penceresi olmayan bu uygulamaya gidiyor.
+        if NSApp.isActive, NSApp.modalWindow == nil {
+            NSApp.hide(nil)
+        }
     }
 
     func windowDidResignKey(_ notification: Notification) {
         // Odak uygulamadan çıktıysa kapan; hız sınırı menüsü (popover) ya da dosya seçme penceresi gibi
         // kendi pencerelerimize geçtiyse açık kalsın. Yeni anahtar pencere bir sonraki döngüde belli oluyor.
         DispatchQueue.main.async { [weak self] in
-            guard NSApp.modalWindow == nil, !NSApp.isActive || NSApp.keyWindow == nil else { return }
+            guard !Self.keepsOpenForDemo, NSApp.modalWindow == nil, !NSApp.isActive || NSApp.keyWindow == nil else { return }
             self?.close()
         }
     }
@@ -286,7 +323,10 @@ final class PanelWindow: NSPanel {
     override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { true }
 
     override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
-        MainActor.assumeIsolated { panel.dataSource = QuickLook.shared }
+        MainActor.assumeIsolated {
+            panel.dataSource = QuickLook.shared
+            panel.delegate = QuickLook.shared
+        }
     }
 
     override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {}
@@ -294,5 +334,15 @@ final class PanelWindow: NSPanel {
     /// Esc: açık bir menü ya da geri butonu yakalamadıysa paneli kapatır.
     override func cancelOperation(_ sender: Any?) {
         onCancel?()
+    }
+
+    /// ⌘W: menüde Kapat öğesi olmadığı ve kenarlıksız pencerenin kapat düğmesi bulunmadığı için elle.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+           event.charactersIgnoringModifiers == "w" {
+            onCancel?()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
     }
 }

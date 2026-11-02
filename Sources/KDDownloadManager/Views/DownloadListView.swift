@@ -122,7 +122,16 @@ struct DownloadListView: View {
     private func activateSelection() -> KeyPress.Result {
         guard let item = selectedItem else { return .ignored }
         if item.status == .completed {
-            if let file = item.destination { QuickLook.shared.toggle(file) }
+            guard let file = item.destination else { return .ignored }
+            // Önizleme öndeyken ↑/↓ listede gezsin ve önizleme yeni dosyaya geçsin.
+            QuickLook.shared.onMove = { [store] offset in
+                let visible = store.visibleItems
+                guard let index = visible.firstIndex(where: { $0.id == store.selection }) else { return nil }
+                let next = visible[min(max(index + offset, 0), visible.count - 1)]
+                store.selection = next.id
+                return next.status == .completed ? next.destination : nil
+            }
+            QuickLook.shared.toggle(file)
         } else {
             store.togglePause(item)
         }
@@ -131,7 +140,11 @@ struct DownloadListView: View {
 
     private func openSelection() -> KeyPress.Result {
         guard let item = selectedItem, item.status == .completed, let file = item.destination else { return .ignored }
-        NSWorkspace.shared.open(file)
+        if FileManager.default.fileExists(atPath: file.path) {
+            NSWorkspace.shared.open(file)
+        } else {
+            NSSound.beep()
+        }
         return .handled
     }
 

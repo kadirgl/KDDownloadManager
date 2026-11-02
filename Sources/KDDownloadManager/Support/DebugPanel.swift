@@ -1,6 +1,7 @@
 #if DEBUG
 import SwiftUI
 import AppKit
+import QuickLookUI
 
 /// Geliştirme aracı: menü çubuğu panelini örnek verilerle açar. Cam efektleri ancak gerçek
 /// pencerede çizildiği için tasarım bu şekilde, ekran görüntüsüyle karşılaştırılıyor.
@@ -76,8 +77,9 @@ enum DebugPanel {
             if let keys = ProcessInfo.processInfo.environment["KD_DEMO_KEYS"], let panel {
                 try? await Task.sleep(for: .seconds(0.5))
                 for key in keys.split(separator: ",") {
-                    press(String(key), in: panel)
-                    try? await Task.sleep(for: .seconds(0.4))
+                    press(String(key), in: NSApp.keyWindow ?? panel)
+                    try? await Task.sleep(for: .seconds(0.6))
+                    report(after: String(key), panel: panel)
                 }
             }
             if screen == "empty" {
@@ -93,10 +95,21 @@ enum DebugPanel {
         }
     }
 
+    /// Tuştan sonraki durum: ekran görüntüsü almadan doğrulamak için.
+    private static func report(after key: String, panel: NSWindow) {
+        let preview = QLPreviewPanel.sharedPreviewPanelExists() ? QLPreviewPanel.shared() : nil
+        let item = store?.items.first { $0.id == store?.selection }
+        let previewing = preview?.isVisible == true ? (preview?.currentPreviewItem?.previewItemURL?.lastPathComponent ?? "?") : "kapalı"
+        let line = "KD_DEMO_STATE \(key): panel=\(panel.isVisible ? "açık" : "kapalı") anahtar=\(panel.isKeyWindow) "
+            + "ekran=\(String(describing: store?.route ?? .list)) seçili=\(item?.fileName ?? "-") önizleme=\(previewing) "
+            + "pencereler=\(NSApp.windows.filter(\.isVisible).map { String(describing: type(of: $0)) })\n"
+        FileHandle.standardError.write(Data(line.utf8))
+    }
+
     private static func press(_ key: String, in window: NSWindow) {
         let table: [String: (code: UInt16, characters: String)] = [
             "down": (125, "\u{F701}"), "up": (126, "\u{F700}"), "space": (49, " "), "return": (36, "\r"),
-            "delete": (51, "\u{7F}"), "z": (6, "z"), "f": (3, "f"), "r": (15, "r"), "escape": (53, "\u{1B}")
+            "delete": (51, "\u{7F}"), "z": (6, "z"), "f": (3, "f"), "r": (15, "r"), "escape": (53, "\u{1B}"), "comma": (43, ","), "w": (13, "w")
         ]
         let command = key.hasPrefix("cmd-")
         guard let entry = table[command ? String(key.dropFirst(4)) : key] else { return }
