@@ -76,7 +76,10 @@ enum BrowserExtension {
             for file in ["Secure Preferences", "Preferences"] {
                 guard let settings = extensionSettings(at: profile.appendingPathComponent(file)) else { continue }
                 readAny = true
-                guard let entry = settings[extensionID] as? [String: Any] else { continue }
+                // Chrome eklenti kaldırılınca kaydı silmiyor, içi boş bırakıyor; klasörü ya da konumu olmayan
+                // kayıt kurulu sayılmaz.
+                guard let entry = settings[extensionID] as? [String: Any],
+                      entry["path"] != nil || entry["location"] != nil else { continue }
                 if isDisabled(entry) {
                     if found == .notInstalled { found = .disabled }
                 } else {

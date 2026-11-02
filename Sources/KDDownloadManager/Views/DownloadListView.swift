@@ -625,51 +625,65 @@ private struct EmptyCategoryView: View {
 
 // MARK: - Eklenti bandı
 
-/// Eklenti kurulu değilse ("Şimdilik geç" denip hiç kurulmadıysa ya da sonradan kaldırıldıysa) listenin
-/// üstünde sarı band; kapatılırsa 7 gün sonra yeniden çıkar.
+/// Eklenti kurulu ya da bağlı değilse listenin üstünde sarı band ("Şimdilik geç" denip hiç kurulmadıysa,
+/// sonradan kaldırıldıysa ya da tarayıcı açıkken sinyal gelmiyorsa); kapatılırsa 7 gün sonra yeniden çıkar.
+/// Bağlantı durumu zamanla değiştiği için yarım dakikada bir yeniden bakılır.
 private struct ExtensionBanner: View {
     @Environment(DownloadStore.self) private var store
     @AppStorage(SettingsKey.onboardingSkipped) private var skipped = false
     @AppStorage(SettingsKey.extensionBannerDismissed) private var dismissed = 0.0
 
-    private var visible: Bool {
-        guard Date().timeIntervalSince1970 - dismissed > 7 * 86_400 else { return false }
-        return store.extensionEverConnected ? store.extensionMissing : skipped
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            if let message = message(now: context.date) {
+                banner(message)
+            }
+        }
     }
 
-    var body: some View {
-        if visible {
-            HStack(spacing: 10) {
-                Image(systemName: "puzzlepiece.extension.fill")
-                    .foregroundStyle(Theme.warning)
-                Text("Tarayıcı eklentisi kurulu değil")
-                    .font(.system(size: 12.5, weight: .semibold))
-                Spacer()
-                Button("Kur") { store.route = .onboarding }
-                    .buttonStyle(GlassCapsuleButtonStyle(height: 26, fontSize: 12))
-                Button {
-                    dismissed = Date().timeIntervalSince1970
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .frame(width: 22, height: 22)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .help("7 gün sonra yeniden hatırlat")
-                .accessibilityLabel("Kapat")
-            }
-            .padding(.leading, 14)
-            .padding(.trailing, 8)
-            .frame(height: 42)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Theme.warning.opacity(0.14))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.warning.opacity(0.35)))
-            )
-            .padding(.horizontal, Theme.margin)
-            .padding(.bottom, 12)
+    private func message(now: Date) -> String? {
+        guard now.timeIntervalSince1970 - dismissed > 7 * 86_400 else { return nil }
+        guard store.extensionEverConnected else {
+            return skipped ? "Tarayıcı eklentisi kurulu değil" : nil
         }
+        switch store.extensionProblem(now: now) {
+        case .notInstalled: return "Tarayıcı eklentisi kurulu değil"
+        case .notConnected: return "Tarayıcı eklentisi bağlı değil"
+        case nil: return nil
+        }
+    }
+
+    private func banner(_ message: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "puzzlepiece.extension.fill")
+                .foregroundStyle(Theme.warning)
+            Text(message)
+                .font(.system(size: 12.5, weight: .semibold))
+            Spacer()
+            Button("Kur") { store.route = .onboarding }
+                .buttonStyle(GlassCapsuleButtonStyle(height: 26, fontSize: 12))
+            Button {
+                dismissed = Date().timeIntervalSince1970
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .frame(width: 22, height: 22)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help("7 gün sonra yeniden hatırlat")
+            .accessibilityLabel("Kapat")
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .frame(height: 42)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Theme.warning.opacity(0.14))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.warning.opacity(0.35)))
+        )
+        .padding(.horizontal, Theme.margin)
+        .padding(.bottom, 12)
     }
 }
 

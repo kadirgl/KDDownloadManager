@@ -157,12 +157,20 @@ final class DownloadStore {
         return browser.isRunning ? .notConnected(seen) : .browserClosed(seen)
     }
 
-    /// Hiçbir tarayıcıda eklenti kurulu (ya da açık) değil: listenin üstündeki hatırlatma bandı için.
-    var extensionMissing: Bool {
-        let browsers = BrowserExtension.installedBrowsers
-        return !browsers.isEmpty && browsers.allSatisfy {
-            [.notInstalled, .disabled].contains(extensionStatus(for: $0))
-        }
+    enum ExtensionProblem {
+        /// Hiçbir tarayıcıda kurulu (ya da açık) değil.
+        case notInstalled
+        /// Tarayıcı açık ama eklentiden sinyal gelmiyor.
+        case notConnected
+    }
+
+    /// Listenin üstündeki hatırlatma bandı için. Bir tarayıcıda bağlıysa ya da tarayıcılar kapalıysa sorun yok.
+    func extensionProblem(now: Date = Date()) -> ExtensionProblem? {
+        let statuses = BrowserExtension.installedBrowsers.map { extensionStatus(for: $0, now: now) }
+        guard !statuses.isEmpty, !statuses.contains(.connected) else { return nil }
+        if statuses.allSatisfy({ $0 == .notInstalled || $0 == .disabled }) { return .notInstalled }
+        if statuses.contains(where: { if case .notConnected = $0 { true } else { false } }) { return .notConnected }
+        return nil
     }
 
     /// Panel açılırken: gerekiyorsa eklenti kurulumu, değilse boştayken "Tamamlanan".
