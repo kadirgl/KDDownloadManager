@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import QuickLookUI
 
 /// Menü çubuğu ikonu ve tıklayınca açılan cam panel.
 /// SwiftUI'nin MenuBarExtra'sı pencerenin zeminini, köşesini ve boyutunu değiştirmeye izin vermediği için
@@ -10,12 +11,13 @@ final class StatusItemController: NSObject, NSWindowDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private lazy var panel = makePanel()
     private var outsideClickMonitor: Any?
+    private var iconState: IconState?
+    private var doneTimer: Task<Void, Never>?
 
     init(store: DownloadStore) {
         self.store = store
         super.init()
         if let button = statusItem.button {
-            button.image = Self.icon
             button.imagePosition = .imageLeading
             button.target = self
             button.action = #selector(toggle)
@@ -118,15 +120,111 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         return image
     }
 
-    // MARK: - Menü çubuğu etiketi
+    // MARK: - Menü çubuğu ikonu
 
-    private static let icon: NSImage = {
-        let configuration = NSImage.SymbolConfiguration(pointSize: 15, weight: .semibold)
-        let image = NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: "KD Download Manager")?
-            .withSymbolConfiguration(configuration) ?? NSImage()
-        image.isTemplate = true
+    /// Boşta sadece ikon; inerken etrafında toplam ilerleme halkası; hata varsa kırmızı nokta (tıklanınca
+    /// liste açılır); son indirme bitince 3 sn onay işareti.
+    private enum IconState: Equatable {
+        case idle
+        /// 0…36 arası adım; halka her %2,8'de bir yeniden çizilir.
+        case progress(Int)
+        case error
+        case done
+    }
+
+    private static let iconSize = NSSize(width: 18, height: 18)
+    private static let doneDuration: TimeInterval = 3
+
+    private func currentIconState() -> IconState {
+        if store.hasFailures { return .error }
+        let running = store.items.filter { [.downloading, .queued, .processing].contains($0.status) }
+        if !running.isEmpty {
+            let sized = running.filter { $0.totalBytes > 0 }
+            let total = sized.reduce(Int64(0)) { $0 + $1.totalBytes }
+            let done = sized.reduce(Int64(0)) { $0 + min($1.downloadedBytes, $1.totalBytes) }
+            return .progress(total > 0 ? Int((Double(done) / Double(total) * 36).rounded(.down)) : 0)
+        }
+        if let finished = store.finishedAt, Date().timeIntervalSince(finished) < Self.doneDuration {
+            return .done
+        }
+        return .idle
+    }
+
+    private func updateIcon() {
+        let state = currentIconState()
+        if state == .done, let finished = store.finishedAt {
+            // Onay işareti süresi dolunca boşta ikonuna dön.
+            doneTimer?.cancel()
+            doneTimer = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(max(0, Self.doneDuration - Date().timeIntervalSince(finished)) + 0.05))
+                guard !Task.isCancelled else { return }
+                self?.updateIcon()
+            }
+        }
+        guard state != iconState, let button = statusItem.button else { return }
+        iconState = state
+        button.image = Self.image(for: state)
+    }
+
+    private static func image(for state: IconState) -> NSImage {
+        let size = iconSize
+        let symbol = { (name: String, pointSize: CGFloat, weight: NSFont.Weight, colors: [NSColor]?) -> NSImage? in
+            var configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: weight)
+            if let colors { configuration = configuration.applying(.init(paletteColors: colors)) }
+            return NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(configuration)
+        }
+        func drawCentered(_ image: NSImage?, in rect: NSRect) {
+            guard let image else { return }
+            let origin = NSPoint(x: rect.midX - image.size.width / 2, y: rect.midY - image.size.height / 2)
+            image.draw(in: NSRect(origin: origin, size: image.size))
+        }
+        let image: NSImage
+        switch state {
+        case .idle, .done:
+            image = NSImage(size: size, flipped: false) { rect in
+                drawCentered(symbol(state == .done ? "checkmark.circle" : "arrow.down.circle", 15, .semibold, nil), in: rect)
+                return true
+            }
+            image.isTemplate = true
+        case .progress(let step):
+            image = NSImage(size: size, flipped: false) { rect in
+                let ring = rect.insetBy(dx: 1.8, dy: 1.8)
+                let center = NSPoint(x: ring.midX, y: ring.midY)
+                let track = NSBezierPath(ovalIn: ring)
+                track.lineWidth = 1.6
+                NSColor.black.withAlphaComponent(0.3).setStroke()
+                track.stroke()
+                let fraction = CGFloat(step) / 36
+                if fraction > 0 {
+                    let arc = NSBezierPath()
+                    arc.appendArc(withCenter: center, radius: ring.width / 2, startAngle: 90, endAngle: 90 - 360 * fraction, clockwise: true)
+                    arc.lineWidth = 2
+                    arc.lineCapStyle = .round
+                    NSColor.black.setStroke()
+                    arc.stroke()
+                }
+                drawCentered(symbol("arrow.down", 8, .bold, nil), in: rect)
+                return true
+            }
+            image.isTemplate = true
+        case .error:
+            // Kırmızı nokta tek renkli (template) ikonda çizilemediği için menü çubuğunun yazı rengiyle çiziliyor.
+            image = NSImage(size: size, flipped: false) { rect in
+                drawCentered(symbol("arrow.down.circle", 15, .semibold, [.labelColor]), in: rect)
+                let dot = NSRect(x: rect.maxX - 6.5, y: rect.maxY - 6.5, width: 6.5, height: 6.5)
+                NSColor.systemRed.setFill()
+                NSBezierPath(ovalIn: dot).fill()
+                return true
+            }
+        }
+        image.accessibilityDescription = switch state {
+        case .idle: "KD Download Manager"
+        case .progress(let step): "KD Download Manager, yüzde \(step * 100 / 36) indi"
+        case .error: "KD Download Manager, indirme hatası var"
+        case .done: "KD Download Manager, indirmeler tamamlandı"
+        }
         return image
-    }()
+    }
 
     /// İkonun yanındaki anlık toplam hız ("Toplam hızı göster" açıksa ve bir şey iniyorsa).
     private func observeLabel() {
@@ -142,6 +240,7 @@ final class StatusItemController: NSObject, NSWindowDelegate {
     }
 
     private func updateLabel() {
+        updateIcon()
         guard let button = statusItem.button else { return }
         let showSpeed = UserDefaults.standard.object(forKey: SettingsKey.showSpeedInMenuBar) as? Bool ?? true
         let speed = store.displaySpeed
@@ -182,6 +281,15 @@ final class PanelWindow: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    // Quick Look paneli denetimi isterken yanıtlayıcı zincirine soruyor; biz veriyoruz.
+    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { true }
+
+    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        MainActor.assumeIsolated { panel.dataSource = QuickLook.shared }
+    }
+
+    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {}
 
     /// Esc: açık bir menü ya da geri butonu yakalamadıysa paneli kapatır.
     override func cancelOperation(_ sender: Any?) {

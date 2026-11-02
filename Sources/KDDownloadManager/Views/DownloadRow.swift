@@ -11,6 +11,7 @@ struct DownloadRow: View {
     @State private var showingLimit = false
 
     private var isCompleted: Bool { item.status == .completed }
+    private var isSelected: Bool { store.selection == item.id }
 
     var body: some View {
         HStack(spacing: 14) {
@@ -52,10 +53,14 @@ struct DownloadRow: View {
             if item.isFailed {
                 RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
                     .strokeBorder(Theme.error.opacity(0.55), lineWidth: 1)
+            } else if isSelected {
+                RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+                    .strokeBorder(Theme.accent.opacity(0.75), lineWidth: 1.5)
             }
         }
         .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
         .onHover { hovering = $0 }
+        .onTapGesture { store.selection = item.id }
         // Çift tık: tamamlanan dosyayı aç (butonların tek tıklamasını geciktirmesin diye eşzamanlı).
         .simultaneousGesture(TapGesture(count: 2).onEnded {
             if isCompleted, let destination = item.destination {
@@ -101,7 +106,9 @@ struct DownloadRow: View {
                     .fontWeight(.semibold)
             case .completed:
                 Text(ByteFormat.size(item.totalBytes)).fontWeight(.semibold)
-                if let site = URL(string: item.url)?.host() {
+                if let date = item.completedAt {
+                    Text(Self.finished(date)).foregroundStyle(Theme.secondaryText)
+                } else if let site = URL(string: item.url)?.host() {
                     Text(site.replacingOccurrences(of: "www.", with: "")).foregroundStyle(Theme.secondaryText)
                 }
             case .failed(let message):
@@ -131,6 +138,15 @@ struct DownloadRow: View {
         }
     }
 
+    /// "Bugün 14:32", "Dün 09:10", "28 Eki".
+    static func finished(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let time = date.formatted(.dateTime.hour().minute().locale(Locale(identifier: "tr_TR")))
+        if calendar.isDateInToday(date) { return "Bugün \(time)" }
+        if calendar.isDateInYesterday(date) { return "Dün \(time)" }
+        return date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "tr_TR")))
+    }
+
     private var barTint: Color {
         switch item.status {
         case .paused, .queued: Theme.doneBar.opacity(0.8)
@@ -155,12 +171,12 @@ struct DownloadRow: View {
 
     @ViewBuilder
     private var actions: some View {
-        let showSecondary = hovering || showingLimit
+        let showSecondary = hovering || showingLimit || isSelected
         HStack(spacing: 6) {
             if isCompleted {
                 if showSecondary {
                     iconButton("folder", help: "Klasörde göster") { store.revealInFinder(item) }
-                    iconButton("xmark", help: "Listeden kaldır (dosya diskte kalır)") { store.cancel(item) }
+                    iconButton("xmark", help: "Listeden kaldır (dosya diskte kalır)") { store.removeFromList(item) }
                 }
             } else {
                 if showSecondary || item.speedLimit != nil, !item.isFailed {
@@ -178,7 +194,7 @@ struct DownloadRow: View {
                     }
                 }
                 if showSecondary {
-                    iconButton("trash", help: "İndirmeyi sil") { store.cancel(item) }
+                    iconButton("trash", help: "İndirmeyi sil") { store.delete(item) }
                 }
                 iconButton(pauseSymbol, help: pauseHelp) { store.togglePause(item) }
             }
@@ -214,8 +230,16 @@ struct DownloadRow: View {
 
     @ViewBuilder
     private var contextMenu: some View {
-        if !isCompleted {
+        if isCompleted {
+            if let file = item.destination {
+                Button("Aç") { NSWorkspace.shared.open(file) }
+                    .keyboardShortcut(.return, modifiers: [])
+                Button("Önizle") { QuickLook.shared.toggle(file) }
+                    .keyboardShortcut(.space, modifiers: [])
+            }
+        } else {
             Button(pauseHelp) { store.togglePause(item) }
+                .keyboardShortcut(.space, modifiers: [])
             Menu("Hız sınırı") {
                 ForEach(SpeedLimitMenu.options, id: \.title) { option in
                     Toggle(option.title, isOn: Binding(
@@ -226,13 +250,21 @@ struct DownloadRow: View {
             }
         }
         Button("Klasörde göster") { store.revealInFinder(item) }
+            .keyboardShortcut("r")
         Button("Linki kopyala") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(item.url, forType: .string)
         }
+        .keyboardShortcut("c")
         Divider()
-        Button(isCompleted ? "Listeden kaldır" : "İndirmeyi sil", role: .destructive) {
-            store.cancel(item)
+        if isCompleted {
+            Button("Listeden kaldır") { store.removeFromList(item) }
+                .keyboardShortcut(.delete, modifiers: [])
+            Button("Çöpe taşı", role: .destructive) { store.delete(item) }
+                .keyboardShortcut(.delete, modifiers: .command)
+        } else {
+            Button("İndirmeyi sil", role: .destructive) { store.delete(item) }
+                .keyboardShortcut(.delete, modifiers: .command)
         }
     }
 }

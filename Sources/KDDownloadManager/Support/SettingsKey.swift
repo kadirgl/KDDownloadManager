@@ -20,6 +20,8 @@ enum SettingsKey {
     static let onboardingSkipped = "onboardingSkipped"
     /// "Chrome eklentisi bağlı değil" bandının kapatıldığı an (7 gün sonra yeniden çıkar).
     static let extensionBannerDismissed = "extensionBannerDismissed"
+    /// Tamamlanan listesinin sırası (CompletedSort).
+    static let completedSort = "completedSort"
 
     static var defaultDownloadFolder: String {
         FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path

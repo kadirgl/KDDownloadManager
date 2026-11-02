@@ -90,6 +90,8 @@ final class DownloadItem: Identifiable {
     /// Dosyaya verilecek ad: akış adresleri anlamsız ("index.m3u8", karma kod) olduğunda eklenti sayfanın
     /// başlığını gönderiyor. Normal dosyada uzantılı tam ad, videoda (yt-dlp) uzantısız.
     var preferredName: String?
+    /// İndirmenin bittiği an (Tamamlanan'daki "Bugün 14:32" ve sıralama için).
+    var completedAt: Date?
     /// Video sitelerinde indirilecek kalite.
     var quality: VideoQuality = .auto {
         didSet {

@@ -68,6 +68,21 @@ enum DownloadCategory: CaseIterable, Identifiable {
     }
 }
 
+/// Tamamlanan listesinin sırası.
+enum CompletedSort: String, CaseIterable, Identifiable {
+    case newest, name, size
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .newest: "En yeni"
+        case .name: "Ada göre"
+        case .size: "Boyuta göre"
+        }
+    }
+}
+
 /// Alttaki "Devam Eden / Tamamlanan" sekmeleri.
 enum ListTab: CaseIterable, Identifiable {
     case active, completed

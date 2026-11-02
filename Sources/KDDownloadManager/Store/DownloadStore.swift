@@ -16,6 +16,31 @@ final class DownloadStore {
     var route: Route = .list
     /// Ayarlar'da "Kur"a basılan tarayıcı; kurulum ekranı onun için açılır (nil: Chrome ya da ilk bulunan).
     var onboardingBrowser: String?
+    /// Klavyeyle gezinme, Quick Look ve satır kısayolları için seçili satır.
+    var selection: UUID?
+    /// Tamamlanan'daki arama (dosya adı ve kaynak site).
+    var searchText = ""
+    var completedSort: CompletedSort =
+        UserDefaults.standard.string(forKey: SettingsKey.completedSort).flatMap(CompletedSort.init) ?? .newest {
+        didSet { UserDefaults.standard.set(completedSort.rawValue, forKey: SettingsKey.completedSort) }
+    }
+    /// Silinen ama "Geri al" süresi dolmamış indirme; süre bitince dosyası ve parçaları gerçekten silinir.
+    private(set) var pendingDeletion: PendingDeletion?
+    /// Devam eden son indirmenin bittiği an (menü çubuğundaki 3 sn'lik onay işareti için).
+    private(set) var finishedAt: Date?
+
+    struct PendingDeletion {
+        let item: DownloadItem
+        let index: Int
+        /// Silinirken iniyordu; geri alınınca devam eder.
+        let wasRunning: Bool
+        /// Tamamlanmış dosya çöpe taşınacak (devam edenlerde yarım dosya silinir).
+        let trashesFile: Bool
+        let deadline: Date
+    }
+
+    static let undoWindow: TimeInterval = 5
+    @ObservationIgnored private var deletionTask: Task<Void, Never>?
     /// Tarayıcı eklentilerinin en son ne zaman bağlandığı (Ayarlar'daki durum için); kalıcı.
     private(set) var extensionSeen: [String: Date] =
         UserDefaults.standard.dictionary(forKey: SettingsKey.extensionSeen) as? [String: Date] ?? [:]
@@ -62,7 +87,10 @@ final class DownloadStore {
             NotificationCenter.default.addObserver(
                 forName: NSApplication.willTerminateNotification, object: nil, queue: .main
             ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.save() }
+                MainActor.assumeIsolated {
+                    self?.commitPendingDeletion()
+                    self?.save()
+                }
             }
         }
         hadActive = hasActive
@@ -99,6 +127,8 @@ final class DownloadStore {
         if route == .list, needsOnboarding, !Self.isHarness {
             route = .onboarding
         }
+        // Menü çubuğundaki kırmızı nokta: tıklanınca hatalı indirmelerin olduğu liste açılır.
+        if route == .list, hasFailures { tab = .active }
         showCompletedIfIdle()
     }
 
@@ -145,11 +175,14 @@ final class DownloadStore {
     /// Tamamlanan ve (otomatik denemeler bittikten sonra) başarısız olan indirmeler için bildirim.
     private func notifyStatusChanges() {
         var current: [UUID: DownloadStatus] = [:]
+        var finished = false
         for item in items {
             current[item.id] = item.status
             guard let previous = lastStatuses[item.id], previous != item.status else { continue }
             switch item.status {
             case .completed:
+                if item.completedAt == nil { item.completedAt = Date() }
+                finished = true
                 Notifier.shared.downloadFinished(item)
             case .failed(let message):
                 if case .failed = previous { break }
@@ -159,11 +192,28 @@ final class DownloadStore {
             }
         }
         lastStatuses = current
+        // Son indirme de bitti (iptal edilmedi, hata yok): menü çubuğunda kısa bir onay işareti.
+        if finished, !hasActive, !hasFailures { finishedAt = Date() }
     }
 
     var visibleItems: [DownloadItem] {
-        items.filter { tab.includes($0.status) && (category == .all || $0.category == category) }
+        let filtered = items.filter { tab.includes($0.status) && (category == .all || $0.category == category) }
+        guard tab == .completed else { return filtered }
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        let found = query.isEmpty ? filtered : filtered.filter {
+            $0.fileName.localizedStandardContains(query) || (URL(string: $0.url)?.host() ?? "").localizedStandardContains(query)
+        }
+        switch completedSort {
+        // Liste en yeni eklenen başta tutuluyor; bitiş anı bilinmeyenler o sırada kalır.
+        case .newest: return found.enumerated().sorted {
+            ($0.element.completedAt ?? .distantPast, -$0.offset) > ($1.element.completedAt ?? .distantPast, -$1.offset)
+        }.map(\.element)
+        case .name: return found.sorted { $0.fileName.localizedStandardCompare($1.fileName) == .orderedAscending }
+        case .size: return found.sorted { $0.totalBytes > $1.totalBytes }
+        }
     }
+
+    var hasFailures: Bool { items.contains(where: \.isFailed) }
 
     var totalSpeed: Int64 {
         items.reduce(0) { $0 + $1.speed }
@@ -177,8 +227,13 @@ final class DownloadStore {
 
     /// Her satırdaki linki ayrı bir indirme olarak ekler; video linkleri `quality` kalitesinde iner.
     /// `speedLimit` indirme başına sınır; `startPaused` ise ("Hemen başlat" kapalı) duraklatılmış eklenir.
-    func add(links text: String, quality: VideoQuality = .auto, speedLimit: Int64? = nil, startPaused: Bool = false) {
-        let requests = Self.parseLinks(text).map { DownloadRequest(url: $0, quality: quality) }
+    /// `saveAs` tek link eklenirken kullanıcının verdiği ad (Link ekle'deki "Ad" alanı).
+    func add(links text: String, quality: VideoQuality = .auto, speedLimit: Int64? = nil, startPaused: Bool = false,
+             saveAs: String? = nil) {
+        var requests = Self.parseLinks(text).map { DownloadRequest(url: $0, quality: quality) }
+        if requests.count == 1, let saveAs, !saveAs.isEmpty {
+            requests[0].saveAs = saveAs
+        }
         insert(requests.filter { DownloadSource.looksLikeLink($0.url) }, speedLimit: speedLimit, startPaused: startPaused)
     }
 
@@ -264,8 +319,34 @@ final class DownloadStore {
 
     /// Tamamlananları listeden kaldırır; dosyalar diskte kalır.
     func clearCompleted() {
+        for item in items where item.status == .completed {
+            engine.cancel(item)
+        }
         items.removeAll { $0.status == .completed }
+        selection = nil
         save()
+    }
+
+    /// Aynı adresten daha önce eklenmiş indirme (listeden silinmişler sayılmaz).
+    func existingItem(for url: String) -> DownloadItem? {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        return items.first { $0.url == trimmed }
+    }
+
+    /// Klasörde ve listede olmayan bir ad: "Rapor.pdf" → "Rapor (1).pdf". `keepExtension` false ise
+    /// (video, yt-dlp uzantıyı kendisi ekliyor) uzantısız döner.
+    func freshName(for name: String, in folder: URL, keepExtension: Bool = true) -> String {
+        let ext = (name as NSString).pathExtension
+        let base = ext.isEmpty ? name : (name as NSString).deletingPathExtension
+        let taken = Set(items.map(\.fileName))
+        for number in 1...999 {
+            let candidate = "\(base) (\(number))" + (ext.isEmpty ? "" : ".\(ext)")
+            let exists = FileManager.default.fileExists(atPath: folder.appendingPathComponent(candidate).path)
+            if !exists, !taken.contains(candidate) {
+                return keepExtension ? candidate : (candidate as NSString).deletingPathExtension
+            }
+        }
+        return name
     }
 
     func togglePause(_ item: DownloadItem) {
@@ -274,6 +355,60 @@ final class DownloadStore {
         case .paused, .failed: engine.resume(item)
         case .completed: break
         }
+    }
+
+    // MARK: - Silme ve geri alma
+
+    /// Çöp kutusu / ⌘⌫: indirme listeden hemen kalkar; dosyası (devam edende yarım dosya, tamamlananda
+    /// indirilen dosya) "Geri al" süresi dolunca silinir. Süre içinde ⌘Z ya da Geri al ile geri gelir.
+    func delete(_ item: DownloadItem) {
+        commitPendingDeletion()
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+        let wasRunning = [.downloading, .queued, .processing].contains(item.status)
+        if wasRunning { engine.pause(item) }
+        items.remove(at: index)
+        if selection == item.id { selection = nil }
+        pendingDeletion = PendingDeletion(
+            item: item, index: index, wasRunning: wasRunning,
+            trashesFile: item.status == .completed, deadline: Date().addingTimeInterval(Self.undoWindow)
+        )
+        deletionTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.undoWindow))
+            guard !Task.isCancelled else { return }
+            self?.commitPendingDeletion()
+        }
+        save()
+    }
+
+    func undoDelete() {
+        guard let pending = pendingDeletion else { return }
+        deletionTask?.cancel()
+        pendingDeletion = nil
+        items.insert(pending.item, at: min(pending.index, items.count))
+        selection = pending.item.id
+        if pending.wasRunning { engine.resume(pending.item) }
+        save()
+    }
+
+    /// Bekleyen silmeyi hemen uygular (süre doldu, yeni bir silme geldi ya da uygulama kapanıyor).
+    func commitPendingDeletion() {
+        guard let pending = pendingDeletion else { return }
+        deletionTask?.cancel()
+        pendingDeletion = nil
+        if pending.trashesFile {
+            engine.cancel(pending.item)
+            if let file = pending.item.destination {
+                try? FileManager.default.trashItem(at: file, resultingItemURL: nil)
+            }
+        } else {
+            cancel(pending.item)
+        }
+    }
+
+    /// ✕: tamamlanan dosyayı sadece listeden kaldırır; dosya diskte kalır.
+    func removeFromList(_ item: DownloadItem) {
+        if selection == item.id { selection = nil }
+        cancel(item)
     }
 
     func cancel(_ item: DownloadItem) {

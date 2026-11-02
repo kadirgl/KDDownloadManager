@@ -10,10 +10,14 @@ import AppKit
 /// KD_DEMO: list, completed, empty, empty-completed, add-link, settings, onboarding, failed
 /// KD_DEMO_THEME: light / dark (isteğe bağlı)
 /// KD_DEMO_BACKDROP=1: panelin arkasına tasarımdaki renkli zemini koyar.
+/// KD_DEMO_LINK: Link ekle alanına yazılacak metin (panoya dokunmadan); KD_DEMO_SEARCH: Tamamlanan'da arama.
+/// KD_DEMO=deleted: ilk indirmeyi silip "Geri al" bildirimini gösterir.
+/// KD_DEMO_KEYS: panel açılınca sırayla basılacak tuşlar, örn. "down,down,space" ya da "down,cmd-delete,cmd-z".
 /// Gerçek listeye, ayarlara ve eklenti portuna dokunmaz (DebugHarness.isActive).
 @MainActor
 enum DebugPanel {
     static var screen: String? { ProcessInfo.processInfo.environment["KD_DEMO"] }
+    static var addLinkText: String? { ProcessInfo.processInfo.environment["KD_DEMO_LINK"] }
 
     private static weak var store: DownloadStore?
 
@@ -27,9 +31,19 @@ enum DebugPanel {
             store.items.removeAll()
         case "failed":
             store.items.first { $0.status != .completed }?.status = .failed("Bağlantının süresi doldu")
+            store.items.dropFirst().first { $0.status != .completed }?.status = .failed("Diskte yer kalmadı")
         default:
             break
         }
+        // Tamamlananlara örnek bitiş zamanları.
+        for (index, item) in store.items.filter({ $0.status == .completed }).enumerated() {
+            item.completedAt = Date().addingTimeInterval(-Double(index) * 30_000 - 600)
+            // Quick Look ve "Dosyayı aç" denenebilsin diye geçici bir örnek dosya.
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("kd-demo-\(index).txt")
+            try? "KD Download Manager örnek dosyası: \(item.fileName)".write(to: file, atomically: true, encoding: .utf8)
+            item.destination = file
+        }
+        store.searchText = ProcessInfo.processInfo.environment["KD_DEMO_SEARCH"] ?? ""
         switch screen {
         case "completed", "empty-completed": store.tab = .completed
         case "add-link": store.route = .addLink
@@ -56,6 +70,16 @@ enum DebugPanel {
                 showBackdrop(behind: panel)
             }
             // Ekran görüntüsü için panelin ekrandaki yeri (sol üst köşe orijinli, nokta).
+            if screen == "deleted", let first = store?.items.first {
+                store?.delete(first)
+            }
+            if let keys = ProcessInfo.processInfo.environment["KD_DEMO_KEYS"], let panel {
+                try? await Task.sleep(for: .seconds(0.5))
+                for key in keys.split(separator: ",") {
+                    press(String(key), in: panel)
+                    try? await Task.sleep(for: .seconds(0.4))
+                }
+            }
             if screen == "empty" {
                 // Liste boşalınca "Tamamlanan"a otomatik geçiş bir sonraki döngüde geliyor.
                 try? await Task.sleep(for: .seconds(0.3))
@@ -66,6 +90,24 @@ enum DebugPanel {
                 let top = screen.frame.maxY - frame.maxY
                 FileHandle.standardError.write(Data("KD_DEMO_REGION \(Int(frame.minX)),\(Int(top)),\(Int(frame.width)),\(Int(frame.height))\n".utf8))
             }
+        }
+    }
+
+    private static func press(_ key: String, in window: NSWindow) {
+        let table: [String: (code: UInt16, characters: String)] = [
+            "down": (125, "\u{F701}"), "up": (126, "\u{F700}"), "space": (49, " "), "return": (36, "\r"),
+            "delete": (51, "\u{7F}"), "z": (6, "z"), "f": (3, "f"), "r": (15, "r"), "escape": (53, "\u{1B}")
+        ]
+        let command = key.hasPrefix("cmd-")
+        guard let entry = table[command ? String(key.dropFirst(4)) : key] else { return }
+        for type in [NSEvent.EventType.keyDown, .keyUp] {
+            guard let event = NSEvent.keyEvent(
+                with: type, location: .zero, modifierFlags: command ? .command : [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                characters: entry.characters, charactersIgnoringModifiers: entry.characters, isARepeat: false,
+                keyCode: entry.code
+            ) else { continue }
+            NSApp.sendEvent(event)
         }
     }
 
