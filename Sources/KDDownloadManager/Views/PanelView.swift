@@ -1,10 +1,14 @@
 import SwiftUI
 
-/// Menü çubuğundan açılan panelin kökü; `store.route`'a göre ekran değiştirir.
+/// Menü çubuğundan açılan panelin kökü; `store.route`'a göre ekran değiştirir. Arkasındaki bulanıklığı
+/// pencere (StatusItemController) çiziyor; burada cama renk, kenar ve üst ışık ekleniyor.
 struct PanelView: View {
     @Environment(DownloadStore.self) private var store
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     /// Vurgu rengi değişince tüm paneli yeniden çizmek için.
     @AppStorage(SettingsKey.accentColor) private var accent = AccentChoice.orange.rawValue
+
+    private let shape = RoundedRectangle(cornerRadius: Theme.windowRadius, style: .continuous)
 
     var body: some View {
         Group {
@@ -12,63 +16,38 @@ struct PanelView: View {
             case .list: DownloadListView()
             case .addLink: AddLinkView()
             case .settings: SettingsView()
+            case .onboarding: OnboardingView()
             }
         }
         .frame(width: Theme.panelWidth, height: Theme.panelHeight)
-        .background(Theme.background)
+        .background {
+            if reduceTransparency {
+                shape.fill(Theme.windowSolid)
+            } else {
+                ZStack {
+                    if #available(macOS 26, *) {
+                        Color.clear.glassEffect(.regular, in: shape)
+                    }
+                    shape.fill(Theme.windowTint)
+                }
+            }
+        }
+        .overlay(shape.strokeBorder(Theme.windowEdge, lineWidth: 1))
+        .overlay(
+            shape.strokeBorder(
+                LinearGradient(colors: [Theme.windowHighlight, .clear], startPoint: .top, endPoint: .init(x: 0.5, y: 0.08)),
+                lineWidth: 1
+            )
+        )
+        .clipShape(shape)
         .foregroundStyle(Theme.primaryText)
         .tint(Theme.accent)
         .id(accent)
-        .onAppear { store.showCompletedIfIdle() }
+        .animation(.snappy(duration: 0.25), value: store.route)
         // .torrent dosyası ya da tarayıcıdan link sürükleyip bırakmak.
         .dropDestination(for: URL.self) { urls, _ in
             store.open(urls)
             return !urls.isEmpty
         }
-    }
-}
-
-/// Beyaz üst şerit: başlık, isteğe bağlı geri butonu ve sağdaki ikonlar.
-struct PanelHeader<Trailing: View>: View {
-    let title: String
-    var onBack: (() -> Void)?
-    @ViewBuilder var trailing: Trailing
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let onBack {
-                Button(action: onBack) {
-                    PhIcon(.caretLeft, weight: .bold, size: 16)
-                }
-                .buttonStyle(IconButtonStyle())
-                .keyboardShortcut(.cancelAction)
-                .help("Geri")
-            }
-            Text(title)
-                .font(.system(size: 16))
-            Spacer()
-            trailing
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 50)
-        .background(Theme.surface)
-    }
-}
-
-extension PanelHeader where Trailing == EmptyView {
-    init(title: String, onBack: (() -> Void)? = nil) {
-        self.init(title: title, onBack: onBack) { EmptyView() }
-    }
-}
-
-/// Beyaz alt şerit (sekme butonları, "İndir" vb.).
-struct PanelFooter<Content: View>: View {
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        HStack(spacing: 8) { content }
-            .padding(.horizontal, 16)
-            .frame(height: 56)
-            .background(Theme.surface)
     }
 }

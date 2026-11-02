@@ -5,6 +5,7 @@ enum SettingsKey {
     static let showSpeedInMenuBar = "showSpeedInMenuBar"
     static let globalLimitEnabled = "globalLimitEnabled"
     static let globalLimitMB = "globalLimitMB"
+    static let defaultGlobalLimitMB = 10.0
     static let maxConcurrent = "maxConcurrent"
     static let downloadFolder = "downloadFolder"
     static let extensionSeen = "extensionSeen"
@@ -15,6 +16,10 @@ enum SettingsKey {
     static let accentColor = "accentColor"
     static let ytDlpAutoUpdate = "ytDlpAutoUpdate"
     static let ytDlpLastCheck = "ytDlpLastCheck"
+    /// İlk açılıştaki eklenti kurulumunda "Şimdilik geç" seçildi; kurulum ekranı bir daha zorla açılmaz.
+    static let onboardingSkipped = "onboardingSkipped"
+    /// "Chrome eklentisi bağlı değil" bandının kapatıldığı an (7 gün sonra yeniden çıkar).
+    static let extensionBannerDismissed = "extensionBannerDismissed"
 
     static var defaultDownloadFolder: String {
         FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path

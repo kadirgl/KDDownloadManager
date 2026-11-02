@@ -10,6 +10,8 @@ struct VideoFormats: Sendable {
     }
 
     let title: String
+    /// Süre (sn); bilinmiyorsa nil.
+    var duration: Double?
     let options: [Option]
 
     struct FetchError: LocalizedError {
@@ -63,11 +65,17 @@ struct VideoFormats: Sendable {
         let audio = best(audios.filter { $0["acodec"]?.stringValue?.hasPrefix("mp4a") == true }) ?? best(audios)
         let audioSize = audio.flatMap(size)
 
+        // Her çözünürlükte aynı tür biçim seçilsin ki boyutlar yukarıdan aşağı azalsın: önce H.264, onun içinde
+        // sadece görüntü olanlar. YouTube'un 360p'deki sesli tek dosyası (18) ayrıca ses eklenince 480p'yi
+        // geçiyordu.
         func option(_ quality: VideoQuality, from candidates: [JSONValue]) -> Option? {
             guard !candidates.isEmpty else { return nil }
             let h264 = candidates.filter { $0["vcodec"]?.stringValue?.hasPrefix("avc1") == true }
-            let video = best(h264.isEmpty ? candidates : h264)
-            let total = video.flatMap(size).map { $0 + (audioSize ?? 0) }
+            let pool = h264.isEmpty ? candidates : h264
+            let videoOnly = pool.filter { ($0["acodec"]?.stringValue ?? "none") == "none" }
+            guard let video = best(videoOnly.isEmpty ? pool : videoOnly) else { return nil }
+            let hasAudio = (video["acodec"]?.stringValue ?? "none") != "none"
+            let total = size(of: video).map { $0 + (hasAudio ? 0 : audioSize ?? 0) }
             return Option(quality: quality, size: total)
         }
 
@@ -90,9 +98,13 @@ struct VideoFormats: Sendable {
             options.append(Option(quality: .auto, size: best(formats).flatMap(size)))
         }
         if !audios.isEmpty || videos.isEmpty {
-            options.append(Option(quality: .audio, size: nil))
+            options.append(Option(quality: .audio, size: audioSize))
         }
-        return VideoFormats(title: info["title"]?.stringValue ?? "Video", options: options)
+        return VideoFormats(
+            title: info["title"]?.stringValue ?? "Video",
+            duration: info["duration"]?.doubleValue,
+            options: options
+        )
     }
 
     private static func resolution(of format: JSONValue) -> Int? {

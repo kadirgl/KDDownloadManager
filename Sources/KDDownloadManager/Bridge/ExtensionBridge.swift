@@ -195,6 +195,7 @@ final class ExtensionBridge {
     private static func json(_ formats: VideoFormats) -> JSONValue {
         [
             "title": .string(formats.title),
+            "duration": formats.duration.map { .number($0) } ?? .null,
             "options": .array(formats.options.map { option in
                 [
                     "quality": .string(option.quality.rawValue),

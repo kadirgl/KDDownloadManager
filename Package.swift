@@ -7,11 +7,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "KDDownloadManager",
-            path: "Sources/KDDownloadManager",
-            resources: [
-                // Kullanılan Phosphor ikonları (bkz. Views/Icons.swift) ve lisansı.
-                .process("Resources")
-            ]
+            path: "Sources/KDDownloadManager"
         )
     ]
 )

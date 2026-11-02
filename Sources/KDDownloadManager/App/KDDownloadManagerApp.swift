@@ -5,14 +5,10 @@ import AppKit
 struct KDDownloadManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    /// Menü çubuğu ikonu ve paneli AppDelegate'teki StatusItemController kuruyor; SwiftUI'nin
+    /// bir sahne istemesi için boş bir Ayarlar sahnesi.
     var body: some Scene {
-        MenuBarExtra {
-            PanelView()
-                .environment(appDelegate.store)
-        } label: {
-            MenuBarLabel(store: appDelegate.store)
-        }
-        .menuBarExtraStyle(.window)
+        Settings { EmptyView() }
     }
 }
 
@@ -22,12 +18,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// SwiftUI sahneyi açılış bildiriminden önce de kurabildiği için ayar taşıma burada, ilk erişimde yapılıyor.
     lazy var store: DownloadStore = {
         SettingsKey.importDevelopmentSettings()
+        #if DEBUG
+        if DebugPanel.screen != nil {
+            let store = DownloadStore(engine: MockDownloadEngine(), seedSamples: true)
+            DebugPanel.configure(store)
+            return store
+        }
+        #endif
         return DownloadStore(
             engine: RoutingEngine(files: Aria2Engine(), videos: YtDlpEngine()),
             archive: AppDelegate.archive
         )
     }()
     private var bridge: ExtensionBridge?
+    private var statusController: StatusItemController?
 
     private static var archive: DownloadArchive? {
         #if DEBUG
@@ -43,7 +47,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         Notifier.shared.setUp()
         AppTheme.apply()
+        let statusController = StatusItemController(store: store)
+        self.statusController = statusController
         #if DEBUG
+        DebugPanel.runIfRequested { statusController.open() }
         DebugSnapshot.runIfRequested()
         DebugEngineTest.runIfRequested()
         DebugPersistenceTest.runIfRequested()

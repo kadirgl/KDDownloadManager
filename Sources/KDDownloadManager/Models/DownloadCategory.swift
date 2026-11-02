@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 /// Üstteki filtre çipleri.
 enum DownloadCategory: CaseIterable, Identifiable {
@@ -18,14 +18,38 @@ enum DownloadCategory: CaseIterable, Identifiable {
         }
     }
 
-    var icon: Ph {
+    /// Kategori ikonundaki SF Symbol (tasarım rehberindeki kategori tablosu).
+    var symbol: String {
         switch self {
-        case .all, .other: .file
-        case .video: .filmStrip
-        case .music: .musicNotes
-        case .app: .appWindow
-        case .archive: .fileZip
-        case .document: .file
+        case .all, .other: "ellipsis"
+        case .video: "play.fill"
+        case .music: "music.note"
+        case .app: "square.grid.2x2.fill"
+        case .archive: "archivebox.fill"
+        case .document: "doc.text.fill"
+        }
+    }
+
+    /// Kategori ikonunun üst ve alt renkleri.
+    var topColor: Color {
+        switch self {
+        case .video: Color(hex: 0xB48CF0)
+        case .music: Color(hex: 0xF57A9A)
+        case .app: Color(hex: 0x5AA2F8)
+        case .archive: Color(hex: 0xD6AE74)
+        case .document: Color(hex: 0x5FCB8A)
+        case .all, .other: Color(hex: 0xA7AEBB)
+        }
+    }
+
+    var bottomColor: Color {
+        switch self {
+        case .video: Color(hex: 0x8150D6)
+        case .music: Color(hex: 0xD4436A)
+        case .app: Color(hex: 0x2C6FE0)
+        case .archive: Color(hex: 0xA67840)
+        case .document: Color(hex: 0x2E9E5C)
+        case .all, .other: Color(hex: 0x6B7280)
         }
     }
 
@@ -57,10 +81,10 @@ enum ListTab: CaseIterable, Identifiable {
         }
     }
 
-    var icon: Ph {
+    var symbol: String {
         switch self {
-        case .active: .play
-        case .completed: .flag
+        case .active: "play.fill"
+        case .completed: "checkmark"
         }
     }
 

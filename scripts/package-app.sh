@@ -30,8 +30,6 @@ echo "→ $APP oluşturuluyor…"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/$EXECUTABLE" "$APP/Contents/MacOS/"
-# İkonların kaynak paketi (Bundle.module) Bundle.main.resourceURL altında aranıyor; yoksa uygulama açılışta çöker.
-cp -R "$BIN/${EXECUTABLE}_${EXECUTABLE}.bundle" "$APP/Contents/Resources/"
 # Tarayıcı eklentisi: Ayarlar'daki "Kur" butonu buradan kopyalar.
 cp -R ChromeExtension "$APP/Contents/Resources/BrowserExtension"
 # Gömülü araçlar (her biri bundle-tools.sh'de ayrıca imzalandı); uygulama önce bunları kullanır.

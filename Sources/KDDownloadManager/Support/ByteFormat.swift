@@ -1,6 +1,6 @@
 import Foundation
 
-/// Tasarımdaki "24 MB/S", "12 GB" biçimi.
+/// Tasarımdaki "12,4 MB/sn", "12 GB" biçimi.
 enum ByteFormat {
     private static let units = ["B", "KB", "MB", "GB", "TB"]
     private static let locale = Locale(identifier: "tr_TR")
@@ -20,6 +20,18 @@ enum ByteFormat {
     }
 
     static func speed(_ bytesPerSecond: Int64) -> String {
-        size(bytesPerSecond) + "/S"
+        size(bytesPerSecond) + "/sn"
+    }
+
+    /// Kalan süre: "~13 sn", "~6 dk", "~2 sa 5 dk".
+    static func remaining(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds > 0 else { return "" }
+        let total = Int(seconds.rounded(.up))
+        if total < 60 { return "~\(total) sn" }
+        let minutes = (total + 59) / 60
+        if minutes < 60 { return "~\(minutes) dk" }
+        let hours = minutes / 60
+        let rest = minutes % 60
+        return rest == 0 ? "~\(hours) sa" : "~\(hours) sa \(rest) dk"
     }
 }

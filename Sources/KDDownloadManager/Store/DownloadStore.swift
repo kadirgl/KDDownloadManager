@@ -7,13 +7,15 @@ import Observation
 @Observable
 final class DownloadStore {
     enum Route {
-        case list, addLink, settings
+        case list, addLink, settings, onboarding
     }
 
     var items: [DownloadItem] = []
     var category: DownloadCategory = .all
     var tab: ListTab = .active
     var route: Route = .list
+    /// Ayarlar'da "Kur"a basılan tarayıcı; kurulum ekranı onun için açılır (nil: Chrome ya da ilk bulunan).
+    var onboardingBrowser: String?
     /// Tarayıcı eklentilerinin en son ne zaman bağlandığı (Ayarlar'daki durum için); kalıcı.
     private(set) var extensionSeen: [String: Date] =
         UserDefaults.standard.dictionary(forKey: SettingsKey.extensionSeen) as? [String: Date] ?? [:]
@@ -87,6 +89,33 @@ final class DownloadStore {
 
     private var hasActive: Bool { items.contains { ListTab.active.includes($0.status) } }
 
+    /// İlk açılış: hiçbir tarayıcı eklentisi bağlanmadıysa ve "Şimdilik geç" denmediyse kurulum ekranı.
+    var needsOnboarding: Bool {
+        extensionSeen.isEmpty && !UserDefaults.standard.bool(forKey: SettingsKey.onboardingSkipped)
+    }
+
+    /// Panel açılırken: gerekiyorsa eklenti kurulumu, değilse boştayken "Tamamlanan".
+    func panelWillOpen() {
+        if route == .list, needsOnboarding, !Self.isHarness {
+            route = .onboarding
+        }
+        showCompletedIfIdle()
+    }
+
+    func skipOnboarding() {
+        UserDefaults.standard.set(true, forKey: SettingsKey.onboardingSkipped)
+        route = .list
+    }
+
+    /// Geliştirme senaryolarında kurulum ekranı kendiliğinden açılmasın.
+    private static var isHarness: Bool {
+        #if DEBUG
+        return DebugHarness.isActive
+        #else
+        return false
+        #endif
+    }
+
     /// Devam eden indirme yoksa ve tamamlanan varsa "Tamamlanan" sekmesine geçer (panel açılırken).
     func showCompletedIfIdle() {
         guard route == .list, !hasActive, items.contains(where: { $0.status == .completed }) else { return }
@@ -147,8 +176,10 @@ final class DownloadStore {
     // MARK: - İşlemler
 
     /// Her satırdaki linki ayrı bir indirme olarak ekler; video linkleri `quality` kalitesinde iner.
-    func add(links text: String, quality: VideoQuality = .auto) {
-        add(Self.parseLinks(text).map { DownloadRequest(url: $0, quality: quality) })
+    /// `speedLimit` indirme başına sınır; `startPaused` ise ("Hemen başlat" kapalı) duraklatılmış eklenir.
+    func add(links text: String, quality: VideoQuality = .auto, speedLimit: Int64? = nil, startPaused: Bool = false) {
+        let requests = Self.parseLinks(text).map { DownloadRequest(url: $0, quality: quality) }
+        insert(requests.filter { DownloadSource.looksLikeLink($0.url) }, speedLimit: speedLimit, startPaused: startPaused)
     }
 
     /// Panelden ya da Chrome eklentisinden gelen istekleri ekler; link olmayanları atlar.
@@ -174,7 +205,7 @@ final class DownloadStore {
         insert(requests)
     }
 
-    private func insert(_ requests: [DownloadRequest]) {
+    private func insert(_ requests: [DownloadRequest], speedLimit: Int64? = nil, startPaused: Bool = false) {
         guard !requests.isEmpty else { return }
         var names: [String] = []
         for request in requests {
@@ -190,14 +221,50 @@ final class DownloadStore {
             if let jar = request.cookieJar, let site = CookieVault.site(of: item.url) {
                 CookieVault.shared.store(jar, for: site)
             }
+            item.speedLimit = speedLimit
             items.insert(item, at: 0)
-            engine.start(item)
+            if startPaused {
+                // Motor duraklatılmış ve hiç başlamamış indirmeyi "devam et"te sıfırdan ekliyor.
+                item.status = .paused
+            } else {
+                engine.start(item)
+            }
             names.append(item.fileName)
         }
         Notifier.shared.downloadsAdded(names)
         tab = .active
         category = .all
         route = .list
+        save()
+    }
+
+    /// "Tümünü duraklat" / "Tümünü devam ettir".
+    var allActivePaused: Bool {
+        let active = items.filter { ListTab.active.includes($0.status) && !$0.isFailed }
+        return !active.isEmpty && active.allSatisfy { $0.status == .paused }
+    }
+
+    func pauseAll() {
+        for item in items where [.downloading, .queued, .processing].contains(item.status) {
+            engine.pause(item)
+        }
+    }
+
+    func resumeAll() {
+        for item in items where item.status == .paused {
+            engine.resume(item)
+        }
+    }
+
+    func retryFailed() {
+        for item in items where item.isFailed {
+            engine.resume(item)
+        }
+    }
+
+    /// Tamamlananları listeden kaldırır; dosyalar diskte kalır.
+    func clearCompleted() {
+        items.removeAll { $0.status == .completed }
         save()
     }
 
@@ -292,7 +359,7 @@ final class DownloadStore {
     private static var savedGlobalLimit: Int64? {
         let defaults = UserDefaults.standard
         guard defaults.bool(forKey: SettingsKey.globalLimitEnabled) else { return nil }
-        let mb = defaults.object(forKey: SettingsKey.globalLimitMB) as? Double ?? 5
+        let mb = defaults.object(forKey: SettingsKey.globalLimitMB) as? Double ?? SettingsKey.defaultGlobalLimitMB
         return Int64(mb * 1_048_576)
     }
 

@@ -35,7 +35,7 @@ export function isDownloadable(url) {
   return /^(https?|ftp):\/\//i.test(url ?? "") || /^magnet:/i.test(url ?? "");
 }
 
-export const DEFAULT_ACCENT = "#FF8500";
+export const DEFAULT_ACCENT = "#F08A2E";
 
 // Uygulama çalışıyor mu; çalışıyorsa uygulamada seçilen vurgu rengini de saklar (açılır pencere ve
 // YouTube butonu aynı rengi kullanıyor).
@@ -247,7 +247,7 @@ export async function sendToApp(requests) {
 
 // Araç çubuğu ikonunda kısa bir sonuç işareti: ✓ gönderildi, ! uygulamaya ulaşılamadı.
 export function flashBadge(ok) {
-  chrome.action.setBadgeBackgroundColor({ color: ok ? "#FF8500" : "#D93025" });
+  chrome.action.setBadgeBackgroundColor({ color: ok ? DEFAULT_ACCENT : "#D93025" });
   chrome.action.setBadgeText({ text: ok ? "✓" : "!" });
   setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2500);
 }

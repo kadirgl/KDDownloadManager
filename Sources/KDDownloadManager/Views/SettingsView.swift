@@ -1,12 +1,13 @@
 import SwiftUI
 import AppKit
 
-/// Ayarlar ekranı; değerler @AppStorage ile UserDefaults'a yazılır.
+/// Ayarlar ekranı; değerler @AppStorage ile UserDefaults'a yazılır. Her bölüm bir cam kart, satırlar
+/// arasında ince ayırıcı; sürüm ve Çıkış alt köşelerde yüzen cam kapsüller.
 struct SettingsView: View {
     @Environment(DownloadStore.self) private var store
     @AppStorage(SettingsKey.downloadFolder) private var downloadFolder = SettingsKey.defaultDownloadFolder
     @AppStorage(SettingsKey.globalLimitEnabled) private var limitEnabled = false
-    @AppStorage(SettingsKey.globalLimitMB) private var limitMB = 5.0
+    @AppStorage(SettingsKey.globalLimitMB) private var limitMB = SettingsKey.defaultGlobalLimitMB
     @AppStorage(SettingsKey.maxConcurrent) private var maxConcurrent = SettingsKey.defaultMaxConcurrent
     @AppStorage(SettingsKey.connections) private var connections = SettingsKey.defaultConnections
     @AppStorage(SettingsKey.showSpeedInMenuBar) private var showSpeed = true
@@ -18,7 +19,7 @@ struct SettingsView: View {
     // Kaynak macOS; burada sadece gösterim için tutuluyor.
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var launchAtLoginError: String?
-    /// Kaydırıcı sürüklenirken her adımda uygulamamak için (video indirmeleri yeniden başlatılıyor).
+    /// Sınır art arda değiştirilirken her adımda uygulamamak için (video indirmeleri yeniden başlatılıyor).
     @State private var pendingLimit: Task<Void, Never>?
 
     var body: some View {
@@ -26,36 +27,31 @@ struct SettingsView: View {
             PanelHeader(title: "Ayarlar", onBack: { store.route = .list })
 
             ScrollView {
-                VStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
                     SettingsSection(title: "İndirme klasörü") {
                         HStack(spacing: 10) {
-                            PhIcon(.folder, weight: .fill, size: 18)
+                            Image(systemName: "folder.fill")
                                 .foregroundStyle(Theme.accent)
                             Text((downloadFolder as NSString).abbreviatingWithTildeInPath)
-                                .font(.system(size: 13))
+                                .font(.system(size: 13, weight: .medium))
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                                 .help(downloadFolder)
                             Spacer(minLength: 8)
                             Button("Değiştir", action: chooseFolder)
-                                .buttonStyle(PillButtonStyle(prominent: false))
+                                .buttonStyle(GlassCapsuleButtonStyle())
                         }
                     }
 
                     SettingsSection(title: "Görünüm") {
-                        HStack {
-                            Text("Tema")
-                            Spacer()
-                            Picker("Tema", selection: $theme) {
-                                ForEach(AppTheme.allCases) { Text($0.title).tag($0.rawValue) }
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.segmented)
-                            .fixedSize()
+                        SettingsRow("Tema") {
+                            GlassSegmented(
+                                options: AppTheme.allCases.map { ($0.rawValue, $0.title) },
+                                selection: $theme
+                            )
                         }
-                        HStack {
-                            Text("Vurgu rengi")
-                            Spacer()
+                        GlassDivider()
+                        SettingsRow("Vurgu rengi") {
                             AccentPicker(selection: $accent)
                         }
                     }
@@ -63,35 +59,23 @@ struct SettingsView: View {
                     SettingsSection(title: "Hız") {
                         SettingsToggle(title: "Genel hız sınırı", isOn: $limitEnabled)
                         if limitEnabled {
-                            HStack(spacing: 10) {
-                                Slider(value: $limitMB, in: 1...100, step: 1)
-                                Text("\(Int(limitMB)) MB/S")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .monospacedDigit()
-                                    .frame(width: 64, alignment: .trailing)
+                            SettingsRow("Sınır", note: "Tüm indirmelerin toplamı bunu geçmez; indirmeye özel daha yüksek sınırlar da buna göre kısıtlanır.") {
+                                GlassStepper(
+                                    label: "Sınır",
+                                    value: Binding(get: { Int(limitMB) }, set: { limitMB = Double($0) }),
+                                    range: 1...100,
+                                    format: { "\($0) MB/sn" }
+                                )
                             }
                         }
-                        HStack {
-                            Text("Aynı anda en fazla")
-                            Spacer()
-                            Text("\(maxConcurrent) indirme")
-                                .monospacedDigit()
-                            Stepper("Aynı anda en fazla", value: $maxConcurrent, in: 1...10)
-                                .labelsHidden()
+                        GlassDivider()
+                        SettingsRow("Aynı anda en fazla") {
+                            GlassStepper(label: "Aynı anda en fazla", value: $maxConcurrent, range: 1...10,
+                                         format: { "\($0) indirme" })
                         }
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Bağlantı sayısı")
-                                Text("Parçalı indirme: her dosya ve video bu kadar paralel bağlantıyla iner. Sunucu izin vermezse o indirme tek bağlantıya düşer.")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(Theme.secondaryText)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer()
-                            Text("\(connections)")
-                                .monospacedDigit()
-                            Stepper("Bağlantı sayısı", value: $connections, in: 1...16)
-                                .labelsHidden()
+                        GlassDivider()
+                        SettingsRow("Bağlantı sayısı", note: "Parçalı indirme: her dosya ve video bu kadar paralel bağlantıyla iner. Sunucu izin vermezse o indirme tek bağlantıya düşer.") {
+                            GlassStepper(label: "Bağlantı sayısı", value: $connections, range: 1...16)
                         }
                     }
 
@@ -103,12 +87,12 @@ struct SettingsView: View {
 
                     SettingsSection(title: "Bildirimler") {
                         SettingsToggle(title: "İndirme eklendiğinde", isOn: $notifyOnAdd)
+                        GlassDivider()
                         SettingsToggle(title: "İndirme tamamlandığında", isOn: $notifyOnFinish)
+                        GlassDivider()
                         SettingsToggle(title: "Hata olduğunda", isOn: $notifyOnFail)
                         if !Notifier.isAvailable {
-                            Text("Uygulama .app olarak paketlenip açıldığında çalışır.")
-                                .font(.system(size: 11))
-                                .foregroundStyle(Theme.secondaryText)
+                            SettingsNote("Uygulama .app olarak paketlenip açıldığında çalışır.")
                         }
                     }
 
@@ -120,33 +104,19 @@ struct SettingsView: View {
                         SettingsToggle(title: "Oturum açınca başlat", isOn: $launchAtLogin)
                             .disabled(!LaunchAtLogin.isAvailable)
                         if let note = launchAtLoginError ?? launchAtLoginNote {
-                            Text(note)
-                                .font(.system(size: 11))
-                                .foregroundStyle(launchAtLoginError == nil ? Theme.secondaryText : .red)
-                                .fixedSize(horizontal: false, vertical: true)
+                            SettingsNote(note, isError: launchAtLoginError != nil)
                         }
                     }
                 }
-                .toggleStyle(.switch)
-                .tint(Theme.accent)
-                .padding(16)
+                .padding(.horizontal, Theme.margin)
+                .padding(.top, 4)
+                .padding(.bottom, Theme.bottomBarClearance)
             }
-
-            PanelFooter {
-                Text(versionText)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.secondaryText)
-                Spacer()
-                Button { NSApp.terminate(nil) } label: {
-                    HStack(spacing: 6) {
-                        PhIcon(.power, weight: .bold, size: 14)
-                        Text("Çıkış")
-                    }
-                }
-                .buttonStyle(PillButtonStyle(prominent: false))
-                .keyboardShortcut("q")
-            }
+            .scrollIndicators(.never)
         }
+        .overlay(alignment: .bottom) { footer }
+        .toggleStyle(.switch)
+        .tint(Theme.accent)
         .onChange(of: limitEnabled) { store.applyGlobalSpeedLimit() }
         .onChange(of: limitMB) {
             pendingLimit?.cancel()
@@ -168,6 +138,25 @@ struct SettingsView: View {
                 launchAtLogin = LaunchAtLogin.isEnabled
             }
         }
+    }
+
+    private var footer: some View {
+        HStack {
+            Text(versionText)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.secondaryText)
+                .padding(.horizontal, 16)
+                .frame(height: 40)
+                .strongGlass(Capsule())
+            Spacer()
+            Button { NSApp.terminate(nil) } label: {
+                Label("Çıkış", systemImage: "power")
+            }
+            .buttonStyle(GlassCapsuleButtonStyle(height: 40, fontSize: 13))
+            .keyboardShortcut("q")
+        }
+        .padding(.horizontal, Theme.margin - 4)
+        .padding(.bottom, 14)
     }
 
     private var launchAtLoginNote: String? {
@@ -201,31 +190,73 @@ private struct AccentPicker: View {
     @Binding var selection: String
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             ForEach(AccentChoice.allCases) { choice in
+                let selected = selection == choice.rawValue
                 Button { selection = choice.rawValue } label: {
                     Circle()
                         .fill(choice.color)
-                        .frame(width: 16, height: 16)
+                        .frame(width: 18, height: 18)
                         .overlay {
                             if choice == .system {
                                 // Sistem rengini diğerlerinden ayırmak için ortasında küçük bir nokta.
-                                Circle().fill(.white.opacity(0.85)).frame(width: 5, height: 5)
+                                Circle().fill(.white.opacity(0.85)).frame(width: 6, height: 6)
                             }
                         }
                         .padding(3)
-                        .overlay(
-                            Circle().strokeBorder(
-                                selection == choice.rawValue ? Theme.primaryText.opacity(0.6) : .clear,
-                                lineWidth: 1.5
-                            )
-                        )
+                        .overlay(Circle().strokeBorder(selected ? Theme.primaryText.opacity(0.8) : .clear, lineWidth: 1.5))
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .help(choice.title)
                 .accessibilityLabel(choice.title)
-                .accessibilityAddTraits(selection == choice.rawValue ? .isSelected : [])
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+    }
+}
+
+/// Bölüm: üstte etiket, altında cam kart.
+struct SettingsSection<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel(title: title)
+            VStack(alignment: .leading, spacing: 12) {
+                content
+            }
+            .font(.system(size: 14))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCard()
+        }
+    }
+}
+
+/// Etiket solda, denetim sağda; isteğe bağlı açıklama altta.
+struct SettingsRow<Control: View>: View {
+    let title: String
+    var note: String?
+    @ViewBuilder var control: Control
+
+    init(_ title: String, note: String? = nil, @ViewBuilder control: () -> Control) {
+        self.title = title
+        self.note = note
+        self.control = control()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                Spacer(minLength: 8)
+                control
+            }
+            if let note {
+                SettingsNote(note)
             }
         }
     }
@@ -246,27 +277,47 @@ struct SettingsToggle: View {
     }
 }
 
-struct SettingsSection<Content: View>: View {
-    let title: String
-    @ViewBuilder var content: Content
+/// Kartın içindeki küçük açıklama metni.
+struct SettingsNote: View {
+    let text: String
+    var isError = false
+
+    init(_ text: String, isError: Bool = false) {
+        self.text = text
+        self.isError = isError
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Türkçe kurala göre büyüt: "indirici" → "İNDİRİCİ" (textCase sistemin diline göre "INDIRICI" yapıyor).
-            Text(title.uppercased(with: Locale(identifier: "tr_TR")))
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.secondaryText)
-                .padding(.horizontal, 4)
-            VStack(alignment: .leading, spacing: 12) {
-                content
+        Text(text)
+            .font(.system(size: 11.5))
+            .foregroundStyle(isError ? Theme.errorText : Theme.secondaryText)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// "Bağlı" / "Güncel" gibi durum satırı: yeşil nokta ya da onay işaretiyle.
+struct StatusLine: View {
+    enum Kind { case connected, success, neutral, error }
+
+    let text: String
+    var kind: Kind = .neutral
+
+    var body: some View {
+        HStack(spacing: 5) {
+            switch kind {
+            case .connected:
+                Circle().fill(Theme.success).frame(width: 7, height: 7)
+            case .success:
+                Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.success)
+            case .error:
+                Circle().fill(Theme.error).frame(width: 7, height: 7)
+            case .neutral:
+                EmptyView()
             }
-            .font(.system(size: 13))
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
-                    .fill(Theme.surface)
-            )
+            Text(text)
+                .font(.system(size: 11.5))
+                .foregroundStyle(kind == .error ? Theme.errorText : Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

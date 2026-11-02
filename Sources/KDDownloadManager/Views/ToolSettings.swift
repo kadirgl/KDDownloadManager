@@ -8,12 +8,9 @@ struct YtDlpSettings: View {
     var body: some View {
         SettingsSection(title: "Video indirici (yt-dlp)") {
             HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(updater.current.version.map { "yt-dlp \($0)" } ?? "yt-dlp")
-                    Text(statusText)
-                        .font(.system(size: 11))
-                        .foregroundStyle(isError ? Color.red : Theme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(updater.current.version.map { "yt-dlp \($0)" } ?? "yt-dlp").fontWeight(.semibold)
+                    StatusLine(text: statusText, kind: isError ? .error : isUpToDate ? .success : .neutral)
                 }
                 Spacer()
                 if updater.isBusy {
@@ -22,16 +19,21 @@ struct YtDlpSettings: View {
                 Button("Denetle") {
                     Task { await updater.update() }
                 }
-                .buttonStyle(PillButtonStyle(prominent: false))
+                .buttonStyle(GlassCapsuleButtonStyle())
                 .disabled(updater.isBusy || updater.current.origin == .system)
                 .help("yt-dlp'nin yeni sürümü var mı denetle")
             }
+            GlassDivider()
             SettingsToggle(title: "Otomatik güncelle", isOn: $autoUpdate)
                 .disabled(updater.current.origin == .system)
-            Text("YouTube sık değiştiği için yt-dlp güncel tutulmazsa video indirmeleri bozulabilir. Güncellemeler yt-dlp'nin resmi GitHub sürümünden alınır ve doğrulanır.")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+            SettingsNote("YouTube sık değiştiği için yt-dlp güncel tutulmazsa video indirmeleri bozulabilir. Güncellemeler yt-dlp'nin resmi GitHub sürümünden alınır ve doğrulanır.")
+        }
+    }
+
+    private var isUpToDate: Bool {
+        switch updater.state {
+        case .upToDate, .updated: true
+        default: false
         }
     }
 

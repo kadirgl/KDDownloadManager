@@ -13,22 +13,21 @@ struct ExtensionSettings: View {
 
     var body: some View {
         SettingsSection(title: "Tarayıcı eklentisi") {
-            Text("Eklenti tarayıcıdaki indirmeleri, magnet linklerini ve videoları (kalite seçerek) uygulamaya gönderir.")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+            SettingsNote("Eklenti tarayıcıdaki indirmeleri, magnet linklerini ve videoları (kalite seçerek) uygulamaya gönderir.")
 
             // Göreli zamanlar ("2 dk önce") ve bağlantı durumu güncel kalsın.
             TimelineView(.periodic(from: .now, by: 30)) { context in
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
                     if browsers.isEmpty {
                         Text("Desteklenen bir tarayıcı bulunamadı (Chrome, Edge, Brave, Arc, Vivaldi, Opera).")
                             .font(.system(size: 12))
                     }
                     ForEach(browsers) { browser in
+                        GlassDivider()
                         row(for: browser, now: context.date)
                     }
                     ForEach(otherConnections(now: context.date), id: \.name) { connection in
+                        GlassDivider()
                         statusLine(name: connection.name, seen: connection.date, now: context.date)
                     }
                 }
@@ -38,30 +37,35 @@ struct ExtensionSettings: View {
                 steps(for: installing)
             }
             if installFailed {
-                Text("Eklenti dosyaları hazırlanamadı.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.red)
+                SettingsNote("Eklenti dosyaları hazırlanamadı.", isError: true)
             }
-            Text("Safari için eklenti yok; magnet linkleri aşağıdaki Torrent ayarıyla Safari'de de çalışır.")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+            GlassDivider()
+            SettingsNote("Safari için eklenti yok; magnet linkleri aşağıdaki Torrent ayarıyla Safari'de de çalışır.")
         }
     }
 
     private func row(for browser: BrowserExtension.Browser, now: Date) -> some View {
         let seen = store.extensionSeen[browser.name]
         return HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(browser.name)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(browser.name).fontWeight(.semibold)
                 status(seen: seen, now: now)
             }
             Spacer()
-            Button(seen == nil ? "Kur" : "Yeniden kur") {
-                installFailed = !BrowserExtension.beginInstall(in: browser)
-                installing = installFailed ? nil : browser
+            if seen == nil {
+                // Hiç bağlanmamış: adım adım kurulum ekranı.
+                Button("Kur") {
+                    store.onboardingBrowser = browser.name
+                    store.route = .onboarding
+                }
+                .buttonStyle(AccentButtonStyle(height: 30, fontSize: 12))
+            } else {
+                Button("Yeniden kur") {
+                    installFailed = !BrowserExtension.beginInstall(in: browser)
+                    installing = installFailed ? nil : browser
+                }
+                .buttonStyle(GlassCapsuleButtonStyle())
             }
-            .buttonStyle(PillButtonStyle(prominent: seen == nil))
         }
     }
 
@@ -75,29 +79,21 @@ struct ExtensionSettings: View {
     }
 
     private func statusLine(name: String, seen: Date, now: Date) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(name)
+        VStack(alignment: .leading, spacing: 3) {
+            Text(name).fontWeight(.semibold)
             status(seen: seen, now: now)
         }
     }
 
     private func status(seen: Date?, now: Date) -> some View {
         let connected = seen.map { now.timeIntervalSince($0) < Self.connectedWindow } ?? false
-        let text: String
         if connected {
-            text = "Bağlı"
+            return StatusLine(text: "Bağlı", kind: .connected)
         } else if let seen {
-            text = "Son bağlantı \(seen.formatted(.relative(presentation: .named, unitsStyle: .wide).locale(Locale(identifier: "tr_TR"))))"
+            let ago = seen.formatted(.relative(presentation: .named, unitsStyle: .wide).locale(Locale(identifier: "tr_TR")))
+            return StatusLine(text: "Son bağlantı \(ago)")
         } else {
-            text = "Eklenti kurulu değil"
-        }
-        return HStack(spacing: 5) {
-            Circle()
-                .fill(connected ? Color.green : Theme.secondaryText.opacity(0.5))
-                .frame(width: 7, height: 7)
-            Text(text)
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.secondaryText)
+            return StatusLine(text: "Bağlı değil", kind: .error)
         }
     }
 
@@ -112,12 +108,12 @@ struct ExtensionSettings: View {
                 Text("Eklenti bağlanınca burada \"Bağlı\" görünür. Eklentiyi önceden başka bir klasörden yüklediyseniz önce onu kaldırın.")
                     .foregroundStyle(Theme.secondaryText)
             }
-            .font(.system(size: 11))
+            .font(.system(size: 11.5))
             .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(10)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.background))
+        .glassCard(radius: 14)
     }
 }
 
@@ -130,11 +126,9 @@ struct TorrentSettings: View {
     var body: some View {
         SettingsSection(title: "Torrent") {
             HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Magnet linkleri ve .torrent dosyaları")
-                    Text(statusText)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.secondaryText)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Magnet linkleri ve .torrent dosyaları").fontWeight(.semibold)
+                    StatusLine(text: statusText, kind: isDefault ? .success : .neutral)
                 }
                 Spacer()
                 if !isDefault {
@@ -150,19 +144,15 @@ struct TorrentSettings: View {
                             handlerName = TorrentHandler.currentHandlerName
                         }
                     }
-                    .buttonStyle(PillButtonStyle())
+                    .buttonStyle(AccentButtonStyle(height: 30, fontSize: 12))
                     .disabled(!TorrentHandler.isAvailable)
                 }
             }
             if let error {
-                Text(error)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.red)
+                SettingsNote(error, isError: true)
             }
-            Text("Diskteki .torrent dosyalarını panele sürükleyip bırakabilir ya da Link Ekle ekranından seçebilirsiniz.")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+            GlassDivider()
+            SettingsNote("Diskteki .torrent dosyalarını panele sürükleyip bırakabilir ya da Link ekle ekranından seçebilirsiniz.")
         }
     }
 

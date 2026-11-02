@@ -102,6 +102,16 @@ final class DownloadItem: Identifiable {
         return min(Double(downloadedBytes) / Double(totalBytes), 1)
     }
 
+    var isFailed: Bool {
+        if case .failed = status { true } else { false }
+    }
+
+    /// Kalan süre (sn); hız ya da boyut bilinmiyorsa nil.
+    var remainingSeconds: Double? {
+        guard speed > 0, totalBytes > downloadedBytes else { return nil }
+        return Double(totalBytes - downloadedBytes) / Double(speed)
+    }
+
     init(
         id: UUID = UUID(),
         url: String,

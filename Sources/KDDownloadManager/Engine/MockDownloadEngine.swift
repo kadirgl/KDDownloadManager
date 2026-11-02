@@ -103,18 +103,21 @@ extension DownloadStore {
     static func sampleItems() -> [DownloadItem] {
         let gb: Int64 = 1_073_741_824
         let mb: Int64 = 1_048_576
+        let paused = DownloadItem(url: "https://files.example.com/Esthedental_Assets.zip",
+                                  totalBytes: 2_470 * mb, downloadedBytes: 276 * mb, status: .paused)
         return [
-            DownloadItem(url: "https://example.com/Aşamaya%20müdahale.pdf", fileName: "Aşamaya müdahale.pdf",
-                         totalBytes: 12 * gb, downloadedBytes: 12 * gb * 87 / 100),
-            DownloadItem(url: "https://example.com/Aşamaya%20müdahale.mp3", fileName: "Aşamaya müdahale.mp3",
-                         totalBytes: 12 * gb, downloadedBytes: 12 * gb * 67 / 100),
-            DownloadItem(url: "https://example.com/rapor.pdf", fileName: "Aşamaya müdahale.pdf",
-                         totalBytes: 12 * gb, downloadedBytes: 12 * gb * 27 / 100),
-            DownloadItem(url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", fileName: "Konser kaydı.mp4",
-                         totalBytes: 640 * mb, downloadedBytes: 640 * mb, status: .completed),
+            DownloadItem(url: "https://updates.example.com/macOS_Tahoe_26.1.dmg",
+                         totalBytes: 12_900 * mb, downloadedBytes: 12_900 * mb * 64 / 100),
+            DownloadItem(url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", fileName: "Konferans_Kaydi_Tasarim_Haftasi.mp4",
+                         totalBytes: 1_430 * mb, downloadedBytes: 1_430 * mb * 21 / 100),
+            paused,
+            DownloadItem(url: "https://example.com/Yillik_Rapor_2026.pdf",
+                         totalBytes: 18 * mb, downloadedBytes: 18 * mb, status: .completed),
+            DownloadItem(url: "https://example.com/Podcast_Bolum_42.mp3",
+                         totalBytes: 64 * mb, downloadedBytes: 64 * mb, status: .completed),
             DownloadItem(url: "magnet:?xt=urn:btih:0000&dn=ubuntu-24.04-desktop-arm64.iso",
                          totalBytes: 3 * gb, downloadedBytes: 3 * gb, status: .completed),
-            DownloadItem(url: "https://example.com/Proje.zip",
+            DownloadItem(url: "https://example.com/Proje_Dosyalari_v2.zip",
                          totalBytes: 220 * mb, downloadedBytes: 220 * mb, status: .completed)
         ]
     }

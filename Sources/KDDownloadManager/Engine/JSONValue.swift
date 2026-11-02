@@ -62,6 +62,14 @@ enum JSONValue: Codable, Sendable, Equatable {
         default: nil
         }
     }
+
+    var doubleValue: Double? {
+        switch self {
+        case .string(let value): Double(value)
+        case .number(let value): value
+        default: nil
+        }
+    }
 }
 
 extension JSONValue: ExpressibleByStringLiteral, ExpressibleByArrayLiteral, ExpressibleByDictionaryLiteral {
