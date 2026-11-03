@@ -29,8 +29,10 @@ sayesinde sabit). Uygulama yalnızca bu kimlikten gelen istekleri kabul eder.
 - **Video kalitesi:** Açılır pencere her sayfada video arar ve bulursa sunduğu çözünürlükleri tahmini
   boyutlarıyla listeler (uygulama yt-dlp ile öğrenir; ~1.800 site tanınıyor). Sağ tık menüsünde de
   kalite alt menüsü var.
-- **Her sitede videolar:** YouTube'da oynatıcının üstünde, diğer sitelerde fare videonun üzerine
-  gelince sağ üst köşesinde "İndir" butonu çıkar. yt-dlp'nin tanımadığı sitelerde de sayfa oynatırken
+- **Her sitede videolar:** "İndir" butonu videonun içine değil dışına konur (oynatıcıların köşelerinde
+  kendi düğmeleri var): YouTube'da beğen/paylaş satırında, Shorts'ta sağdaki düğme sütununun en üstünde;
+  diğer sitelerde fare videonun üzerine gelince videonun hemen üstünde, sağ kenarına hizalı. Yalnızca tam
+  ekranda ya da dışarıda hiç yer yokken oynatıcının sağ üst köşesine girer. yt-dlp'nin tanımadığı sitelerde de sayfa oynatırken
   açtığı akışlar (HLS `.m3u8`, DASH `.mpd`, doğrudan video dosyaları) yakalanır; araç çubuğu ikonunda
   o sekmede bulunan akış sayısı görünür, butondan ya da açılır pencereden indirilebilir. Akışlar
   sayfanın başlığıyla kaydedilir.

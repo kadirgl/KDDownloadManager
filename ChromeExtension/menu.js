@@ -11,7 +11,7 @@ globalThis.KDMenu = (() => {
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
     .button {
       display: flex; align-items: center; gap: 6px;
-      height: 34px; padding: 0 10px 0 12px; border: 0; border-radius: 999px;
+      height: var(--kd-height, 34px); padding: 0 10px 0 12px; border: 0; border-radius: 999px;
       background: color-mix(in srgb, var(--accent) 88%, transparent); color: var(--on-accent);
       font-size: 13px; font-weight: 600; cursor: pointer;
       -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
@@ -23,8 +23,15 @@ globalThis.KDMenu = (() => {
     .button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .button svg { width: 15px; height: 15px; flex: none; }
     .button .chevron { width: 10px; height: 10px; opacity: 0.8; }
+    /* Shorts'taki dikey düğme sütunu için: yuvarlak ikon, altında etiket. */
+    .compact { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .compact .button { width: 48px; height: 48px; padding: 0; justify-content: center; }
+    .compact .button svg { width: 22px; height: 22px; }
+    .caption { color: var(--kd-caption, #F1F1F1); font-size: 12px; font-weight: 400; line-height: 1; }
+    /* Menü "popover" olarak sayfanın en üst katmanında açılır: butonun girdiği satır ya da oynatıcı taşanı
+       kesse (overflow) ya da kaydırma için dönüştürülse (transform) de tam görünür. Konumu show() veriyor. */
     .menu {
-      position: absolute; top: calc(100% + 8px); right: 0; width: 300px; max-height: 380px; overflow-y: auto;
+      position: fixed; inset: auto; margin: 0; width: 300px; max-height: 380px; overflow-y: auto;
       padding: 6px; border-radius: 18px; font-size: 13px; line-height: 1.3;
       background: rgba(24, 22, 30, 0.55); color: #fff;
       -webkit-backdrop-filter: blur(36px) saturate(190%); backdrop-filter: blur(36px) saturate(190%);
@@ -44,8 +51,6 @@ globalThis.KDMenu = (() => {
         --divider: rgba(0, 0, 0, 0.08); --ok: #16A34A; --error: #B42318;
       }
     }
-    .menu[hidden] { display: none; }
-    :host([data-up]) .menu { top: auto; bottom: calc(100% + 8px); }
     .header { display: flex; align-items: center; gap: 10px; padding: 8px 8px 10px; }
     .tile {
       flex: none; width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center;
@@ -156,8 +161,12 @@ globalThis.KDMenu = (() => {
     host.style.setProperty("--accent-text", `color-mix(in srgb, ${hex} ${dark ? 65 : 62}%, ${dark ? "white" : "black"})`);
   }
 
-  // Kapsül "İndir" butonu ve altındaki menü. `position` gölge kökünün (host) konumu: absolute ya da fixed.
-  function create(position) {
+  // Menünün butonun altına açılması için gereken yer; yoksa (ve üstte daha çok yer varsa) yukarı açılır.
+  const MENU_ROOM = 300;
+
+  // Kapsül "İndir" butonu ve altındaki menü. `position` gölge kökünün (host) konumu: absolute, fixed ya da
+  // sayfanın düğme satırına yerleşince relative. `compact`: yuvarlak ikon ve altında "İndir" etiketi.
+  function create(position, { compact = false } = {}) {
     const host = document.createElement("div");
     host.style.setProperty("position", position, "important");
     const shadow = host.attachShadow({ mode: "closed" });
@@ -169,12 +178,23 @@ globalThis.KDMenu = (() => {
     button.setAttribute("aria-haspopup", "menu");
     button.setAttribute("aria-expanded", "false");
     button.title = "KD Download Manager ile indir";
-    button.append(icon("download"), element("span", "", "İndir"), icon("chevron", "chevron"));
+    if (compact) {
+      button.setAttribute("aria-label", "İndir");
+      button.append(icon("download"));
+    } else {
+      button.append(icon("download"), element("span", "", "İndir"), icon("chevron", "chevron"));
+    }
 
     const panel = element("div", "menu");
     panel.setAttribute("role", "menu");
-    panel.hidden = true;
-    shadow.append(style, button, panel);
+    panel.popover = "manual";
+    if (compact) {
+      const stack = element("div", "compact");
+      stack.append(button, element("span", "caption", "İndir"));
+      shadow.append(style, stack, panel);
+    } else {
+      shadow.append(style, button, panel);
+    }
 
     // Sayfanın kendi tıklama/klavye işleyicileri (oynat/durdur, kısayollar) tetiklenmesin.
     for (const type of ["click", "dblclick", "mousedown", "mouseup", "pointerdown", "pointerup", "keydown", "wheel"]) {
@@ -183,16 +203,29 @@ globalThis.KDMenu = (() => {
     applyAccent(host);
     send({ type: "video-status" }).then((status) => applyAccent(host, status?.accent));
 
+    // Butonun altına, sağ kenarları hizalı; altta yer yoksa üstüne (içerik gelince yukarı doğru büyür).
+    function place() {
+      const rect = button.getBoundingClientRect();
+      const viewportHeight = document.documentElement.clientHeight;
+      const below = viewportHeight - rect.bottom;
+      const up = below < MENU_ROOM && rect.top > below;
+      panel.style.right = `${Math.max(document.documentElement.clientWidth - rect.right, 8)}px`;
+      panel.style.top = up ? "auto" : `${rect.bottom + 8}px`;
+      panel.style.bottom = up ? `${viewportHeight - rect.top + 8}px` : "auto";
+      panel.style.maxHeight = `${Math.max(Math.min(380, (up ? rect.top : below) - 16), 160)}px`;
+    }
+
     const menu = {
       host, button, panel,
-      get open() { return !panel.hidden; },
+      get open() { return panel.matches(":popover-open"); },
       show() {
-        panel.hidden = false;
+        place();
+        if (!menu.open) panel.showPopover();
         button.setAttribute("aria-expanded", "true");
       },
       close() {
-        if (panel.hidden) return;
-        panel.hidden = true;
+        if (!menu.open) return;
+        panel.hidePopover();
         button.setAttribute("aria-expanded", "false");
       },
       accent(value) { applyAccent(host, value); },
@@ -203,6 +236,13 @@ globalThis.KDMenu = (() => {
     document.addEventListener("click", (event) => {
       if (!event.composedPath().includes(host)) menu.close();
     }, true);
+    // Sayfa kayınca menü butonla birlikte gitsin.
+    addEventListener("scroll", () => {
+      if (menu.open) place();
+    }, { passive: true, capture: true });
+    addEventListener("resize", () => {
+      if (menu.open) place();
+    }, { passive: true });
     return menu;
   }
 

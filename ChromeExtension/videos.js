@@ -10,8 +10,6 @@
   const HIDE_DELAY = 1500;
   const BUTTON_HEIGHT = 34;
   const GAP = 8;
-  // Menünün aşağı açılması için butonun altında gereken yer; yoksa yukarı açılır.
-  const MENU_ROOM = 300;
 
   const { create, send, note, header, option, qualityRows, footer, element, formatSize } = globalThis.KDMenu;
 
@@ -146,8 +144,6 @@
     }
     menu.host.style.top = `${top}px`;
     menu.host.style.right = `${right}px`;
-    const below = viewportHeight - top - BUTTON_HEIGHT;
-    menu.host.toggleAttribute("data-up", below < MENU_ROOM && top > below);
   }
 
   function show(video) {

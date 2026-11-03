@@ -1,11 +1,16 @@
-// YouTube'da oynatıcının sağ üstüne "İndir" butonu ekler. Tıklayınca videonun kaliteleri tahmini
-// boyutlarıyla listelenir, seçilen kalite KD Download Manager'a gönderilir. Görünüm ve menü menu.js'te.
-// YouTube sayfa yenilemeden video değiştirdiği için buton saniyede bir doğru oynatıcıya ve videoya
+// YouTube'da "İndir" butonu ekler. Tıklayınca videonun kaliteleri tahmini boyutlarıyla listelenir, seçilen
+// kalite KD Download Manager'a gönderilir. Görünüm ve menü menu.js'te.
+// Buton videonun içine konmuyor (oynatıcının köşelerinde YouTube'un kendi düğmeleri var): izleme sayfasında
+// beğen/paylaş satırına, Shorts'ta sağdaki düğme sütununun en üstüne yerleşir. Yalnızca tam ekranda ya da
+// bu yerler bulunamazsa oynatıcının sağ üst köşesine girer.
+// YouTube sayfa yenilemeden video değiştirdiği için buton saniyede bir doğru yerde ve doğru videoya
 // bağlı mı diye kontrol edilir.
 (() => {
   const { create, send, note, header, qualityRows, footer } = globalThis.KDMenu;
 
-  let menu = null;
+  // Yer başına bir buton: satırda kapsül, Shorts sütununda yuvarlak, oynatıcının içinde kapsül.
+  const menus = {};
+  let menu = null; // Şu an sayfada olan.
   let boundUrl = null;
   // Video başına tek istek: fare butonun üzerine gelince başlar, tıklayınca aynı istek beklenir.
   let formatsCache = { url: null, promise: null };
@@ -38,17 +43,59 @@
     return best;
   }
 
-  function createMenu() {
-    menu = create("absolute");
-    menu.host.id = "kd-download-manager-button";
-    menu.host.style.top = "12px";
-    menu.host.style.right = "12px";
-    menu.button.addEventListener("click", toggleMenu);
+  const shown = (element) => element && element.getBoundingClientRect().width > 0;
+
+  // Sayfa açılırken düğme satırı oynatıcıdan birkaç saniye sonra geliyor; o arada buton oynatıcının
+  // içinde belirip kaybolmasın diye bu kadar beklenir. Satır hiç gelmezse (YouTube düzeni değişti) içeri girer.
+  const ROW_WAIT = 6000;
+  let rowMissingSince = 0;
+
+  // Butonun gireceği yer: { mode, parent, before }; henüz yoksa null.
+  function findSpot(player) {
+    if (document.fullscreenElement) return { mode: "overlay", parent: player, before: null };
+    if (location.pathname === "/watch") {
+      // Beğen, paylaş, kaydet… düğmelerinin sonunda, "⋯" (diğer) düğmesinden önce.
+      const row = document.querySelector("ytd-watch-metadata #actions ytd-menu-renderer");
+      if (shown(row)) {
+        rowMissingSince = 0;
+        const more = [...row.children].reverse().find((child) => child !== menus.row?.host && shown(child));
+        return { mode: "row", parent: row, before: more ?? null };
+      }
+    } else {
+      const bar = player.closest("ytd-reel-video-renderer")?.querySelector("reel-action-bar-view-model");
+      if (shown(bar)) {
+        rowMissingSince = 0;
+        const first = [...bar.children].find((child) => child !== menus.column?.host);
+        return { mode: "column", parent: bar, before: first ?? null };
+      }
+    }
+    rowMissingSince ||= performance.now();
+    if (performance.now() - rowMissingSince < ROW_WAIT) return null;
+    return { mode: "overlay", parent: player, before: null };
+  }
+
+  function menuFor(mode) {
+    if (menus[mode]) return menus[mode];
+    const created = mode === "overlay" ? create("absolute") : create("relative", { compact: mode === "column" });
+    created.host.id = `kd-download-manager-${mode}`;
+    if (mode === "overlay") {
+      created.host.style.top = "12px";
+      created.host.style.right = "12px";
+    } else if (mode === "row") {
+      created.host.style.setProperty("--kd-height", "36px");
+      created.host.style.marginLeft = "8px";
+      created.host.style.alignSelf = "center";
+    } else {
+      created.host.style.marginBottom = "16px";
+    }
+    created.button.addEventListener("click", toggleMenu);
     // Kalite listesi yt-dlp ile birkaç saniye sürüyor; fare üzerine gelince başlat ki menü hazır açılsın.
     // Her video sayfasında önceden istenmiyor: YouTube'a fazladan istek robot korumasını tetikleyebilir.
-    menu.button.addEventListener("pointerenter", () => {
+    created.button.addEventListener("pointerenter", () => {
       if (boundUrl) loadFormats(boundUrl);
     });
+    menus[mode] = created;
+    return created;
   }
 
   function loadFormats(url) {
@@ -64,38 +111,54 @@
   }
 
   async function toggleMenu() {
-    if (menu.open) {
-      menu.close();
+    const current = menu;
+    if (current.open) {
+      current.close();
       return;
     }
     const url = boundUrl;
-    menu.show();
-    menu.panel.replaceChildren(note("Kaliteler alınıyor…"));
+    current.show();
+    current.panel.replaceChildren(note("Kaliteler alınıyor…"));
 
     const status = await send({ type: "video-status" });
-    if (status?.accent) menu.accent(status.accent);
+    if (status?.accent) current.accent(status.accent);
     if (!status?.running) {
-      menu.panel.replaceChildren(note("KD Download Manager çalışmıyor. Uygulamayı açıp tekrar deneyin.", "error"));
+      current.panel.replaceChildren(note("KD Download Manager çalışmıyor. Uygulamayı açıp tekrar deneyin.", "error"));
       return;
     }
     const formats = await loadFormats(url);
-    if (url !== boundUrl || !menu.open) return; // Bu arada video değişti ya da menü kapandı.
+    if (url !== boundUrl || !current.open) return; // Bu arada video değişti ya da menü kapandı.
     const title = formats?.title ?? document.title.replace(/ - YouTube$/, "");
-    menu.panel.replaceChildren(header(title, formats?.duration), ...qualityRows(menu, url, formats), footer());
-    menu.panel.querySelector(".option")?.focus();
+    current.panel.replaceChildren(header(title, formats?.duration), ...qualityRows(current, url, formats), footer());
+    current.panel.querySelector(".option")?.focus();
   }
 
-  // Doğru oynatıcıya ve videoya bağlı tut.
+  // Doğru yerde ve doğru videoya bağlı tut.
   function sync() {
     const url = videoUrl();
     const player = url ? findPlayer() : null;
-    if (!player) {
+    const spot = player ? findSpot(player) : null;
+    if (!spot) {
+      menu?.close();
       menu?.host.remove();
-      boundUrl = null;
+      menu = null;
+      if (!player) boundUrl = null;
       return;
     }
-    if (!menu) createMenu();
-    if (menu.host.parentElement !== player) player.appendChild(menu.host);
+    const next = menuFor(spot.mode);
+    if (menu && menu !== next) {
+      menu.close();
+      menu.host.remove();
+    }
+    menu = next;
+    if (spot.mode === "column") {
+      // Etiket rengi YouTube'un temasına (açık/koyu) uysun; komşu düğmelerin etiketleriyle aynı.
+      const dark = document.documentElement.hasAttribute("dark");
+      menu.host.style.setProperty("--kd-caption", dark ? "#F1F1F1" : "#0F0F0F");
+    }
+    if (menu.host.parentElement !== spot.parent || (spot.before && menu.host.nextElementSibling !== spot.before)) {
+      spot.parent.insertBefore(menu.host, spot.before);
+    }
     if (boundUrl !== url) {
       boundUrl = url;
       menu.close();
@@ -105,4 +168,5 @@
   sync();
   setInterval(sync, 1000);
   document.addEventListener("yt-navigate-finish", sync);
+  document.addEventListener("fullscreenchange", sync);
 })();
