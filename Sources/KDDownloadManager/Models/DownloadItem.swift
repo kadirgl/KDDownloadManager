@@ -68,7 +68,13 @@ final class DownloadItem: Identifiable {
     let id: UUID
     let url: String
     let source: DownloadSource
-    var fileName: String
+    /// İndirme sırasında değişebilir (sunucunun verdiği gerçek ad, uzantısı sonradan anlaşılan dosya);
+    /// kategori de ona göre güncellenir. Videoda kategoriyi kalite belirliyor (video ya da sadece ses).
+    var fileName: String {
+        didSet {
+            if source != .video, fileName != oldValue { category = DownloadCategory.forFile(named: fileName) }
+        }
+    }
     var category: DownloadCategory
     var totalBytes: Int64
     var downloadedBytes: Int64

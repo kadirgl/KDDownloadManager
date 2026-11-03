@@ -87,6 +87,7 @@ final class DownloadStore {
         }
         if let archive {
             items = archive.load()
+            categorizeExtensionlessFiles()
             lastSaved = archive.encode(items)
             // Kapanırken inmekte olanlar kaldığı yerden devam etsin; duraklatılan ve hatalılar beklesin.
             items.filter { $0.status == .queued }.forEach(engine.start)
@@ -278,6 +279,7 @@ final class DownloadStore {
                     Notifier.shared.downloadFailed(item, message: "Dosya yerine bir web sayfası indi")
                     continue
                 }
+                addMissingExtension(to: item)
                 if item.completedAt == nil { item.completedAt = Date() }
                 finished = true
                 Notifier.shared.downloadFinished(item)
@@ -291,6 +293,33 @@ final class DownloadStore {
         lastStatuses = current
         // Son indirme de bitti (iptal edilmedi, hata yok): menü çubuğunda kısa bir onay işareti.
         if finished, !hasActive, !hasFailures { finishedAt = Date() }
+    }
+
+    /// Sunucu adı uzantısız verdiyse (örn. "things-to-do-in-istanbul") dosyanın türü ilk baytlarından
+    /// anlaşılır ve uzantı eklenir; kategori de ada göre düzelir. Aynı ad doluysa "(1)" eklenir.
+    private func addMissingExtension(to item: DownloadItem) {
+        guard item.source == .direct else { return }
+        let file = item.destination ?? item.folder.appendingPathComponent(item.fileName)
+        guard file.pathExtension.isEmpty, FileManager.default.fileExists(atPath: file.path),
+              let ext = FileType.sniffExtension(of: file) else { return }
+        let folder = file.deletingLastPathComponent()
+        var name = file.lastPathComponent + "." + ext
+        if FileManager.default.fileExists(atPath: folder.appendingPathComponent(name).path) {
+            name = freshName(for: name, in: folder)
+        }
+        let renamed = folder.appendingPathComponent(name)
+        guard (try? FileManager.default.moveItem(at: file, to: renamed)) != nil else { return }
+        item.destination = renamed
+        item.fileName = name
+    }
+
+    /// Önceden inmiş uzantısız dosyaların kategorisi: adına dokunmadan türüne göre (açılışta bir kez).
+    private func categorizeExtensionlessFiles() {
+        for item in items where item.status == .completed && item.source == .direct && item.category == .other {
+            let file = item.destination ?? item.folder.appendingPathComponent(item.fileName)
+            guard file.pathExtension.isEmpty, let ext = FileType.sniffExtension(of: file) else { continue }
+            item.category = DownloadCategory.forFile(named: "x." + ext)
+        }
     }
 
     /// Adı bir dosya türü taşıyan (zip, pdf, mp4…) ama içi HTML olan küçük indirme: sunucunun giriş ya da

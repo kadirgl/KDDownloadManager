@@ -113,6 +113,8 @@ extension DownloadStore {
             paused,
             DownloadItem(url: "https://example.com/Yillik_Rapor_2026.pdf",
                          totalBytes: 18 * mb, downloadedBytes: 18 * mb, status: .completed),
+            DownloadItem(url: "https://example.com/Galata_Kulesi.webp",
+                         totalBytes: 2 * mb, downloadedBytes: 2 * mb, status: .completed),
             DownloadItem(url: "https://example.com/Podcast_Bolum_42.mp3",
                          totalBytes: 64 * mb, downloadedBytes: 64 * mb, status: .completed),
             DownloadItem(url: "magnet:?xt=urn:btih:0000&dn=ubuntu-24.04-desktop-arm64.iso",

@@ -109,7 +109,7 @@ enum DebugPanel {
                         for item in store?.items ?? [] {
                             let path = item.destination?.path ?? item.folder.appendingPathComponent(item.fileName).path
                             let size = (try? FileManager.default.attributesOfItem(atPath: path))?[.size] as? Int64
-                            let line = "KD_DEMO_ITEM \(item.url) | ad=\(item.fileName) | \(item.status) | "
+                            let line = "KD_DEMO_ITEM \(item.url) | ad=\(item.fileName) | kategori=\(item.category.title) | \(item.status) | "
                                 + "toplam=\(item.totalBytes) inen=\(item.downloadedBytes) | disk=\(size.map(String.init) ?? "yok")\n"
                             FileHandle.standardError.write(Data(line.utf8))
                         }
