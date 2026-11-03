@@ -13,22 +13,36 @@ extension View {
         background(GlassShape(shape: RoundedRectangle(cornerRadius: radius, style: .continuous), strength: .regular))
     }
 
-    /// Yüzen bar ve küçük butonların daha belirgin camı (altındaki içeriği bulanıklaştırır).
-    func strongGlass<S: InsettableShape>(_ shape: S) -> some View {
-        background(GlassShape(shape: shape, strength: .strong))
+    /// Küçük butonların ve kapsüllerin daha belirgin camı. `floating`: liste kayarken üstünde duran öğeler
+    /// (alt bar, alt butonlar, geri al bildirimi) altındakini gerçekten bulanıklaştırır ve gölge alır.
+    /// Kayan içerikteki kontrollerde bulanıklık yok: ekran sunucusu her karede yeniden hesaplıyor, satır
+    /// başına bir bulanıklık kaydırmayı takıltıyordu.
+    func strongGlass<S: InsettableShape>(_ shape: S, floating: Bool = false) -> some View {
+        background(GlassShape(shape: shape, strength: floating ? .floating : .strong))
     }
 }
 
 private struct GlassShape<S: InsettableShape>: View {
-    enum Strength { case regular, strong }
+    enum Strength { case regular, strong, floating }
 
     let shape: S
     let strength: Strength
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        ZStack {
-            if strength == .strong {
+        if strength == .floating {
+            layers
+                .compositingGroup()
+                .shadow(color: Theme.shadow, radius: 15, y: 10)
+        } else {
+            layers
+        }
+    }
+
+    private var layers: some View {
+        let strong = strength != .regular
+        return ZStack {
+            if strength == .floating {
                 // Altından kayan liste okunmasın diye gerçek bulanıklık.
                 if reduceTransparency {
                     shape.fill(Theme.windowSolid)
@@ -36,19 +50,17 @@ private struct GlassShape<S: InsettableShape>: View {
                     shape.fill(.ultraThinMaterial)
                 }
             }
-            shape.fill(strength == .strong ? Theme.strongGlass : Theme.glass)
-            shape.strokeBorder(strength == .strong ? Theme.strongGlassEdge : Theme.glassEdge, lineWidth: 1)
+            shape.fill(strong ? Theme.strongGlass : Theme.glass)
+            shape.strokeBorder(strong ? Theme.strongGlassEdge : Theme.glassEdge, lineWidth: 1)
             // Üst kenardaki ışık çizgisi.
             shape.strokeBorder(
                 LinearGradient(
-                    colors: [strength == .strong ? Theme.strongGlassHighlight : Theme.glassHighlight, .clear],
+                    colors: [strong ? Theme.strongGlassHighlight : Theme.glassHighlight, .clear],
                     startPoint: .top, endPoint: .init(x: 0.5, y: 0.18)
                 ),
                 lineWidth: 1
             )
         }
-        .compositingGroup()
-        .shadow(color: strength == .strong ? Theme.shadow : .clear, radius: 15, y: 10)
     }
 }
 
@@ -131,10 +143,11 @@ struct AccentButtonStyle: ButtonStyle {
     }
 }
 
-/// Cam kapsül (ikincil): Değiştir, Denetle, Kopyala, İptal.
+/// Cam kapsül (ikincil): Değiştir, Denetle, Kopyala, İptal. `floating`: içeriğin üstünde yüzen alt butonlar.
 struct GlassCapsuleButtonStyle: ButtonStyle {
     var height: CGFloat = 30
     var fontSize: CGFloat = 12
+    var floating = false
 
     func makeBody(configuration: Configuration) -> some View {
         StyledBody(style: self, configuration: configuration)
@@ -151,7 +164,7 @@ struct GlassCapsuleButtonStyle: ButtonStyle {
                 .padding(.horizontal, style.height * 0.45)
                 .frame(minHeight: style.height)
                 .foregroundStyle(Theme.primaryText)
-                .strongGlass(Capsule())
+                .strongGlass(Capsule(), floating: style.floating)
                 .contentShape(Capsule())
                 .modifier(InteractionModifier(isPressed: configuration.isPressed, hovering: $hovering))
         }
@@ -216,6 +229,9 @@ struct CategoryIcon: View {
                     .shadow(color: .black.opacity(0.22), radius: 0.6, y: 0.6)
             )
             .frame(width: size, height: size)
+            // Katmanlar (geçiş, parlama, kenarlar, sembol) tek bir görüntüde birleşsin; listede her satırda
+            // ayrı ayrı birleştirilmesi kaydırmayı yavaşlatıyordu.
+            .drawingGroup()
             .shadow(color: .black.opacity(0.3), radius: 1.5, y: 1)
             .accessibilityHidden(true)
     }
@@ -371,6 +387,27 @@ struct GlassSegmented<Value: Hashable>: View {
         .padding(3)
         .glassCard(radius: 16)
         .animation(.snappy(duration: 0.25), value: selection)
+    }
+}
+
+extension View {
+    /// Kaydırma başlayıp bitince `store.isScrolling`'i günceller (macOS 15+; öncesinde hover hep çalışır).
+    func tracksScrolling(_ store: DownloadStore) -> some View {
+        modifier(ScrollPhaseTracker(store: store))
+    }
+}
+
+private struct ScrollPhaseTracker: ViewModifier {
+    let store: DownloadStore
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15, *) {
+            content.onScrollPhaseChange { _, phase in
+                if store.isScrolling != phase.isScrolling { store.isScrolling = phase.isScrolling }
+            }
+        } else {
+            content
+        }
     }
 }
 

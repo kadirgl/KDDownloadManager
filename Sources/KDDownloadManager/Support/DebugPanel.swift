@@ -104,6 +104,11 @@ enum DebugPanel {
             if let keys = ProcessInfo.processInfo.environment["KD_DEMO_KEYS"], let panel {
                 try? await Task.sleep(for: .seconds(0.5))
                 for key in keys.split(separator: ",") {
+                    if key.hasPrefix("scroll") {
+                        // "scroll-down" / "scroll-up": trackpad'e benzer sürekli kaydırma, kare süreleri ölçülür.
+                        await scroll(down: key == "scroll-down", in: panel)
+                        continue
+                    }
                     press(String(key), in: NSApp.keyWindow ?? panel)
                     try? await Task.sleep(for: .seconds(0.6))
                     report(after: String(key), panel: panel)
@@ -135,6 +140,50 @@ enum DebugPanel {
             + "liste=\(store?.items.count ?? 0) ilk=\(store?.items.first.map { String(describing: $0.status) } ?? "-") seçili=\(item?.fileName ?? "-") önizleme=\(previewing) "
             + "pencereler=\(NSApp.windows.filter(\.isVisible).map { String(describing: type(of: $0)) })\n"
         FileHandle.standardError.write(Data(line.utf8))
+    }
+
+    /// Trackpad hareketine benzer 1,5 sn'lik kaydırma; bu sırada ekran yenileme geri çağrılarının
+    /// arasındaki boşluklar ölçülür. Ana iş parçacığı bir karede işini bitiremezse boşluk büyür (takılma).
+    private static func scroll(down: Bool, in panel: NSWindow) async {
+        guard let view = panel.contentView, let screen = panel.screen else { return }
+        func find(_ view: NSView) -> NSScrollView? {
+            if let scroll = view as? NSScrollView, scroll.documentView?.frame.height ?? 0 > scroll.frame.height + 50 { return scroll }
+            for subview in view.subviews { if let found = find(subview) { return found } }
+            return nil
+        }
+        guard let scrollView = find(view) else { return }
+        func scrollOffset() -> CGFloat { scrollView.contentView.bounds.origin.y }
+        let startOffset = scrollOffset()
+
+        let counter = FrameCounter()
+        let link = view.displayLink(target: counter, selector: #selector(FrameCounter.tick(_:)))
+        link.add(to: .main, forMode: .common)
+        let point = CGPoint(x: panel.frame.midX, y: screen.frame.maxY - panel.frame.midY + 60)
+        let steps = 180
+        for step in 0..<steps {
+            guard let event = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
+                                      wheel1: Int32(down ? -9 : 9), wheel2: 0, wheel3: 0) else { continue }
+            event.location = point
+            event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+            event.setIntegerValueField(.scrollWheelEventScrollPhase, value: step == 0 ? 1 : step == steps - 1 ? 4 : 2)
+            event.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(panel.windowNumber))
+            event.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(panel.windowNumber))
+            if let nsEvent = NSEvent(cgEvent: event) { scrollView.scrollWheel(with: nsEvent) }
+            try? await Task.sleep(for: .milliseconds(8))
+        }
+        try? await Task.sleep(for: .milliseconds(100))
+        link.invalidate()
+        let gaps = zip(counter.stamps.dropFirst(), counter.stamps).map { ($0 - $1) * 1000 }.sorted()
+        guard let median = gaps.dropFirst(gaps.count / 2).first, let longest = gaps.last else { return }
+        let hitches = gaps.filter { $0 > median * 1.6 }.count
+        let line = String(format: "KD_DEMO_SCROLL %@: kare=%d ortanca=%.1f ms en uzun=%.1f ms takılma=%d konum %.0f→%.0f\n",
+                          down ? "aşağı" : "yukarı", gaps.count, median, longest, hitches, startOffset, scrollOffset())
+        FileHandle.standardError.write(Data(line.utf8))
+    }
+
+    private final class FrameCounter: NSObject {
+        var stamps: [CFTimeInterval] = []
+        @objc func tick(_ link: CADisplayLink) { stamps.append(link.timestamp) }
     }
 
     private static func press(_ key: String, in window: NSWindow) {

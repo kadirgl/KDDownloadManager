@@ -17,6 +17,9 @@ final class DownloadStore {
     /// Panel ekranda mı. Kapalıyken içerik hiç çizilmiyor; gizli pencerede de her ilerlemede yeniden
     /// hesaplanıp çiziliyordu (açık panelden fazla işlemci).
     var panelVisible = false
+    /// Liste kayarken satırlardaki hover butonları açılıp kapanmasın (imleç altından geçen her satırda
+    /// düzen değişiyor, kaydırma takılıyordu).
+    var isScrolling = false
     /// Ayarlar'da "Kur"a basılan tarayıcı; kurulum ekranı onun için açılır (nil: Chrome ya da ilk bulunan).
     var onboardingBrowser: String?
     /// Klavyeyle gezinme, Quick Look ve satır kısayolları için seçili satır.

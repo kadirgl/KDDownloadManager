@@ -176,7 +176,7 @@ struct DownloadRow: View {
 
     @ViewBuilder
     private var actions: some View {
-        let showSecondary = hovering || showingLimit || isSelected
+        let showSecondary = (hovering && !store.isScrolling) || showingLimit || isSelected
         HStack(spacing: 6) {
             if isCompleted {
                 if showSecondary {

@@ -90,6 +90,7 @@ struct DownloadListView: View {
                 .padding(.bottom, Theme.bottomBarClearance)
             }
             .scrollIndicators(.never)
+            .tracksScrolling(store)
             // Klavye: ↑/↓ satırlar arasında gezer, Boşluk duraklatır ya da önizler, ↩ dosyayı açar,
             // ⌫ tamamlananı listeden kaldırır. ⌘'li kısayollar ListShortcuts'ta.
             .focusable()
@@ -290,7 +291,7 @@ private struct UndoToast: View {
             .padding(.leading, 14)
             .padding(.trailing, 5)
             .frame(height: 38)
-            .strongGlass(Capsule())
+            .strongGlass(Capsule(), floating: true)
             .padding(.horizontal, Theme.margin + 20)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .accessibilityElement(children: .contain)
@@ -477,7 +478,7 @@ private struct BottomBar: View {
                 }
             }
             .padding(4)
-            .strongGlass(Capsule())
+            .strongGlass(Capsule(), floating: true)
 
             Spacer(minLength: 0)
 
@@ -489,6 +490,8 @@ private struct BottomBar: View {
                         .monospacedDigit()
                         .contentTransition(.numericText())
                 }
+                .lineLimit(1)
+                .fixedSize()
                 .font(.system(size: 13, weight: .semibold))
                 .opacity(store.displaySpeed > 0 ? 1 : 0.55)
                 if limitEnabled {
@@ -499,7 +502,7 @@ private struct BottomBar: View {
             }
             .padding(.horizontal, 16)
             .frame(minHeight: 46)
-            .strongGlass(Capsule())
+            .strongGlass(Capsule(), floating: true)
             .help("Toplam indirme hızı")
             .accessibilityElement(children: .combine)
         }
@@ -521,6 +524,9 @@ private struct BottomBar: View {
                     CountBadge(count: count, onAccent: selected)
                 }
             }
+            // İki haneli sayılarda yazı ikinci satıra kaymasın.
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(selected ? Theme.onAccent : Theme.primaryText)
             .padding(.horizontal, 12)
             .frame(height: 38)

@@ -350,7 +350,7 @@ struct AddLinkView: View {
     private var footer: some View {
         HStack(spacing: 8) {
             Button("İptal") { store.route = .list }
-                .buttonStyle(GlassCapsuleButtonStyle(height: 46, fontSize: 14))
+                .buttonStyle(GlassCapsuleButtonStyle(height: 46, fontSize: 14, floating: true))
             if missingSpace != nil {
                 Button(action: chooseFolder) {
                     Label("Başka klasör seç", systemImage: "folder")

@@ -147,12 +147,12 @@ struct SettingsView: View {
                 .foregroundStyle(Theme.secondaryText)
                 .padding(.horizontal, 16)
                 .frame(height: 40)
-                .strongGlass(Capsule())
+                .strongGlass(Capsule(), floating: true)
             Spacer()
             Button { NSApp.terminate(nil) } label: {
                 Label("Çıkış", systemImage: "power")
             }
-            .buttonStyle(GlassCapsuleButtonStyle(height: 40, fontSize: 13))
+            .buttonStyle(GlassCapsuleButtonStyle(height: 40, fontSize: 13, floating: true))
             .keyboardShortcut("q")
         }
         .padding(.horizontal, Theme.margin - 4)
