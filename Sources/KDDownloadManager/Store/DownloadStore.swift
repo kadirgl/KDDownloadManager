@@ -269,6 +269,15 @@ final class DownloadStore {
             guard let previous = lastStatuses[item.id], previous != item.status else { continue }
             switch item.status {
             case .completed:
+                if let page = Self.webPageInsteadOfFile(item) {
+                    // Sunucu dosya yerine giriş ya da hata sayfası verdi; "tamamlandı" görünmesin.
+                    try? FileManager.default.removeItem(at: page)
+                    item.destination = nil
+                    item.status = .failed("Dosya yerine bir web sayfası indi; site giriş istiyor olabilir. Tarayıcıdan indirmeyi deneyin.")
+                    current[item.id] = item.status
+                    Notifier.shared.downloadFailed(item, message: "Dosya yerine bir web sayfası indi")
+                    continue
+                }
                 if item.completedAt == nil { item.completedAt = Date() }
                 finished = true
                 Notifier.shared.downloadFinished(item)
@@ -282,6 +291,22 @@ final class DownloadStore {
         lastStatuses = current
         // Son indirme de bitti (iptal edilmedi, hata yok): menü çubuğunda kısa bir onay işareti.
         if finished, !hasActive, !hasFailures { finishedAt = Date() }
+    }
+
+    /// Adı bir dosya türü taşıyan (zip, pdf, mp4…) ama içi HTML olan küçük indirme: sunucunun giriş ya da
+    /// hata sayfası. Uzantısız ya da zaten sayfa olan (html, php…) adlara dokunulmaz.
+    static func webPageInsteadOfFile(_ item: DownloadItem) -> URL? {
+        guard item.source == .direct else { return nil }
+        let file = item.destination ?? item.folder.appendingPathComponent(item.fileName)
+        let ext = file.pathExtension.lowercased()
+        guard !ext.isEmpty, !["html", "htm", "xhtml", "php", "asp", "aspx", "jsp", "txt", "xml", "svg"].contains(ext),
+              let size = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? Int64,
+              size > 0, size < 2_000_000,
+              let handle = try? FileHandle(forReadingFrom: file) else { return nil }
+        defer { try? handle.close() }
+        let head = String(decoding: (try? handle.read(upToCount: 512)) ?? Data(), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return head.hasPrefix("<!doctype html") || head.hasPrefix("<html") ? file : nil
     }
 
     var visibleItems: [DownloadItem] {
@@ -365,6 +390,16 @@ final class DownloadStore {
                 CookieVault.shared.store(jar, for: site)
             }
             item.speedLimit = speedLimit
+            // Listede aynı klasöre aynı adla inen başka bir dosya varsa "(1)" ekle; aynı anda başlayan iki
+            // indirme aynı dosyaya yazıp birbirini bozuyordu.
+            if item.source == .direct, items.contains(where: {
+                $0.source == .direct && $0.folder.standardizedFileURL == item.folder.standardizedFileURL
+                    && $0.fileName.caseInsensitiveCompare(item.fileName) == .orderedSame
+            }) {
+                let unique = freshName(for: item.fileName, in: item.folder)
+                item.fileName = unique
+                item.preferredName = unique
+            }
             items.insert(item, at: 0)
             if startPaused {
                 // Motor duraklatılmış ve hiç başlamamış indirmeyi "devam et"te sıfırdan ekliyor.

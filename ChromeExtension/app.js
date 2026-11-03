@@ -231,13 +231,14 @@ export function streamLabel(stream) {
 }
 
 // İstekleri uygulamaya yollar; uygulama kabul ettiyse true döner.
-export async function sendToApp(requests) {
+// `timeout`: Chrome'dan devralınan indirmelerde uygulama adresi önce yokluyor, biraz daha bekle.
+export async function sendToApp(requests, { timeout = 3000 } = {}) {
   try {
     const response = await fetch(`${APP_URL}/add`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ links: requests }),
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(timeout),
     });
     return response.ok;
   } catch {

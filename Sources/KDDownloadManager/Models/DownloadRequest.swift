@@ -18,6 +18,10 @@ struct DownloadRequest: Decodable, Sendable {
     var video: Bool?
     /// Kaydedilecek ad (eklenti sayfanın başlığından üretir); bkz. `DownloadItem.preferredName`.
     var saveAs: String?
+    /// Chrome'un başlattığı bir indirme devralınıyor: kabul etmeden önce adres yoklanır (bkz. ExtensionBridge).
+    var fromBrowserDownload: Bool?
+    /// Chrome'un o indirme için öğrendiği dosya türü (örn. "application/pdf").
+    var mime: String?
 
     init(url: String, filename: String? = nil, referrer: String? = nil, userAgent: String? = nil,
          cookies: String? = nil, quality: VideoQuality? = nil) {
@@ -30,7 +34,7 @@ struct DownloadRequest: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case url, filename, referrer, userAgent, cookies, quality, cookieJar, video, saveAs
+        case url, filename, referrer, userAgent, cookies, quality, cookieJar, video, saveAs, fromBrowserDownload, mime
     }
 
     init(from decoder: Decoder) throws {
@@ -45,5 +49,7 @@ struct DownloadRequest: Decodable, Sendable {
         cookieJar = try? container.decodeIfPresent([BrowserCookie].self, forKey: .cookieJar)
         video = try? container.decodeIfPresent(Bool.self, forKey: .video)
         saveAs = try? container.decodeIfPresent(String.self, forKey: .saveAs)
+        fromBrowserDownload = try? container.decodeIfPresent(Bool.self, forKey: .fromBrowserDownload)
+        mime = try? container.decodeIfPresent(String.self, forKey: .mime)
     }
 }

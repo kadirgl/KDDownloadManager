@@ -104,6 +104,17 @@ enum DebugPanel {
             if let keys = ProcessInfo.processInfo.environment["KD_DEMO_KEYS"], let panel {
                 try? await Task.sleep(for: .seconds(0.5))
                 for key in keys.split(separator: ",") {
+                    if key == "items" {
+                        // Tüm indirmelerin son durumu: ad, durum, boyut ve diskteki dosya.
+                        for item in store?.items ?? [] {
+                            let path = item.destination?.path ?? item.folder.appendingPathComponent(item.fileName).path
+                            let size = (try? FileManager.default.attributesOfItem(atPath: path))?[.size] as? Int64
+                            let line = "KD_DEMO_ITEM \(item.url) | ad=\(item.fileName) | \(item.status) | "
+                                + "toplam=\(item.totalBytes) inen=\(item.downloadedBytes) | disk=\(size.map(String.init) ?? "yok")\n"
+                            FileHandle.standardError.write(Data(line.utf8))
+                        }
+                        continue
+                    }
                     if key.hasPrefix("scroll") {
                         // "scroll-down" / "scroll-up": trackpad'e benzer sürekli kaydırma, kare süreleri ölçülür.
                         await scroll(down: key == "scroll-down", in: panel)

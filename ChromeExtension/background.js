@@ -171,7 +171,12 @@ chrome.downloads.onCreated.addListener(async (download) => {
 
   const url = download.finalUrl || download.url;
   const filename = download.filename ? download.filename.split(/[\\/]/).pop() : undefined;
-  const ok = await sendToApp([await describe(url, { referrer: download.referrer, filename })]);
+  const request = await describe(url, { referrer: download.referrer, filename });
+  // Uygulama adresi yoklayıp (aynı çerez ve referrer'la) yeniden indirilemiyorsa reddediyor; o zaman
+  // Chrome'un indirmesi sürer.
+  request.fromBrowserDownload = true;
+  if (download.mime) request.mime = download.mime;
+  const ok = await sendToApp([request], { timeout: 9000 });
   if (!ok) return;
 
   try {
@@ -183,10 +188,21 @@ chrome.downloads.onCreated.addListener(async (download) => {
   flashBadge(true);
 });
 
+// Dosyayı sayfanın içinde (service worker ya da şifre çözme ile) üreten siteler: adres sunucudan yeniden
+// istenince dosya değil sayfa geliyor. Bunların indirmeleri hiç devralınmaz, Chrome indirir.
+const IN_PAGE_DOWNLOAD_HOSTS = ["web.whatsapp.com", "web.telegram.org", "mega.nz", "mega.io", "app.element.io"];
+
+function downloadsInPage(download) {
+  const host = (url) => { try { return new URL(url).hostname; } catch { return ""; } };
+  return [download.finalUrl, download.url, download.referrer].some((url) =>
+    IN_PAGE_DOWNLOAD_HOSTS.some((h) => host(url) === h || host(url).endsWith("." + h)));
+}
+
 function shouldTake(download) {
   return download.state === "in_progress"
     && !download.incognito // Gizli pencerede indirilenler uygulamanın listesine düşmesin.
-    && isDownloadable(download.finalUrl || download.url);
+    && isDownloadable(download.finalUrl || download.url)
+    && !downloadsInPage(download);
 }
 
 // --- Sayfalarda oynatılan video akışlarını yakalama ---------------------------------------------

@@ -93,6 +93,36 @@ enum LinkProbe {
         return .file(FileInfo(name: name.flatMap { $0.isEmpty || $0 == "/" ? nil : $0 }, size: size, resumable: resumable))
     }
 
+    /// Chrome'dan devralınacak bir indirme uygulamada da inebilir mi? İnebiliyorsa nil, inemiyorsa nedeni.
+    /// Adres tarayıcının çerezi, referrer'ı ve kimliğiyle bir kez (ilk bayt) istenir. Chrome adresi zaten
+    /// istediği için bu zararsız: yeniden istenemeyen bir bağlantıyı aria2 de indiremezdi.
+    static func canTakeOver(_ request: DownloadRequest) async -> String? {
+        guard let url = URL(string: request.url), let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else { return nil }
+        var probe = URLRequest(url: url, timeoutInterval: 6)
+        probe.setValue("bytes=0-0", forHTTPHeaderField: "Range")
+        if let cookies = request.cookies { probe.setValue(cookies, forHTTPHeaderField: "Cookie") }
+        if let referrer = request.referrer { probe.setValue(referrer, forHTTPHeaderField: "Referer") }
+        if let agent = request.userAgent { probe.setValue(agent, forHTTPHeaderField: "User-Agent") }
+        probe.httpShouldHandleCookies = false
+        do {
+            let (bytes, received) = try await URLSession.shared.bytes(for: probe)
+            bytes.task.cancel()
+            guard let http = received as? HTTPURLResponse else { return "beklenmedik yanıt" }
+            guard (200..<300).contains(http.statusCode) else { return "sunucu \(http.statusCode) döndü" }
+            // Service worker'ın sunduğu adresler sunucuda sayfanın HTML kabuğunu döndürüyor; Chrome ise
+            // gerçek dosyayı (başka bir türde) indiriyordu.
+            let type = (http.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
+            let expected = (request.mime ?? "").lowercased()
+            if type.hasPrefix("text/html"), !expected.isEmpty, !expected.hasPrefix("text/html") {
+                return "dosya yerine sayfa döndü"
+            }
+            return nil
+        } catch {
+            return "adrese ulaşılamadı"
+        }
+    }
+
     /// `attachment; filename="Rapor.pdf"` ya da `filename*=UTF-8''Rapor%20Son.pdf`.
     static func fileName(fromDisposition value: String) -> String? {
         for part in value.split(separator: ";").map({ $0.trimmingCharacters(in: .whitespaces) }) {

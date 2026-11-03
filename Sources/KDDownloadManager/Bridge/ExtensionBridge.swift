@@ -166,8 +166,32 @@ final class ExtensionBridge {
                 Self.send(status: 422, ["error": "Desteklenen bir link yok"], origin: origin, on: connection)
                 return
             }
-            onAdd(valid)
-            Self.send(status: 200, ["added": .number(Double(valid.count))], origin: origin, on: connection)
+            guard valid.contains(where: { $0.fromBrowserDownload == true }) else {
+                onAdd(valid)
+                Self.send(status: 200, ["added": .number(Double(valid.count))], origin: origin, on: connection)
+                return
+            }
+            // Chrome'un başlattığı indirme: adres sunucudan yeniden istenebiliyor mu? İstenemiyorsa (sayfanın
+            // kendi içinde üretilen WhatsApp/Telegram dosyaları, tek kullanımlık ya da form ile başlayan
+            // indirmeler) reddedilir; eklenti Chrome'un indirmesini iptal etmez, dosya Chrome'da iner.
+            Task {
+                var accepted: [DownloadRequest] = []
+                for link in valid {
+                    if link.fromBrowserDownload != true {
+                        accepted.append(link)
+                    } else if let reason = await LinkProbe.canTakeOver(link) {
+                        print("Tarayıcı indirmesi devralınmadı (\(reason)): \(link.url)")
+                    } else {
+                        accepted.append(link)
+                    }
+                }
+                guard !accepted.isEmpty else {
+                    Self.send(status: 422, ["error": "Bu indirme tarayıcıda kalmalı"], origin: origin, on: connection)
+                    return
+                }
+                onAdd(accepted)
+                Self.send(status: 200, ["added": .number(Double(accepted.count))], origin: origin, on: connection)
+            }
 
         default:
             Self.send(status: 404, ["error": "Bulunamadı"], origin: origin, on: connection)
