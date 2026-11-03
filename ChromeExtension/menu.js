@@ -45,6 +45,7 @@ globalThis.KDMenu = (() => {
       }
     }
     .menu[hidden] { display: none; }
+    :host([data-up]) .menu { top: auto; bottom: calc(100% + 8px); }
     .header { display: flex; align-items: center; gap: 10px; padding: 8px 8px 10px; }
     .tile {
       flex: none; width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center;

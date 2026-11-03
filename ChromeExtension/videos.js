@@ -1,13 +1,17 @@
-// YouTube dışındaki sitelerde, fare bir videonun üzerine gelince sağ üst köşesinde "İndir" butonu
-// gösterir. Menüde iki yol var: yt-dlp'nin sayfadan bulduğu kaliteler (~1.800 site tanınıyor) ve
-// sayfa oynatırken ağ trafiğinden yakalanan akışlar (HLS/DASH listeleri, doğrudan video dosyaları).
-// Buton oynatıcının içine değil sayfanın üstüne konuyor (oynatıcıların kendi düzenini bozmamak için).
-// Görünüm ve menü menu.js'te.
+// YouTube dışındaki sitelerde, fare bir videonun üzerine gelince videonun hemen üstünde, sağ kenarına
+// hizalı bir "İndir" butonu gösterir. Menüde iki yol var: yt-dlp'nin sayfadan bulduğu kaliteler
+// (~1.800 site tanınıyor) ve sayfa oynatırken ağ trafiğinden yakalanan akışlar (HLS/DASH listeleri,
+// doğrudan video dosyaları). Buton oynatıcının içine değil sayfanın üstüne konuyor (oynatıcıların kendi
+// düzenini bozmamak için). Görünüm ve menü menu.js'te.
 (() => {
   // Önizleme ve reklam gibi küçük videolarda buton çıkmasın.
   const MIN_WIDTH = 240;
   const MIN_HEIGHT = 135;
   const HIDE_DELAY = 1500;
+  const BUTTON_HEIGHT = 34;
+  const GAP = 8;
+  // Menünün aşağı açılması için butonun altında gereken yer; yoksa yukarı açılır.
+  const MENU_ROOM = 300;
 
   const { create, send, note, header, option, qualityRows, footer, element, formatSize } = globalThis.KDMenu;
 
@@ -118,7 +122,9 @@
     return rect.width >= MIN_WIDTH && rect.height >= MIN_HEIGHT && getComputedStyle(video).visibility !== "hidden";
   }
 
-  // Buton videonun sağ üst köşesinde, video ekrandan taşıyorsa görünen kısmın köşesinde.
+  // Buton videonun dışında: üstünde yer varsa üst kenarın, yoksa alt kenarın hemen dışında, sağa hizalı.
+  // Oynatıcıların köşelerinde kendi butonları (ses, paylaş, kapat) olduğu için videonun içine yalnızca
+  // dışarıda hiç yer kalmadığında (tam ekran, videoyu dolduran gömülü oynatıcı) girer.
   function place() {
     if (!menu || !target) return;
     if (!target.isConnected || !eligible(target)) {
@@ -126,8 +132,22 @@
       return;
     }
     const rect = target.getBoundingClientRect();
-    menu.host.style.top = `${Math.max(rect.top, 0) + 12}px`;
-    menu.host.style.right = `${Math.max(document.documentElement.clientWidth - rect.right, 0) + 12}px`;
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
+    let top;
+    let right = Math.max(viewportWidth - rect.right, GAP);
+    if (rect.top - GAP - BUTTON_HEIGHT >= 0) {
+      top = rect.top - GAP - BUTTON_HEIGHT;
+    } else if (rect.bottom + GAP + BUTTON_HEIGHT <= viewportHeight) {
+      top = rect.bottom + GAP;
+    } else {
+      top = Math.max(rect.top, 0) + 12;
+      right = Math.max(viewportWidth - rect.right, 0) + 12;
+    }
+    menu.host.style.top = `${top}px`;
+    menu.host.style.right = `${right}px`;
+    const below = viewportHeight - top - BUTTON_HEIGHT;
+    menu.host.toggleAttribute("data-up", below < MENU_ROOM && top > below);
   }
 
   function show(video) {
