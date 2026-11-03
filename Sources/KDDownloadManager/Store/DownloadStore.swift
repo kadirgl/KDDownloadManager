@@ -380,9 +380,22 @@ final class DownloadStore {
     }
 
     /// Panelden ya da Chrome eklentisinden gelen istekleri ekler; link olmayanları atlar.
+    /// Aynı istek birkaç saniye içinde ikinci kez gelirse eklenmez: eklenti cevabı geç alınca "gönderilemedi"
+    /// sanıp kullanıcı yeniden tıklıyor, magnet linki de reddedildi sanılıp tarayıcı tarafından yeniden açılıyor.
     func add(_ requests: [DownloadRequest]) {
-        insert(requests.filter { DownloadSource.looksLikeLink($0.url) })
+        let now = Date()
+        recentRequests = recentRequests.filter { now.timeIntervalSince($0.value) < Self.repeatWindow }
+        insert(requests.filter { request in
+            guard DownloadSource.looksLikeLink(request.url) else { return false }
+            let key = "\(request.url)|\(request.quality?.rawValue ?? "")|\(request.video == true)"
+            guard recentRequests[key] == nil else { return false }
+            recentRequests[key] = now
+            return true
+        })
     }
+
+    @ObservationIgnored private var recentRequests: [String: Date] = [:]
+    private static let repeatWindow: TimeInterval = 10
 
     /// Finder'dan açılan, panele sürüklenen ya da tarayıcıdan gelen (magnet:) adresleri ekler.
     func open(_ urls: [URL]) {

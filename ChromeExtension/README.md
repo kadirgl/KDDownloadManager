@@ -21,7 +21,9 @@ sayesinde sabit). Uygulama yalnızca bu kimlikten gelen istekleri kabul eder.
 ## Ne yapar
 
 - **İndirmeleri yakalar:** Tarayıcı bir dosya indirmeye başlayınca linki uygulamaya yollar ve
-  tarayıcının indirmesini iptal eder. Uygulama çalışmıyorsa tarayıcı normal şekilde indirir.
+  tarayıcının indirmesini iptal eder. Uygulama linki yoklarken tarayıcının indirmesi duraklatılır; böylece
+  hızlı inen dosyalar (Google Drive gibi) iki yerde birden inmez. Uygulama çalışmıyorsa ya da linki
+  indiremeyeceğini söylerse tarayıcı kaldığı yerden devam eder.
   Açılır pencereden kapatılabilir. Gizli pencerelerdeki indirmelere dokunmaz.
 - **Magnet linklerini yakalar:** Sayfalardaki `magnet:` linklerine tıklanınca uygulamaya gönderir
   (değiştirici tuşla tıklanırsa tarayıcıya bırakır). Eklentisi olmayan tarayıcılar (Safari) için

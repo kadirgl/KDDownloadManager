@@ -213,26 +213,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Chrome'un başlattığı indirmeleri yakala: uygulama kabul ederse Chrome'unkini iptal et.
 // Uygulama kapalıysa ya da reddederse Chrome normal şekilde indirmeye devam eder.
+const TAKE_OVER_WAIT = 15000;
+
+const succeeds = (promise) => promise.then(() => true, () => false);
+
 chrome.downloads.onCreated.addListener(async (download) => {
+  if (!shouldTake(download)) return;
   const { intercept } = await chrome.storage.local.get("intercept");
-  if (intercept === false || !shouldTake(download)) return;
+  if (intercept === false) return;
+
+  // Uygulama adresi yoklarken (birkaç saniye) Chrome hızlı inen dosyayı (Google Drive gibi) bitirmiş
+  // oluyordu; iptal boşa gidip dosya hem Chrome'da hem uygulamada iniyordu. Önce duraklatılır; bu arada
+  // bitmiş ya da iptal edilmişse Chrome'unki kalır, uygulamaya gönderilmez.
+  if (!(await succeeds(chrome.downloads.pause(download.id)))) return;
 
   const url = download.finalUrl || download.url;
   const filename = download.filename ? download.filename.split(/[\\/]/).pop() : undefined;
   const request = await describe(url, { referrer: download.referrer, filename });
   // Uygulama adresi yoklayıp (aynı çerez ve referrer'la) yeniden indirilemiyorsa reddediyor; o zaman
-  // Chrome'un indirmesi sürer.
+  // Chrome'un indirmesi kaldığı yerden sürer. Uygulama yoklamayı TAKE_OVER_WAIT'ten önce bitiriyor; bu
+  // süre ondan uzun olmalı, yoksa geç gelen "kabul" Chrome'unki sürerken uygulamada da indirme başlatır.
   request.fromBrowserDownload = true;
   if (download.mime) request.mime = download.mime;
-  const ok = await sendToApp([request], { timeout: 9000 });
-  if (!ok) return;
-
-  try {
-    await chrome.downloads.cancel(download.id);
-    await chrome.downloads.erase({ id: download.id });
-  } catch {
-    // İndirme bu arada bitmiş ya da kullanıcı iptal etmiş olabilir.
+  const ok = await sendToApp([request], { timeout: TAKE_OVER_WAIT });
+  if (!ok) {
+    await succeeds(chrome.downloads.resume(download.id));
+    return;
   }
+
+  await succeeds(chrome.downloads.cancel(download.id));
+  await succeeds(chrome.downloads.erase({ id: download.id }));
   flashBadge(true);
 });
 

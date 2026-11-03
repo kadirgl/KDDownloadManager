@@ -96,7 +96,26 @@ enum LinkProbe {
     /// Chrome'dan devralınacak bir indirme uygulamada da inebilir mi? İnebiliyorsa nil, inemiyorsa nedeni.
     /// Adres tarayıcının çerezi, referrer'ı ve kimliğiyle bir kez (ilk bayt) istenir. Chrome adresi zaten
     /// istediği için bu zararsız: yeniden istenemeyen bir bağlantıyı aria2 de indiremezdi.
+    ///
+    /// Eklenti bu sırada Chrome'un indirmesini duraklatıp en fazla 15 saniye cevap bekliyor. Yoklama ondan
+    /// önce bitmeli: geç gelen bir "kabul" Chrome'unki sürerken uygulamada da indirme başlatırdı. Yavaş
+    /// sunucular (uzun yönlendirme zincirleri) bu yüzden Chrome'a bırakılır.
     static func canTakeOver(_ request: DownloadRequest) async -> String? {
+        await withTaskGroup(of: String?.self) { group in
+            group.addTask { await probeTakeOver(request) }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(takeOverDeadline))
+                return "sunucu \(Int(takeOverDeadline)) saniyede yanıt vermedi"
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    static let takeOverDeadline: TimeInterval = 8
+
+    private static func probeTakeOver(_ request: DownloadRequest) async -> String? {
         guard let url = URL(string: request.url), let scheme = url.scheme?.lowercased(),
               scheme == "http" || scheme == "https" else { return nil }
         var probe = URLRequest(url: url, timeoutInterval: 6)
