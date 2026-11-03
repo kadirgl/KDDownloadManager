@@ -33,7 +33,10 @@ struct DownloadRow: View {
                             .fixedSize()
                     }
                 }
-                ProgressBar(value: isCompleted ? 1 : item.progress, tint: barTint, glows: item.status == .downloading)
+                // İlerleme çubuğu yalnızca devam eden indirmelerde; tamamlananda boş yer kaplamasın.
+                if !isCompleted {
+                    ProgressBar(value: item.progress, tint: barTint, glows: item.status == .downloading)
+                }
                 statusLine
             }
 
@@ -105,7 +108,10 @@ struct DownloadRow: View {
                      : ByteFormat.size(item.downloadedBytes))
                     .fontWeight(.semibold)
             case .completed:
-                Text(ByteFormat.size(item.totalBytes)).fontWeight(.semibold)
+                // Boyutu bilinmeyen (eski kayıt, akış) dosyada "0 B" yazmasın.
+                if item.totalBytes > 0 {
+                    Text(ByteFormat.size(item.totalBytes)).fontWeight(.semibold)
+                }
                 if let date = item.completedAt {
                     Text(Self.finished(date)).foregroundStyle(Theme.secondaryText)
                 } else if let site = URL(string: item.url)?.host() {
@@ -151,7 +157,6 @@ struct DownloadRow: View {
         switch item.status {
         case .paused, .queued: Theme.doneBar.opacity(0.8)
         case .failed: Theme.error
-        case .completed: Theme.doneBar
         default: Theme.accent
         }
     }

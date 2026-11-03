@@ -43,7 +43,17 @@ enum BrowserExtension {
         return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     }
 
+    /// Kurulu tarayıcılar; durum bandı birkaç saniyede bir sorduğu için yarım dakika önbellekte tutulur.
     static var installedBrowsers: [Browser] {
+        if let cached = browserCache, Date().timeIntervalSince(cached.date) < 30 { return cached.browsers }
+        let browsers = findInstalledBrowsers()
+        browserCache = (Date(), browsers)
+        return browsers
+    }
+
+    private static var browserCache: (date: Date, browsers: [Browser])?
+
+    private static func findInstalledBrowsers() -> [Browser] {
         candidates.compactMap { candidate in
             NSWorkspace.shared.urlForApplication(withBundleIdentifier: candidate.bundleID).map {
                 Browser(name: candidate.name, appURL: $0, bundleID: candidate.bundleID, extensionsPage: candidate.page,

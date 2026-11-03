@@ -374,7 +374,9 @@ final class DownloadStore {
         Notifier.shared.downloadsAdded(names)
         tab = .active
         category = .all
-        route = .list
+        // Link ekle'den eklendiyse listeye dön; tarayıcıdan gelen indirme kullanıcıyı Ayarlar'dan ya da
+        // kurulum ekranından zorla çıkarmasın.
+        if route == .addLink { route = .list }
         save()
     }
 

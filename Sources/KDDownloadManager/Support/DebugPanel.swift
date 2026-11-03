@@ -132,7 +132,7 @@ enum DebugPanel {
         }
         let line = "KD_DEMO_STATE \(key): eklenti=\(extensionStates) panel=\(panel.isVisible ? "açık" : "kapalı") anahtar=\(panel.isKeyWindow) "
             + "ekran=\(String(describing: store?.route ?? .list)) sekme=\(String(describing: store?.tab ?? .active)) "
-            + "liste=\(store?.items.count ?? 0) seçili=\(item?.fileName ?? "-") önizleme=\(previewing) "
+            + "liste=\(store?.items.count ?? 0) ilk=\(store?.items.first.map { String(describing: $0.status) } ?? "-") seçili=\(item?.fileName ?? "-") önizleme=\(previewing) "
             + "pencereler=\(NSApp.windows.filter(\.isVisible).map { String(describing: type(of: $0)) })\n"
         FileHandle.standardError.write(Data(line.utf8))
     }

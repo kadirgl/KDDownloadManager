@@ -329,7 +329,10 @@ final class Aria2Engine: DownloadEngine {
             item.setStatus(pausedByUser.contains(item.id) ? .paused : .queued)
         case "error":
             if retryWithSingleConnection(item, status: status) { return }
-            item.setStatus(.failed(status["errorMessage"]?.stringValue ?? "İndirme başarısız"))
+            item.setStatus(.failed(ErrorText.aria2(
+                code: status["errorCode"]?.stringValue, message: status["errorMessage"]?.stringValue,
+                remaining: item.totalBytes > 0 ? item.totalBytes - item.downloadedBytes : nil
+            )))
         case "complete":
             if let next = status["followedBy"]?[0]?.stringValue {
                 // Magnet/.torrent: meta veri indi, asıl indirme yeni kimlikle sürüyor.

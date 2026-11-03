@@ -374,7 +374,7 @@ private struct CategoryRail: View {
         .mask(
             HStack(spacing: 0) {
                 Color.black
-                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: 18)
+                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: 36)
             }
         )
         .glassCard(radius: 18)

@@ -263,7 +263,7 @@ final class YtDlpEngine: DownloadEngine {
                     launch(item)
                     return
                 }
-                item.setStatus(.failed(error ?? "yt-dlp hata verdi (kod \(status))"))
+                item.setStatus(.failed(ErrorText.ytDlp(error, exitCode: status)))
                 return
             }
             if let path = item.destination?.path,
