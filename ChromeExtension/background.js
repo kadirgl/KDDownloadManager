@@ -37,10 +37,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 async function createMenus() {
   // Eklenti yeniden yüklendiğinde aynı kimlikle tekrar oluşturmak hata verir; önce temizle.
   await chrome.contextMenus.removeAll();
+  // Linklerde ve resimlerde. Resim bir linkin içindeyse (Google Görseller gibi) linkin götürdüğü sayfa
+  // değil resmin kendisi indirilir.
   chrome.contextMenus.create({
     id: MENU_LINK,
     title: "KD Download Manager ile indir",
-    contexts: ["link"],
+    contexts: ["link", "image"],
   });
   chrome.contextMenus.create({
     id: MENU_MEDIA,
@@ -80,6 +82,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   let url;
   switch (menu) {
     case MENU_LINK:
+      if (info.mediaType === "image" && info.srcUrl) {
+        flashBadge(await downloadImage(info.srcUrl, { pageUrl: info.pageUrl, pageTitle: tab?.title }));
+        return;
+      }
       url = info.linkUrl;
       break;
     case MENU_MEDIA: {
@@ -110,6 +116,48 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const ok = await sendToApp([await describe(url, { referrer: tab?.url, quality })]);
   flashBadge(ok);
 });
+
+// --- Resim indirme ------------------------------------------------------------------------------
+
+const IMAGE_TYPES = {
+  "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif",
+  "image/svg+xml": "svg", "image/bmp": "bmp", "image/tiff": "tiff", "image/heic": "heic", "image/x-icon": "ico",
+};
+
+// Sağ tıklanan resmi indirir. Adresinde uzantı yoksa (örn. "images?q=…") türü sunucudan öğrenilir ve
+// ad sayfanın başlığından verilir. data:/blob: resimleri uygulama açamadığı için Chrome indirir.
+async function downloadImage(src, { pageUrl, pageTitle }) {
+  if (!/^https?:/i.test(src)) {
+    try {
+      const extension = IMAGE_TYPES[src.match(/^data:([^;,]+)/i)?.[1]?.toLowerCase()] ?? "png";
+      await chrome.downloads.download({ url: src, filename: `${imageBaseName(pageTitle)}.${extension}` });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const request = await describe(src, { referrer: pageUrl });
+  const fromPath = decodeURIComponent(new URL(src).pathname.split("/").pop() || "");
+  if (!/\.(jpe?g|png|webp|gif|avif|svg|bmp|tiff?|heic|ico)$/i.test(fromPath)) {
+    request.saveAs = `${imageBaseName(pageTitle)}.${await imageExtension(src)}`;
+  }
+  return sendToApp([request]);
+}
+
+function imageBaseName(pageTitle) {
+  const title = (pageTitle || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+  return title || "Resim";
+}
+
+async function imageExtension(src) {
+  try {
+    const response = await fetch(src, { method: "HEAD", signal: AbortSignal.timeout(3000) });
+    const type = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+    return IMAGE_TYPES[type] ?? "jpg";
+  } catch {
+    return "jpg";
+  }
+}
 
 // Sayfadaki "İndir" butonları (YouTube ve diğer sitelerdeki videolar) ve açılır pencere: uygulama
 // durumu, kalite listesi, yakalanan akışlar ve indirme. İçerik betikleri sayfanın kökeninde çalıştığı
