@@ -6,7 +6,7 @@
 // YouTube sayfa yenilemeden video değiştirdiği için buton saniyede bir doğru yerde ve doğru videoya
 // bağlı mı diye kontrol edilir.
 (() => {
-  const { create, send, note, header, qualityRows, footer } = globalThis.KDMenu;
+  const { create, send, note, loading, header, qualityRows, footer } = globalThis.KDMenu;
 
   // Yer başına bir buton: satırda kapsül, Shorts sütununda yuvarlak, oynatıcının içinde kapsül.
   const menus = {};
@@ -117,8 +117,10 @@
       return;
     }
     const url = boundUrl;
+    // Kalite listesi uygulamanın durumu beklenmeden istenir (fare butona gelince çoğu zaman başlamıştır).
+    const formatsRequest = loadFormats(url);
     current.show();
-    current.panel.replaceChildren(note("Kaliteler alınıyor…"));
+    current.panel.replaceChildren(header(document.title.replace(/^\(\d+\)\s*/, "").replace(/ - YouTube$/, "")), loading("Kaliteler alınıyor…", 5));
 
     const status = await send({ type: "video-status" });
     if (status?.accent) current.accent(status.accent);
@@ -126,7 +128,7 @@
       current.panel.replaceChildren(note("KD Download Manager çalışmıyor. Uygulamayı açıp tekrar deneyin.", "error"));
       return;
     }
-    const formats = await loadFormats(url);
+    const formats = await formatsRequest;
     if (url !== boundUrl || !current.open) return; // Bu arada video değişti ya da menü kapandı.
     const title = formats?.title ?? document.title.replace(/ - YouTube$/, "");
     current.panel.replaceChildren(header(title, formats?.duration), ...qualityRows(current, url, formats), footer());

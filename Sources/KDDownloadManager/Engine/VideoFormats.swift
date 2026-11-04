@@ -16,7 +16,27 @@ struct VideoFormats: Sendable {
 
     struct FetchError: LocalizedError {
         let message: String
+        var timedOut = false
         var errorDescription: String? { message }
+    }
+
+    /// Kalite listesi en fazla bu kadar beklenir; sonra yt-dlp durdurulur (eklenti 30 sn bekliyor).
+    static let deadline: TimeInterval = 20
+
+    /// yt-dlp'nin yeni kopyası (uygulama kurulunca ya da güncellenince) ilk çalıştırmada macOS yüzlerce
+    /// kitaplığını denetlediği için ~5 sn geç açılıyor. Bu gecikme kullanıcının ilk kalite listesine
+    /// yansımasın diye açılışta bir kez boşta çalıştırılır.
+    static func warmUp() {
+        guard let binary = Executables.find("yt-dlp") else { return }
+        Task.detached(priority: .utility) {
+            let process = Process()
+            process.executableURL = binary
+            process.arguments = ["--version"]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try? process.run()
+            process.waitUntilExit()
+        }
     }
 
     /// `cookies` verilirse yt-dlp'ye geçici bir çerez dosyasıyla verilir (YouTube robot doğrulaması için).
@@ -35,21 +55,34 @@ struct VideoFormats: Sendable {
         let data = try await Task.detached { () throws -> Data in
             let process = Process()
             process.executableURL = binary
-            process.arguments = ["-J", "--no-playlist", "--no-warnings", "--socket-timeout", "15"]
+            // Birden çok video gömülü sayfalarda (haber siteleri) yalnızca ilki çözülür; hepsi tek tek
+            // açılınca liste çok uzun sürebiliyordu.
+            process.arguments = ["-J", "--no-playlist", "--playlist-items", "1", "--no-warnings",
+                                 "--socket-timeout", "10", "--extractor-retries", "1"]
                 + cookieArguments + Executables.javaScriptRuntimeArguments + ["--", url]
             process.environment = Executables.environment
             let output = Pipe()
             process.standardOutput = output
             process.standardError = FileHandle.nullDevice
             try process.run()
+            let timer = DispatchWorkItem { if process.isRunning { process.terminate() } }
+            DispatchQueue.global().asyncAfter(deadline: .now() + deadline, execute: timer)
             let data = output.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
+            timer.cancel()
             guard process.terminationStatus == 0 else {
+                if process.terminationReason == .uncaughtSignal {
+                    throw FetchError(message: "Video bilgisi zamanında alınamadı", timedOut: true)
+                }
                 throw FetchError(message: "Video bilgisi alınamadı")
             }
             return data
         }.value
-        let info = try JSONDecoder().decode(JSONValue.self, from: data)
+        var info = try JSONDecoder().decode(JSONValue.self, from: data)
+        // Sayfada birden çok video: ilkinin biçimleri.
+        if info["formats"] == nil, info["url"] == nil, let first = info["entries"]?.arrayValue?.first {
+            info = first
+        }
         return parse(info)
     }
 

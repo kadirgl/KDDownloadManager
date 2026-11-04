@@ -65,6 +65,20 @@ globalThis.KDMenu = (() => {
     .note { padding: 8px 10px; color: var(--secondary); line-height: 1.35; }
     .note.error { color: var(--error); }
     .note.ok { color: var(--ok); }
+    /* Kaliteler gelene kadar: dönen halka ve satırların yerini tutan parıltılı iskelet. */
+    .loading { display: flex; align-items: center; gap: 8px; padding: 6px 10px 8px; color: var(--secondary); }
+    .spinner {
+      flex: none; width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid var(--tag); border-top-color: var(--accent-text); animation: kd-spin 0.8s linear infinite;
+    }
+    .skeleton {
+      height: 30px; margin: 4px 0; border-radius: 10px;
+      background: linear-gradient(90deg, var(--hover) 30%, var(--selected) 50%, var(--hover) 70%);
+      background-size: 300% 100%; animation: kd-shimmer 1.4s ease-in-out infinite;
+    }
+    @keyframes kd-spin { to { transform: rotate(360deg); } }
+    @keyframes kd-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+    @media (prefers-reduced-motion: reduce) { .spinner, .skeleton { animation: none; } }
     .option {
       display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px;
       padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: inherit;
@@ -250,6 +264,17 @@ globalThis.KDMenu = (() => {
     return element("div", `note ${kind}`, text);
   }
 
+  // Kaliteler beklenirken gösterilen yer tutucu: menü boş bir yazıyla değil, gelecek satırların
+  // iskeletiyle açılır.
+  function loading(text, rows = 4) {
+    const box = element("div", "");
+    const line = element("div", "loading");
+    line.append(element("span", "spinner"), element("span", "", text));
+    box.append(line);
+    for (let i = 0; i < rows; i++) box.append(element("div", "skeleton"));
+    return box;
+  }
+
   function header(title, duration) {
     const row = element("div", "header");
     const tile = element("div", "tile");
@@ -322,5 +347,5 @@ globalThis.KDMenu = (() => {
     return row;
   }
 
-  return { create, send, note, header, option, qualityRows, footer, element, formatSize };
+  return { create, send, note, loading, header, option, qualityRows, footer, element, formatSize };
 })();

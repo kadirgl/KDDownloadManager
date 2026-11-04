@@ -6,32 +6,39 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <header>
-    <img src="icons/icon32.png" alt="" width="20" height="20">
-    <h1>KD Download Manager</h1>
+  <header class="top">
+    <img class="app-icon" src="icons/icon48.png" alt="" width="30" height="30">
+    <div class="top-text">
+      <h1>KD Download Manager</h1>
+      <p id="status" class="status" data-state="checking">
+        <span class="dot"></span>
+        <span id="status-text">Uygulama aranıyor…</span>
+      </p>
+    </div>
   </header>
 
-  <div id="status" class="status" data-state="checking">
-    <span class="dot"></span>
-    <span id="status-text">Uygulama aranıyor…</span>
-  </div>
-
-  <label class="row">
-    <span>
+  <label class="card toggle">
+    <span class="toggle-text">
       <strong>İndirmeleri ve magnet linklerini yakala</strong>
       <small>Kapalıysa ya da uygulama çalışmıyorsa tarayıcı kendisi indirir/açar.</small>
     </span>
     <input id="intercept" type="checkbox" role="switch">
   </label>
 
-  <section id="video" class="video" hidden>
-    <p id="video-title" class="video-title">Kaliteler alınıyor…</p>
-    <div id="qualities" class="qualities"></div>
+  <section id="video" class="card list" hidden>
+    <div class="video-header">
+      <span class="tile" id="video-tile"></span>
+      <span class="video-text">
+        <span id="video-title" class="video-title">Video aranıyor…</span>
+        <span id="video-subtitle" class="video-subtitle">Kalite seç</span>
+      </span>
+    </div>
+    <div id="qualities" class="options"></div>
   </section>
 
-  <section id="streams" class="video" hidden>
-    <p class="video-title">Sayfada bulunan videolar</p>
-    <div id="stream-list" class="qualities"></div>
+  <section id="streams" class="card list" hidden>
+    <p class="heading">Sayfada bulunan videolar</p>
+    <div id="stream-list" class="options"></div>
   </section>
 
   <button id="send-page" class="primary" hidden>Bu sayfayı indir</button>

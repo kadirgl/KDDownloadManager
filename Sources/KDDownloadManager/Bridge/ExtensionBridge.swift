@@ -41,6 +41,11 @@ final class ExtensionBridge {
     /// yt-dlp'nin kalite listesi birkaç saniye sürüyor; açılır pencere tekrar açıldığında beklemesin.
     private var formatsCache: [String: (date: Date, formats: VideoFormats)] = [:]
     private static let formatsCacheLifetime: TimeInterval = 600
+    /// Video bulunamayan sayfa: menü tekrar açılınca yt-dlp boşuna yeniden çalışmasın. Kısa tutuldu; video
+    /// sonradan yüklenen sayfalarda bir dakika sonra yeniden denenir.
+    private var formatsFailures: [String: (date: Date, message: String)] = [:]
+    private static let failureCacheLifetime: TimeInterval = 60
+    private var formatsLookups: [String: Task<Result<VideoFormats, Error>, Never>] = [:]
 
     init(onAdd: @escaping ([DownloadRequest]) -> Void, onHello: @escaping (String) -> Void) {
         self.onAdd = onAdd
@@ -203,14 +208,34 @@ final class ExtensionBridge {
             Self.send(status: 200, Self.json(cached.formats), origin: origin, on: connection)
             return
         }
-        Task {
+        if let failed = formatsFailures[url], Date().timeIntervalSince(failed.date) < Self.failureCacheLifetime {
+            Self.send(status: 502, ["error": .string(failed.message)], origin: origin, on: connection)
+            return
+        }
+        // Aynı sayfa için süren bir sorgu varsa (videodaki buton ve açılır pencere birlikte sorabiliyor)
+        // ikinci bir yt-dlp başlatılmaz, onun sonucu beklenir.
+        let lookup = formatsLookups[url] ?? Task {
+            defer { formatsLookups[url] = nil }
             do {
                 let formats = try await VideoFormats.fetch(url, cookies: CookieVault.shared.cookies(for: url))
                 // Süresi geçenleri at; önbellek sınırsız büyümesin.
                 formatsCache = formatsCache.filter { Date().timeIntervalSince($0.value.date) < Self.formatsCacheLifetime }
                 formatsCache[url] = (Date(), formats)
-                Self.send(status: 200, Self.json(formats), origin: origin, on: connection)
+                return .success(formats)
             } catch {
+                // Zaman aşımı geçici olabilir (yavaş ağ); yalnızca "video yok" cevabı hatırlanır.
+                if (error as? VideoFormats.FetchError)?.timedOut == true { return .failure(error) }
+                formatsFailures = formatsFailures.filter { Date().timeIntervalSince($0.value.date) < Self.failureCacheLifetime }
+                formatsFailures[url] = (Date(), error.localizedDescription)
+                return .failure(error)
+            }
+        }
+        formatsLookups[url] = lookup
+        Task {
+            switch await lookup.value {
+            case .success(let formats):
+                Self.send(status: 200, Self.json(formats), origin: origin, on: connection)
+            case .failure(let error):
                 Self.send(status: 502, ["error": .string(error.localizedDescription)], origin: origin, on: connection)
             }
         }

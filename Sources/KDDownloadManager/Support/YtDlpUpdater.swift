@@ -157,6 +157,7 @@ final class YtDlpUpdater {
             state = .downloading(latest)
             try await Self.install(latest)
             current = Self.installed()
+            VideoFormats.warmUp()
             state = .updated(latest)
         } catch {
             state = .failed(error.localizedDescription)

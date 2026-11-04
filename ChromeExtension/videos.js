@@ -11,33 +11,34 @@
   const BUTTON_HEIGHT = 34;
   const GAP = 8;
 
-  const { create, send, note, header, option, qualityRows, footer, element, formatSize } = globalThis.KDMenu;
+  const { create, send, note, loading, header, option, qualityRows, footer, element, formatSize } = globalThis.KDMenu;
 
   const videos = document.getElementsByTagName("video");
   let menu = null;
   let target = null; // Butonun bağlı olduğu <video>.
   let hideTimer = null;
   let lastMove = 0;
-  let formatsCache = { url: null, promise: null };
+  let formatsCache = { url: null, promise: null, failed: false };
 
   function createMenu() {
     menu = create("fixed");
     menu.host.hidden = true;
     menu.button.addEventListener("click", toggleMenu);
-    // Kalite listesi yt-dlp ile birkaç saniye sürüyor; fare üzerine gelince başlat ki menü hazır açılsın.
-    menu.button.addEventListener("pointerenter", () => loadFormats(location.href));
     menu.host.addEventListener("pointerenter", () => clearTimeout(hideTimer));
   }
 
   const menuOpen = () => menu?.open ?? false;
 
-  function loadFormats(url) {
-    if (formatsCache.url !== url) {
-      const promise = send({ type: "video-formats", url }).then((data) => {
-        if (!data && formatsCache.promise === promise) formatsCache = { url: null, promise: null };
+  // Sayfa başına tek istek. Başarısız olduysa fare hareketleriyle değil, yalnızca menü açılınca
+  // (`retry`) yeniden sorulur.
+  function loadFormats(url, { retry = false } = {}) {
+    if (formatsCache.url !== url || (retry && formatsCache.failed)) {
+      const entry = { url, failed: false };
+      entry.promise = send({ type: "video-formats", url }).then((data) => {
+        if (!data) entry.failed = true;
         return data;
       });
-      formatsCache = { url, promise };
+      formatsCache = entry;
     }
     return formatsCache.promise;
   }
@@ -70,10 +71,15 @@
     }
     const video = target;
     const pageUrl = location.href;
+    // Hepsi aynı anda başlar: kalite listesi (çoğu zaman buton belirdiğinde başlamış olur), uygulamanın
+    // durumu ve yakalanan akışlar. Menü beklemeden iskeletiyle açılır.
+    const formatsRequest = loadFormats(pageUrl, { retry: true });
+    const searching = loading("Kaliteler alınıyor…");
     menu.show();
-    menu.panel.replaceChildren(note("Video aranıyor…"));
+    menu.panel.replaceChildren(header(document.title), searching);
 
-    const status = await send({ type: "video-status" });
+    const [status, captured] = await Promise.all([send({ type: "video-status" }), send({ type: "streams" })]);
+    if (!menuOpen()) return;
     if (status?.accent) menu.accent(status.accent);
     if (!status?.running) {
       menu.panel.replaceChildren(note("KD Download Manager çalışmıyor. Uygulamayı açıp tekrar deneyin.", "error"));
@@ -81,7 +87,7 @@
     }
 
     // Yakalanan akışlar hemen gösterilir; yt-dlp'nin kaliteleri gelince üste eklenir.
-    const streams = (await send({ type: "streams" })) ?? [];
+    const streams = captured ?? [];
     const direct = directStream(video);
     if (direct && !streams.some((s) => s.url === direct.url)) streams.unshift(direct);
 
@@ -92,11 +98,12 @@
         streamSection.push(option(menu, { name: streamName(stream), size: formatSize(stream.size), glyph: "stream" },
           { type: "stream-download", stream }));
       }
+      // Akışlar varken iskelet kısa tutulur; asıl seçenekler zaten görünüyor.
+      searching.querySelectorAll(".skeleton").forEach((row, index) => { if (index > 0) row.remove(); });
+      menu.panel.replaceChildren(header(document.title), searching, ...streamSection, footer());
     }
-    const searching = note("Kaliteler alınıyor…");
-    menu.panel.replaceChildren(header(document.title), searching, ...streamSection, footer());
 
-    const formats = await loadFormats(pageUrl);
+    const formats = await formatsRequest;
     if (!menuOpen() || !searching.isConnected) return; // Menü kapandı ya da bir seçenek seçildi.
     if (!formats?.options?.length && streamSection.length === 0) {
       menu.panel.replaceChildren(note("Bu videonun adresi bulunamadı. Videoyu birkaç saniye oynatıp tekrar deneyin."));
@@ -159,6 +166,9 @@
     }
     menu.host.hidden = false;
     place();
+    // Kalite listesi yt-dlp ile birkaç saniye sürüyor: buton belirir belirmez sorulur ki tıklanınca hazır
+    // olsun (sayfa başına bir kez; uygulama da 10 dakika hatırlıyor).
+    loadFormats(location.href);
   }
 
   function hide() {
