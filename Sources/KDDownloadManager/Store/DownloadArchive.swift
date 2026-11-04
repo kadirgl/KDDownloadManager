@@ -12,8 +12,13 @@ struct DownloadArchive {
             return DownloadArchive(url: URL(fileURLWithPath: path))
         }
         #endif
+        return DownloadArchive(url: defaultURL)
+    }
+
+    /// Asıl liste (denemelerin KD_ARCHIVE'ı değil).
+    static var defaultURL: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return DownloadArchive(url: support.appendingPathComponent("KDDownloadManager/downloads.json"))
+        return support.appendingPathComponent("KDDownloadManager/downloads.json")
     }
 
     /// Diske yazılan biçim. Anlık hız gibi geçici bilgiler saklanmıyor.
@@ -42,10 +47,25 @@ struct DownloadArchive {
         var completedAt: Date?
     }
 
+    /// Okunamayan tek bir kayıt (bozuk satır, eski bir sürüme dönülünce tanınmayan bir değer) listenin
+    /// tamamını götürmesin diye kayıtlar tek tek çözülür; okunamayanlar atlanır.
+    private struct LossyRecord: Decodable {
+        let record: Record?
+        init(from decoder: Decoder) throws {
+            record = try? Record(from: decoder)
+        }
+    }
+
     @MainActor
     func load() -> [DownloadItem] {
-        guard let data = try? Data(contentsOf: url),
-              let records = try? JSONDecoder().decode([Record].self, from: data) else { return [] }
+        guard let data = try? Data(contentsOf: url) else { return [] }
+        let decoded = try? JSONDecoder().decode([LossyRecord].self, from: data)
+        let records = decoded?.compactMap(\.record) ?? []
+        if decoded == nil || records.count < decoded?.count ?? 0 {
+            // Bir sonraki kayıt dosyanın üzerine yazacak; okunamayan kısım kaybolmasın diye yanına yedeklenir.
+            let backup = url.deletingPathExtension().appendingPathExtension("bozuk-\(Int(Date().timeIntervalSince1970)).json")
+            try? FileManager.default.copyItem(at: url, to: backup)
+        }
         return records.map { record in
             let status: DownloadStatus = switch record.state {
             // Kapanırken inmekte/sırada olanlar açılışta sıraya girip devam eder.

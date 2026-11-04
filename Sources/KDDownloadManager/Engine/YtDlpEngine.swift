@@ -118,6 +118,9 @@ final class YtDlpEngine: DownloadEngine {
 
     func setSpeedLimit(_ limit: Int64?, for item: DownloadItem) {
         item.speedLimit = limit
+        // Birleştirme (ffmpeg) sürerken hiçbir şey inmiyor; süreci kesmek birleştirmeyi bozardı.
+        // Yeni sınır bir sonraki başlatmada uygulanır.
+        guard item.status == .downloading else { return }
         stop(item.id, reason: .restart)
     }
 
@@ -126,7 +129,8 @@ final class YtDlpEngine: DownloadEngine {
     func setGlobalSpeedLimit(_ limit: Int64?) {
         guard globalLimit != limit else { return }
         globalLimit = limit
-        jobs.keys.forEach { stop($0, reason: .restart) }
+        // Pay, bir video birleştirmeye geçince de değişiyor; o süreç kesilmemeli (yalnızca inenler).
+        jobs.keys.filter { items[$0]?.status == .downloading }.forEach { stop($0, reason: .restart) }
     }
 
     func setMaxConcurrent(_ count: Int) {
@@ -241,8 +245,9 @@ final class YtDlpEngine: DownloadEngine {
         case .pause:
             break
         case .restart:
-            // Duraklatılmış ya da kaldırılmış değilse yeni ayarlarla kaldığı yerden sürdür.
-            if items[item.id] != nil, item.status == .downloading {
+            // Duraklatılmış ya da kaldırılmış değilse yeni ayarlarla kaldığı yerden sürdür (inen parçalar
+            // korunuyor; birleştirmedeyken kesildiyse yt-dlp birleştirmeyi baştan yapar).
+            if items[item.id] != nil, item.status == .downloading || item.status == .processing {
                 launch(item)
             }
         case nil:
@@ -307,7 +312,9 @@ final class YtDlpEngine: DownloadEngine {
             "-P", item.folder.path,
             "-P", "temp:" + Self.temporaryFolder(for: item.id).path,
             // Yakalanan akışlarda yt-dlp'nin bulduğu başlık "index"/"master" gibi oluyor; sayfanın başlığı kullanılır.
-            "-o", (item.preferredName.map { $0.replacingOccurrences(of: "%", with: "%%") } ?? "%(title)s") + ".%(ext)s",
+            // Başlık bayt olarak kısaltılır (".180B"): uzun Türkçe/Japonca başlıklarda dosya adı macOS'un
+            // 255 bayt sınırını aşıp indirme "File name too long" hatasıyla düşüyordu.
+            "-o", (item.preferredName.map { $0.replacingOccurrences(of: "%", with: "%%") } ?? "%(title).180B") + ".%(ext)s",
             "--print",
             "before_dl:KDINFO %(.{title,filesize,filesize_approx,requested_formats.:.filesize,requested_formats.:.filesize_approx})j",
             "--print", "after_move:KDFILE %(filepath)s",
@@ -482,6 +489,18 @@ final class YtDlpEngine: DownloadEngine {
     private static func temporaryFolder(for id: UUID) -> URL {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         return caches.appendingPathComponent("KDDownloadManager/yt-dlp/\(id.uuidString)", isDirectory: true)
+    }
+
+    /// Listede olmayan indirmelerin geçici klasörleri: uygulama zorla kapanınca (çökme, yeniden
+    /// başlatma) temizlenmeden kalıyorlar. Açılışta bir kez silinir.
+    nonisolated static func removeOrphanedTemporaryFolders(keeping ids: Set<UUID>) {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let root = caches.appendingPathComponent("KDDownloadManager/yt-dlp", isDirectory: true)
+        let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+        for folder in folders {
+            guard let id = UUID(uuidString: folder.lastPathComponent), !ids.contains(id) else { continue }
+            try? FileManager.default.removeItem(at: folder)
+        }
     }
 
     private static func removeTemporaryFolder(for id: UUID) {

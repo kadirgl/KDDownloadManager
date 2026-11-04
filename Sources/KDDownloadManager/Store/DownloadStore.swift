@@ -88,6 +88,12 @@ final class DownloadStore {
         if let archive {
             items = archive.load()
             categorizeExtensionlessFiles()
+            if archive.url.standardizedFileURL == DownloadArchive.defaultURL.standardizedFileURL, !Self.isHarness {
+                // Geçici klasörler ortak; başka bir listeyle çalışan denemeler gerçek listenin yarım
+                // videolarını silmesin diye yalnızca asıl listeyle.
+                let ids = Set(items.map(\.id))
+                Task.detached(priority: .utility) { YtDlpEngine.removeOrphanedTemporaryFolders(keeping: ids) }
+            }
             lastSaved = archive.encode(items)
             // Kapanırken inmekte olanlar kaldığı yerden devam etsin; duraklatılan ve hatalılar beklesin.
             items.filter { $0.status == .queued }.forEach(engine.start)
@@ -387,7 +393,7 @@ final class DownloadStore {
         recentRequests = recentRequests.filter { now.timeIntervalSince($0.value) < Self.repeatWindow }
         insert(requests.filter { request in
             guard DownloadSource.looksLikeLink(request.url) else { return false }
-            let key = "\(request.url)|\(request.quality?.rawValue ?? "")|\(request.video == true)"
+            let key = "\(request.url)|\(request.quality?.rawValue ?? "")|\(request.video == true)|\(request.saveAs ?? "")"
             guard recentRequests[key] == nil else { return false }
             recentRequests[key] = now
             return true
@@ -670,7 +676,19 @@ final class DownloadStore {
             if scalar == "/" || scalar == ":" || CharacterSet.controlCharacters.contains(scalar) { return "-" }
             return String(scalar)
         }.joined()
-        return String(cleaned.trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "."))).prefix(150))
+        return limitedFileName(cleaned.trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "."))))
+    }
+
+    /// macOS'ta bir dosya adı en fazla 255 bayt; Türkçe ve emoji karakterleri 2-4 bayt tuttuğu için
+    /// karakter sayısı yetmiyor. İndirme sırasında eklenen ".aria2"/".part" gibi uzantılara pay bırakılır;
+    /// kısaltılırken uzantı korunur.
+    static func limitedFileName(_ name: String, maxBytes: Int = 200) -> String {
+        guard name.utf8.count > maxBytes else { return name }
+        let ext = (name as NSString).pathExtension
+        let suffix = ext.isEmpty || ext.utf8.count > 12 ? "" : "." + ext
+        var base = suffix.isEmpty ? name : String(name.dropLast(suffix.count))
+        while base.utf8.count + suffix.utf8.count > maxBytes { base.removeLast() }
+        return base.trimmingCharacters(in: .whitespaces) + suffix
     }
 
     static func parseLinks(_ text: String) -> [String] {

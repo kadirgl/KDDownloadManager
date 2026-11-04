@@ -106,6 +106,8 @@ final class DownloadItem: Identifiable {
     }
 
     var progress: Double {
+        // Boş (0 bayt) dosya da tamamlanınca %100.
+        if status == .completed { return 1 }
         guard totalBytes > 0 else { return 0 }
         return min(Double(downloadedBytes) / Double(totalBytes), 1)
     }
