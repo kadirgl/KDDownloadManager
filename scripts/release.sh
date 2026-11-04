@@ -4,7 +4,7 @@
 #   scripts/release.sh 1.6.0               → notlar son sürümden beri commit başlıklarından
 #   scripts/release.sh 1.6.0 notlar.md     → notlar dosyadan
 #
-# Adımlar: paketler (package-app.sh), zip'i Anahtar Zinciri'ndeki gizli anahtarla imzalar, imzayı denetler,
+# Adımlar: tarayıcı eklentisinin sürümünü uygulamanınkiyle eşitler, paketler (package-app.sh), zip'i Anahtar Zinciri'ndeki gizli anahtarla imzalar, imzayı denetler,
 # v1.6.0 etiketini ve main'i gönderir, zip + imzayla GitHub sürümünü oluşturur.
 # Gerekenler: gh (giriş yapılmış), temiz çalışma ağacı, scripts/update-key.sh ile oluşturulmuş anahtar.
 set -euo pipefail
@@ -36,6 +36,14 @@ PRIVATE_KEY="$(security find-generic-password -a "$USER" -s "$SERVICE" -w 2>/dev
 PUBLIC_KEY="$(cat scripts/update-public-key.txt)"
 [[ "$(printf '%s' "$PRIVATE_KEY" | swift scripts/update-signing.swift public)" == "$PUBLIC_KEY" ]] \
     || fail "Anahtar Zinciri'ndeki gizli anahtar scripts/update-public-key.txt ile eşleşmiyor"
+
+# Uygulama ve tarayıcı eklentisi hep aynı sürümde: depodaki manifest de bu sürüme çekilip commit'lenir.
+MANIFEST="ChromeExtension/manifest.json"
+sed -i '' -E 's/"version": "[^"]*"/"version": "'"$VERSION"'"/' "$MANIFEST"
+grep -q "\"version\": \"$VERSION\"" "$MANIFEST" || fail "Eklentinin sürümü ayarlanamadı"
+if [[ -n "$(git status --porcelain "$MANIFEST")" ]]; then
+    git commit -q -m "Sürüm $VERSION" -- "$MANIFEST"
+fi
 
 VERSION="$VERSION" scripts/package-app.sh
 ASSET="dist/KDDownloadManager-$VERSION.zip"

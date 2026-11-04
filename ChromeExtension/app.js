@@ -68,22 +68,13 @@ export function browserName() {
   return brand ?? "Chromium tabanlı tarayıcı";
 }
 
-// "1.6.10" > "1.6.9"; parça parça sayı olarak.
-function isNewer(candidate, current) {
-  const a = candidate.split(".").map(Number);
-  const b = current.split(".").map(Number);
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0);
-  }
-  return false;
-}
-
-// Uygulama güncellenince eklentinin klasörü de yenileniyor; tarayıcı eski dosyaları kullanmaya devam
-// etmesin diye eklenti kendini yeniden yükler. Eklenti başka bir klasörden yüklendiyse yeniden yükleme
-// sürümü değiştirmez; döngüye girmemek için her sürüm için yalnızca bir kez denenir.
+// Eklentinin sürümü uygulamanınkiyle aynı gider. Uygulama güncellenince eklentinin klasörü de yenileniyor;
+// tarayıcı eski dosyaları kullanmaya devam etmesin diye eklenti, klasördeki sürüm kendisininkinden farklıysa
+// kendini yeniden yükler. Eklenti başka bir klasörden yüklendiyse yeniden yükleme sürümü değiştirmez;
+// döngüye girmemek için her sürüm için yalnızca bir kez denenir.
 async function reloadIfUpdated(available) {
   const current = chrome.runtime.getManifest().version;
-  if (typeof available !== "string" || !/^\d+(\.\d+)*$/.test(available) || !isNewer(available, current)) return false;
+  if (typeof available !== "string" || !/^\d+(\.\d+)*$/.test(available) || available === current) return false;
   const { reloadedFor } = await chrome.storage.local.get("reloadedFor");
   if (reloadedFor === available) return false;
   await chrome.storage.local.set({ reloadedFor: available });

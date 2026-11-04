@@ -5,6 +5,7 @@
 #   scripts/package-app.sh --install   → ayrıca /Applications'a kopyalayıp açar
 #
 # Sürüm: VERSION=1.2.0 scripts/package-app.sh (varsayılan 1.0.0; derleme numarası commit sayısı).
+# Tarayıcı eklentisi de aynı sürümü alır.
 # aria2c, yt-dlp, ffmpeg ve QuickJS uygulamanın içine gömülür (scripts/bundle-tools.sh); hedef Mac'te
 # Homebrew gerekmez ama paket sadece Apple Silicon'da çalışır.
 # İmza yerel (ad-hoc): bu Mac'te sorunsuz açılır. Başka Mac'lere dağıtmak için Developer ID
@@ -36,6 +37,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/$EXECUTABLE" "$APP/Contents/MacOS/"
 # Tarayıcı eklentisi: Ayarlar'daki "Kur" butonu buradan kopyalar.
 cp -R ChromeExtension "$APP/Contents/Resources/BrowserExtension"
+# Eklentinin sürümü her zaman uygulamanınkiyle aynı (release.sh depodaki manifest'i de eşitler).
+sed -i '' -E 's/"version": "[^"]*"/"version": "'"$VERSION"'"/' "$APP/Contents/Resources/BrowserExtension/manifest.json"
+grep -q "\"version\": \"$VERSION\"" "$APP/Contents/Resources/BrowserExtension/manifest.json" \
+    || { echo "✗ Eklentinin sürümü ayarlanamadı" >&2; exit 1; }
 # Gömülü araçlar (her biri bundle-tools.sh'de ayrıca imzalandı); uygulama önce bunları kullanır.
 mkdir -p "$APP/Contents/Helpers"
 cp -R dist/tools/bin dist/tools/lib "$APP/Contents/Helpers/"
