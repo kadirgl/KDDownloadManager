@@ -175,6 +175,10 @@ enum BrowserExtension {
         return (try? manager.moveItem(at: staging, to: folder)) != nil
     }
 
+    /// Tarayıcının yüklediği klasördeki eklentinin sürümü; eklenti kendi sürümü bundan eskiyse kendini
+    /// yeniden yükler (uygulama güncellenince klasör de yenileniyor).
+    static var installedVersion: String? { version(at: folder) }
+
     private static func version(at folder: URL) -> String? {
         guard let data = try? Data(contentsOf: folder.appendingPathComponent("manifest.json")),
               let manifest = try? JSONDecoder().decode(JSONValue.self, from: data) else { return nil }

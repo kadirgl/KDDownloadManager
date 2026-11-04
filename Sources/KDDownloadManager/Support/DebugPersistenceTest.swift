@@ -6,7 +6,7 @@ import AppKit
 enum DebugHarness {
     static var isActive: Bool {
         let environment = ProcessInfo.processInfo.environment
-        return ["KD_SNAPSHOT_DIR", "KD_ENGINE_TEST", "KD_PERSIST_TEST", "KD_LIMIT_TEST", "KD_TORRENT_TEST", "KD_UPDATE_TEST", "KD_DEMO"].contains { environment[$0] != nil }
+        return ["KD_SNAPSHOT_DIR", "KD_ENGINE_TEST", "KD_PERSIST_TEST", "KD_LIMIT_TEST", "KD_TORRENT_TEST", "KD_UPDATE_TEST", "KD_APP_UPDATE_TEST", "KD_DEMO"].contains { environment[$0] != nil }
     }
 }
 

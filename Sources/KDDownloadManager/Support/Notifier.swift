@@ -38,6 +38,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         post(title: "İndirme başarısız", body: "\(item.fileName)\n\(message)", sound: true)
     }
 
+    func updateAvailable(_ version: String) {
+        post(title: "Yeni sürüm: \(version)", body: "KD Download Manager'ı güncellemek için tıklayın.", sound: false)
+    }
+
     /// Ayarlanmamışsa açık sayılır.
     private static func enabled(_ key: String) -> Bool {
         UserDefaults.standard.object(forKey: key) as? Bool ?? true

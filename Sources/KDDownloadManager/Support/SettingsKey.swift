@@ -16,6 +16,12 @@ enum SettingsKey {
     static let accentColor = "accentColor"
     static let ytDlpAutoUpdate = "ytDlpAutoUpdate"
     static let ytDlpLastCheck = "ytDlpLastCheck"
+    static let appAutoUpdateCheck = "appAutoUpdateCheck"
+    static let appUpdateLastCheck = "appUpdateLastCheck"
+    /// Bildirimi gönderilen son sürüm (her yeni sürüm için bir kez bildirilir).
+    static let appUpdateAnnounced = "appUpdateAnnounced"
+    /// Listedeki güncelleme bandının kapatıldığı sürüm.
+    static let appUpdateBannerDismissed = "appUpdateBannerDismissed"
     /// İlk açılıştaki eklenti kurulumunda "Şimdilik geç" seçildi; kurulum ekranı bir daha zorla açılmaz.
     static let onboardingSkipped = "onboardingSkipped"
     /// Bir tarayıcı eklentisi en az bir kez bağlandı (sonradan kaldırılsa da kurulum ekranı zorla açılmaz).

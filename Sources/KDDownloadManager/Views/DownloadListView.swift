@@ -31,6 +31,7 @@ struct DownloadListView: View {
                 .accessibilityLabel("Ayarlar")
             }
 
+            UpdateBanner()
             ExtensionBanner()
             FailedBanner()
 
@@ -693,6 +694,49 @@ private struct ExtensionBanner: View {
         )
         .padding(.horizontal, Theme.margin)
         .padding(.bottom, 12)
+    }
+}
+
+/// Uygulamanın yeni sürümü varsa listenin üstünde band; "Güncelle" Ayarlar'daki güncelleme bölümüne götürür.
+/// Kapatılırsa o sürüm için bir daha çıkmaz.
+private struct UpdateBanner: View {
+    @Environment(DownloadStore.self) private var store
+    @AppStorage(SettingsKey.appUpdateBannerDismissed) private var dismissed = ""
+    private let updater = AppUpdater.shared
+
+    var body: some View {
+        if let release = updater.availableRelease, release.version != dismissed {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .foregroundStyle(Theme.accent)
+                Text("Yeni sürüm hazır: \(release.version)")
+                    .font(.system(size: 12.5, weight: .semibold))
+                Spacer()
+                Button("Güncelle") { store.route = .settings }
+                    .buttonStyle(GlassCapsuleButtonStyle(height: 26, fontSize: 12))
+                Button {
+                    dismissed = release.version
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .frame(width: 22, height: 22)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Bu sürüm için gösterme")
+                .accessibilityLabel("Kapat")
+            }
+            .padding(.leading, 14)
+            .padding(.trailing, 8)
+            .frame(height: 42)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Theme.accent.opacity(0.14))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.accent.opacity(0.35)))
+            )
+            .padding(.horizontal, Theme.margin)
+            .padding(.bottom, 12)
+        }
     }
 }
 

@@ -18,6 +18,10 @@ BUNDLE_ID="com.kadirgul.KDDownloadManager"
 VERSION="${VERSION:-1.0.0}"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 APP="dist/$EXECUTABLE.app"
+# Uygulama içi güncelleme (AppUpdater): GitHub deposu ve imzayı doğrulayan açık anahtar Info.plist'e girer.
+# Depo, origin adresinden okunur (github.com/kullanıcı/depo); anahtar scripts/update-key.sh ile oluşturulur.
+UPDATE_REPOSITORY="${UPDATE_REPOSITORY:-$(git remote get-url origin 2>/dev/null | sed -nE 's#^(https://|git@)github\.com[:/]([^/]+/[^/.]+)(\.git)?$#\2#p' || true)}"
+UPDATE_PUBLIC_KEY="$(cat scripts/update-public-key.txt 2>/dev/null || true)"
 
 echo "→ Yardımcı programlar hazırlanıyor (aria2c, yt-dlp, ffmpeg, QuickJS)…"
 scripts/bundle-tools.sh
@@ -76,6 +80,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>KDUpdateRepository</key>
+    <string>$UPDATE_REPOSITORY</string>
+    <key>KDUpdatePublicKey</key>
+    <string>$UPDATE_PUBLIC_KEY</string>
     <!-- Tarayıcılardaki magnet: linkleri (Ayarlar > Torrent ile varsayılan yapılabilir). -->
     <key>CFBundleURLTypes</key>
     <array>
@@ -139,6 +147,9 @@ codesign --verify --strict "$APP"
 
 (cd dist && rm -f "$EXECUTABLE.zip" && ditto -c -k --keepParent "$EXECUTABLE.app" "$EXECUTABLE.zip")
 echo "✓ Hazır: $APP  (sürüm $VERSION, derleme $BUILD_NUMBER)"
+if [[ -z "$UPDATE_REPOSITORY" || -z "$UPDATE_PUBLIC_KEY" ]]; then
+    echo "  ! Uygulama içi güncelleme kapalı (GitHub deposu ya da scripts/update-public-key.txt yok)."
+fi
 
 if [[ "${1:-}" == "--install" ]]; then
     TARGET="/Applications/$EXECUTABLE.app"

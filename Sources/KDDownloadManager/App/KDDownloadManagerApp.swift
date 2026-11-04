@@ -67,6 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DebugLimitTest.runIfRequested()
         DebugTorrentTest.runIfRequested()
         DebugUpdateTest.runIfRequested()
+        DebugAppUpdateTest.runIfRequested()
         // Senaryolar çalışırken asıl uygulamanın portunu işgal etmesinler.
         if DebugHarness.isActive { return }
         #endif
@@ -81,6 +82,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         YtDlpUpdater.removeOldVersions()
         VideoFormats.warmUp()
         YtDlpUpdater.shared.checkAutomaticallyIfDue()
+        // Uygulamanın yeni sürümü (GitHub Releases) günde bir denetlenir.
+        AppUpdater.shared.startAutomaticChecks()
         // Kurulu tarayıcı eklentisi uygulamayla birlikte güncellensin (tarayıcı yeniden açılınca alır).
         if FileManager.default.fileExists(atPath: BrowserExtension.folder.path) {
             BrowserExtension.refreshFolder()

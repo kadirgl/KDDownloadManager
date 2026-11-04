@@ -19,6 +19,15 @@ enum DebugSnapshot {
         Task {
             // Sahte motor birkaç adım ilerlesin ki hızlar dolu görünsün.
             try? await Task.sleep(for: .seconds(1.2))
+            // KD_UPDATE_API verildiyse yeni sürüm bulunmuş hali (listedeki band ve Ayarlar'daki bölüm).
+            if ProcessInfo.processInfo.environment["KD_UPDATE_API"] != nil {
+                await AppUpdater.shared.check()
+                for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                    let section = AppUpdateSettings().padding(Theme.margin).toggleStyle(.switch).environment(store)
+                    await render(section, appearance: appearance, height: 330,
+                                 to: folder.appendingPathComponent("update-\(suffix).png"))
+                }
+            }
             let screens: [(String, DownloadStore.Route, ListTab)] = [
                 ("list", .list, .active),
                 ("completed", .list, .completed),
@@ -37,8 +46,12 @@ enum DebugSnapshot {
     }
 
     private static func render(_ store: DownloadStore, appearance: NSAppearance.Name, to url: URL) async {
-        let size = CGSize(width: Theme.panelWidth, height: Theme.panelHeight)
-        let hosting = NSHostingView(rootView: PanelView().environment(store))
+        await render(PanelView().environment(store), appearance: appearance, height: Theme.panelHeight, to: url)
+    }
+
+    private static func render(_ view: some View, appearance: NSAppearance.Name, height: CGFloat, to url: URL) async {
+        let size = CGSize(width: Theme.panelWidth, height: height)
+        let hosting = NSHostingView(rootView: view.background(Theme.windowSolid))
         hosting.frame = CGRect(origin: .zero, size: size)
         hosting.appearance = NSAppearance(named: appearance)
 

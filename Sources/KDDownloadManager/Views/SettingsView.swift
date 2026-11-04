@@ -28,6 +28,11 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
+                    // Yeni sürüm varsa (listedeki banttan gelince) güncelleme bölümü en üstte.
+                    if updateAvailable {
+                        AppUpdateSettings()
+                    }
+
                     SettingsSection(title: "İndirme klasörü") {
                         HStack(spacing: 10) {
                             Image(systemName: "folder.fill")
@@ -82,6 +87,10 @@ struct SettingsView: View {
                     ExtensionSettings()
 
                     TorrentSettings()
+
+                    if !updateAvailable {
+                        AppUpdateSettings()
+                    }
 
                     YtDlpSettings()
 
@@ -157,6 +166,14 @@ struct SettingsView: View {
         }
         .padding(.horizontal, Theme.margin - 4)
         .padding(.bottom, 14)
+    }
+
+    /// Bulunan sürüm inerken de bölüm yerinden oynamasın.
+    private var updateAvailable: Bool {
+        switch AppUpdater.shared.state {
+        case .available, .downloading, .installing: true
+        default: false
+        }
     }
 
     private var launchAtLoginNote: String? {

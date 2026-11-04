@@ -126,7 +126,9 @@ final class ExtensionBridge {
             onHello(browser)
             // Çerezi gereken video siteleri; eklenti hemen /cookies ile gönderir.
             let wanted = JSONValue.array(CookieVault.shared.wantedSites.map { .string($0) })
-            Self.send(status: 200, ["app": "KD Download Manager", "wantsCookies": wanted], origin: origin, on: connection)
+            var reply: [String: JSONValue] = ["app": "KD Download Manager", "wantsCookies": wanted]
+            if let version = BrowserExtension.installedVersion { reply["extensionVersion"] = .string(version) }
+            Self.send(status: 200, .object(reply), origin: origin, on: connection)
 
         case ("POST", "/cookies"):
             struct Payload: Decodable {

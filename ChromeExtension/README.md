@@ -13,7 +13,7 @@ alır ve tarayıcının uzantılar sayfasını açar. Orada:
 2. **Paketlenmemiş öğe yükle**'ye tıklayın, ⌘⇧G ile yolu yapıştırıp **Seç**'e basın.
 
 Eklenti bağlanınca Ayarlar'da "Bağlı" görünür. Uygulama güncellendiğinde o klasör de güncellenir;
-tarayıcı yeni sürümü bir sonraki açılışta (ya da uzantılar sayfasında yenileyince) alır.
+eklenti yeni sürümü en geç bir dakika içinde fark edip kendini yeniden yükler.
 
 Eklentinin kimliği her tarayıcıda `necbfaijhfnnoikbppjdjcpfjekefdbk` olmalı (manifest'teki `key`
 sayesinde sabit). Uygulama yalnızca bu kimlikten gelen istekleri kabul eder.
