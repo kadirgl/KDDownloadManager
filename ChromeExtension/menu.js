@@ -161,7 +161,7 @@ globalThis.KDMenu = (() => {
     return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
   }
 
-  // Vurgu zeminindeki yazı: açık vurgu renklerinde koyu (turuncu üstünde beyaz yazı okunmuyordu).
+  // Vurgu zeminindeki yazı: koyu ya da beyaz, hangisi daha okunaklıysa (turuncu üstünde beyaz okunmuyordu).
   function applyAccent(host, accent) {
     const hex = /^#[0-9a-f]{6}$/i.test(accent ?? "") ? accent : "#F08A2E";
     const channel = (i) => {
@@ -171,7 +171,9 @@ globalThis.KDMenu = (() => {
     const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
     const dark = matchMedia("(prefers-color-scheme: dark)").matches;
     host.style.setProperty("--accent", hex);
-    host.style.setProperty("--on-accent", luminance > 0.18 ? "#1D1D1F" : "#FFFFFF");
+    // Koyu yazının (#1D1D1F, parlaklığı 0,0124) ve beyazın kontrast oranı karşılaştırılıyor; uygulamadaki kuralla aynı.
+    const onAccent = (luminance + 0.05) / 0.0624 >= 1.05 / (luminance + 0.05) ? "#1D1D1F" : "#FFFFFF";
+    host.style.setProperty("--on-accent", onAccent);
     host.style.setProperty("--accent-text", `color-mix(in srgb, ${hex} ${dark ? 65 : 62}%, ${dark ? "white" : "black"})`);
   }
 

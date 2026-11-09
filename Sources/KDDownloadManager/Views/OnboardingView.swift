@@ -219,7 +219,7 @@ private struct AppBadge: View {
             .overlay(
                 Image(systemName: "arrow.down.to.line")
                     .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onAccent)
             )
             .frame(width: 80, height: 80)
             .shadow(color: Theme.accentGlow, radius: 14, y: 8)

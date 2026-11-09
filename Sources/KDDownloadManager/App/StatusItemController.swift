@@ -89,6 +89,7 @@ final class StatusItemController: NSObject, NSWindowDelegate {
     func close() {
         guard panel.isVisible else { return }
         QuickLook.shared.close()
+        AccentColorPanel.shared.close()
         panel.orderOut(nil)
         store.panelVisible = false
         statusItem.button?.highlight(false)

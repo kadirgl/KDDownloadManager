@@ -67,7 +67,7 @@ function formatDuration(seconds) {
   return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
-// Uygulamada seçilen vurgu rengi; açık renklerde düğme yazısı koyu (sayfadaki menüyle aynı kural).
+// Uygulamada seçilen vurgu rengi; düğme yazısı koyu ya da beyaz, hangisi daha okunaklıysa (sayfadaki menüyle aynı kural).
 function applyAccent(hex) {
   const channel = (i) => {
     const value = parseInt(hex.slice(i, i + 2), 16) / 255;
@@ -75,7 +75,9 @@ function applyAccent(hex) {
   };
   const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
   document.documentElement.style.setProperty("--accent", hex);
-  document.documentElement.style.setProperty("--on-accent", luminance > 0.18 ? "#1D1D1F" : "#FFFFFF");
+  // Koyu yazının (#1D1D1F, parlaklığı 0,0124) ve beyazın kontrast oranı karşılaştırılıyor; uygulamadaki kuralla aynı.
+  const onAccent = (luminance + 0.05) / 0.0624 >= 1.05 / (luminance + 0.05) ? "#1D1D1F" : "#FFFFFF";
+  document.documentElement.style.setProperty("--on-accent", onAccent);
 }
 
 // video: adres bilinen bir video sitesi olmasa da yt-dlp ile video olarak indirilsin.

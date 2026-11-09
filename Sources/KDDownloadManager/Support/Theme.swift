@@ -8,10 +8,15 @@ enum Theme {
     /// `.id` sayesinde yeniden çizilir.
     static var accent: Color { AccentChoice.current.color }
 
-    /// Vurgu zeminindeki yazı ve ikonlar: açık vurgu renklerinde koyu, koyularda beyaz.
-    /// Turuncu üstünde koyu yazı 6,7:1 kontrast veriyor; beyaz 2,5:1'de kalıyordu.
+    /// Vurgu zeminindeki yazı ve ikonlar: koyu (#1D1D1F) ve beyazdan hangisi vurguyla daha yüksek
+    /// kontrast oranı (WCAG) veriyorsa o. Kullanıcı istediği rengi seçebildiği için sabit değil, hesaplanıyor.
+    /// Örneğin turuncu üstünde koyu yazı 6,7:1, beyaz 2,5:1.
     static var onAccent: Color {
-        AccentChoice.current.luminance > 0.18 ? Color(hex: 0x1D1D1F) : .white
+        let accent = AccentChoice.current.luminance
+        let dark = AccentChoice.luminance(of: NSColor(hex: 0x1D1D1F))
+        let darkContrast = (accent + 0.05) / (dark + 0.05)
+        let whiteContrast = 1.05 / (accent + 0.05)
+        return darkContrast >= whiteContrast ? Color(hex: 0x1D1D1F) : .white
     }
 
     /// Vurgu renginde yazı: koyu temada açılmış, açık temada koyulaştırılmış vurgu.
@@ -127,9 +132,9 @@ enum AppTheme: String, CaseIterable, Identifiable {
     }
 }
 
-/// Vurgu rengi seçenekleri.
+/// Vurgu rengi seçenekleri; `custom` kullanıcının renk panelinden seçtiği renk.
 enum AccentChoice: String, CaseIterable, Identifiable {
-    case orange, system, blue, purple, pink, red, green, teal
+    case orange, system, blue, purple, pink, red, green, teal, custom
 
     var id: Self { self }
 
@@ -143,6 +148,7 @@ enum AccentChoice: String, CaseIterable, Identifiable {
         case .red: "Kırmızı"
         case .green: "Yeşil"
         case .teal: "Turkuaz"
+        case .custom: "Özel renk"
         }
     }
 
@@ -157,12 +163,23 @@ enum AccentChoice: String, CaseIterable, Identifiable {
         case .red: Color(hex: 0xFF3B30)
         case .green: Color(hex: 0x30B350)
         case .teal: Color(hex: 0x14B8C4)
+        // Henüz seçilmediyse turuncu (renk paneli de ondan başlar).
+        case .custom: Color(nsColor: Self.customColor ?? NSColor(hex: 0xF08A2E))
         }
     }
 
+    /// Renk panelinden seçilen renk ("#RRGGBB" olarak saklanıyor); seçilmediyse nil.
+    static var customColor: NSColor? {
+        guard let text = UserDefaults.standard.string(forKey: SettingsKey.accentCustomColor),
+              text.hasPrefix("#"), text.count == 7, let value = UInt32(text.dropFirst(), radix: 16) else { return nil }
+        return NSColor(hex: value)
+    }
+
     /// Göreli parlaklık (WCAG); vurgu zeminindeki yazının rengini seçmek için.
-    var luminance: CGFloat {
-        guard let rgb = NSColor(color).usingColorSpace(.sRGB) else { return 0.3 }
+    var luminance: CGFloat { Self.luminance(of: NSColor(color)) }
+
+    static func luminance(of color: NSColor) -> CGFloat {
+        guard let rgb = color.usingColorSpace(.sRGB) else { return 0.3 }
         func linear(_ value: CGFloat) -> CGFloat {
             value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
         }
@@ -175,9 +192,11 @@ enum AccentChoice: String, CaseIterable, Identifiable {
 
     /// Tarayıcı eklentisinin de aynı rengi kullanması için "#RRGGBB" (sRGB).
     @MainActor
-    var hex: String {
-        let color = NSColor(color).usingColorSpace(.sRGB) ?? NSColor(srgbRed: 0.94, green: 0.54, blue: 0.18, alpha: 1)
-        let rgb = [color.redComponent, color.greenComponent, color.blueComponent].map { Int(($0 * 255).rounded()) }
+    var hex: String { Self.hex(of: NSColor(color)) }
+
+    static func hex(of color: NSColor) -> String {
+        let color = color.usingColorSpace(.sRGB) ?? NSColor(srgbRed: 0.94, green: 0.54, blue: 0.18, alpha: 1)
+        let rgb = [color.redComponent, color.greenComponent, color.blueComponent].map { Int((min(max($0, 0), 1) * 255).rounded()) }
         return String(format: "#%02X%02X%02X", rgb[0], rgb[1], rgb[2])
     }
 }

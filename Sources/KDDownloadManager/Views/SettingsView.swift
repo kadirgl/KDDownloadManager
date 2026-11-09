@@ -202,17 +202,21 @@ struct SettingsView: View {
     }
 }
 
-/// Vurgu rengi seçimi: renk yuvarlakları, seçili olanın çevresinde halka.
+/// Vurgu rengi seçimi: renk yuvarlakları, seçili olanın çevresinde halka. Sonuncusu (gökkuşağı) macOS
+/// renk panelini açar; orada seçilen renk "Özel renk" olur.
 private struct AccentPicker: View {
     @Binding var selection: String
+    @AppStorage(SettingsKey.accentCustomColor) private var customColor = ""
 
     var body: some View {
         HStack(spacing: 5) {
             ForEach(AccentChoice.allCases) { choice in
                 let selected = selection == choice.rawValue
-                Button { selection = choice.rawValue } label: {
-                    Circle()
-                        .fill(choice.color)
+                Button {
+                    selection = choice.rawValue
+                    if choice == .custom { AccentColorPanel.shared.show() }
+                } label: {
+                    swatch(choice)
                         .frame(width: 18, height: 18)
                         .overlay {
                             if choice == .system {
@@ -230,6 +234,62 @@ private struct AccentPicker: View {
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
+    }
+
+    /// Özel renk: gökkuşağı halka; bir renk seçildiyse ortası o renk.
+    @ViewBuilder
+    private func swatch(_ choice: AccentChoice) -> some View {
+        if choice == .custom {
+            let rainbow = AngularGradient(
+                colors: [.red, .orange, .yellow, .green, .cyan, .blue, .purple, .pink, .red],
+                center: .center
+            )
+            Circle()
+                .fill(rainbow)
+                .overlay {
+                    if !customColor.isEmpty {
+                        Circle().fill(AccentChoice.custom.color).padding(3.5)
+                    }
+                }
+        } else {
+            Circle().fill(choice.color)
+        }
+    }
+}
+
+/// "Özel renk" için macOS renk paneli. Menü çubuğu paneli `.statusBar` katmanında olduğu için renk paneli
+/// de o katmanda ve panelin soluna açılıyor; yoksa arkasında kalıyordu. Seçilen renk anında uygulanır.
+@MainActor
+final class AccentColorPanel: NSObject {
+    static let shared = AccentColorPanel()
+
+    func show() {
+        let colorPanel = NSColorPanel.shared
+        colorPanel.setTarget(nil) // Başlangıç rengini ayarlarken seçim tetiklenmesin.
+        colorPanel.showsAlpha = false
+        colorPanel.isContinuous = true
+        colorPanel.color = NSColor(AccentChoice.custom.color)
+        colorPanel.setTarget(self)
+        colorPanel.setAction(#selector(colorChanged(_:)))
+        colorPanel.level = .statusBar
+        if let anchor = NSApp.windows.first(where: { $0 is PanelWindow && $0.isVisible }) {
+            let size = colorPanel.frame.size
+            let origin = NSPoint(x: anchor.frame.minX - size.width - 12, y: anchor.frame.maxY - size.height)
+            colorPanel.setFrameOrigin(origin)
+        }
+        colorPanel.orderFront(nil)
+    }
+
+    /// Menü paneli kapanınca renk paneli ortada asılı kalmasın.
+    func close() {
+        guard NSColorPanel.sharedColorPanelExists, NSColorPanel.shared.isVisible else { return }
+        NSColorPanel.shared.setTarget(nil)
+        NSColorPanel.shared.orderOut(nil)
+    }
+
+    @objc private func colorChanged(_ sender: NSColorPanel) {
+        UserDefaults.standard.set(AccentChoice.hex(of: sender.color), forKey: SettingsKey.accentCustomColor)
+        UserDefaults.standard.set(AccentChoice.custom.rawValue, forKey: SettingsKey.accentColor)
     }
 }
 

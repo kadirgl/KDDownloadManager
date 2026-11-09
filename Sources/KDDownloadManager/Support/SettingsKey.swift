@@ -14,6 +14,8 @@ enum SettingsKey {
     static let notifyOnFail = "notifyOnFail"
     static let appTheme = "appTheme"
     static let accentColor = "accentColor"
+    /// "Özel renk" seçildiğinde kullanılan renk, "#RRGGBB".
+    static let accentCustomColor = "accentCustomColor"
     static let ytDlpAutoUpdate = "ytDlpAutoUpdate"
     static let ytDlpLastCheck = "ytDlpLastCheck"
     static let appAutoUpdateCheck = "appAutoUpdateCheck"

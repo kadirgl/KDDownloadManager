@@ -7,6 +7,7 @@ struct PanelView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     /// Vurgu rengi değişince tüm paneli yeniden çizmek için.
     @AppStorage(SettingsKey.accentColor) private var accent = AccentChoice.orange.rawValue
+    @AppStorage(SettingsKey.accentCustomColor) private var customAccent = ""
 
     private let shape = RoundedRectangle(cornerRadius: Theme.windowRadius, style: .continuous)
 
@@ -46,7 +47,7 @@ struct PanelView: View {
         .clipShape(shape)
         .foregroundStyle(Theme.primaryText)
         .tint(Theme.accent)
-        .id(accent)
+        .id(accent == AccentChoice.custom.rawValue ? customAccent : accent)
         .animation(.snappy(duration: 0.25), value: store.route)
         // .torrent dosyası ya da tarayıcıdan link sürükleyip bırakmak.
         .dropDestination(for: URL.self) { urls, _ in
