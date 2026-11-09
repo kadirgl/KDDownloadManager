@@ -82,9 +82,10 @@
       created.host.style.top = "12px";
       created.host.style.right = "12px";
     } else if (mode === "row") {
+      // Boy ve dikey konum komşu düğmelerden alınıyor (alignWithRow).
       created.host.style.setProperty("--kd-height", "36px");
       created.host.style.marginLeft = "8px";
-      created.host.style.alignSelf = "center";
+      created.host.style.alignSelf = "flex-start";
     } else {
       created.host.style.marginBottom = "16px";
     }
@@ -96,6 +97,19 @@
     });
     menus[mode] = created;
     return created;
+  }
+
+  // Satırdaki YouTube düğmeleriyle aynı boy ve aynı dikey merkez. Satır ortalamıyor: düğmeleri satırın
+  // tepesine dizili ve satır onlardan uzun, "align-self: center" butonu birkaç piksel aşağıda bırakıyordu.
+  // Düzen YouTube sürümüne göre değiştiği için sabit değer yerine her kontrolde ölçülüyor.
+  function alignWithRow(row, host) {
+    const neighbor = [...row.querySelectorAll("button")].find((button) => shown(button));
+    if (!neighbor) return;
+    const target = neighbor.getBoundingClientRect();
+    host.style.setProperty("--kd-height", `${Math.round(target.height)}px`);
+    const current = host.getBoundingClientRect();
+    const shift = target.top + target.height / 2 - (current.top + current.height / 2);
+    if (Math.abs(shift) >= 0.5) host.style.marginTop = `${(parseFloat(host.style.marginTop) || 0) + shift}px`;
   }
 
   function loadFormats(url) {
@@ -161,6 +175,7 @@
     if (menu.host.parentElement !== spot.parent || (spot.before && menu.host.nextElementSibling !== spot.before)) {
       spot.parent.insertBefore(menu.host, spot.before);
     }
+    if (spot.mode === "row") alignWithRow(spot.parent, menu.host);
     if (boundUrl !== url) {
       boundUrl = url;
       menu.close();

@@ -15,7 +15,7 @@ globalThis.KDMenu = (() => {
       background: color-mix(in srgb, var(--accent) 88%, transparent); color: var(--on-accent);
       font-size: 13px; font-weight: 600; cursor: pointer;
       -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
       transition: transform 0.12s ease, filter 0.12s ease;
     }
     .button:hover { filter: brightness(1.05); }
