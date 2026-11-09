@@ -272,6 +272,9 @@ final class AccentColorPanel: NSObject {
         colorPanel.setTarget(self)
         colorPanel.setAction(#selector(colorChanged(_:)))
         colorPanel.level = .statusBar
+        // Renk paneli normalde uygulama önde değilken gizleniyor; macOS menü çubuğu uygulamasını çoğu zaman
+        // öne almadığı için panel hiç görünmüyordu. Menü paneli kapanınca close() ile kapatılıyor.
+        colorPanel.hidesOnDeactivate = false
         if let anchor = NSApp.windows.first(where: { $0 is PanelWindow && $0.isVisible }) {
             let size = colorPanel.frame.size
             let origin = NSPoint(x: anchor.frame.minX - size.width - 12, y: anchor.frame.maxY - size.height)
