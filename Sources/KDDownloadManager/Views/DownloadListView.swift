@@ -92,6 +92,9 @@ struct DownloadListView: View {
             }
             .scrollIndicators(.never)
             .tracksScrolling(store)
+            // Her sekme ve kategori kendi kaydırma görünümüyle, en üstten başlar. Uzun bir listede aşağı
+            // kaydırıp kısa bir listeye geçince eski konum kalıyor ve LazyVStack satırları hiç çizmiyordu.
+            .id(ListScope(tab: store.tab, category: store.category))
             // Klavye: ↑/↓ satırlar arasında gezer, Boşluk duraklatır ya da önizler, ↩ dosyayı açar,
             // ⌫ tamamlananı listeden kaldırır. ⌘'li kısayollar ListShortcuts'ta.
             .focusable()
@@ -169,6 +172,12 @@ struct DownloadListView: View {
         }
         return .handled
     }
+}
+
+/// Listenin kaydırma görünümünün kimliği: sekme ya da kategori değişince yenisi kurulur.
+private struct ListScope: Hashable {
+    let tab: ListTab
+    let category: DownloadCategory
 }
 
 // MARK: - Arama
