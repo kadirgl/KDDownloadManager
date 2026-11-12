@@ -15,11 +15,9 @@ tarayıcıdaki indirmeleri ve videoları doğrudan uygulamaya gönderir.
 ## Kurulum
 
 1. [Releases](../../releases/latest) sayfasından `KDDownloadManager-<sürüm>.zip` dosyasını indirip açın.
-2. **KDDownloadManager.app**'i **Uygulamalar** klasörüne taşıyıp açın.
-3. İlk açılışta macOS "geliştirici doğrulanamadı" derse: **Sistem Ayarları › Gizlilik ve Güvenlik**'te
-   aşağıdaki **Yine de Aç** düğmesine basın (uygulama Apple Developer ID ile imzalı değil; bu yalnızca ilk
-   kurulumda gerekir).
-4. Uygulama ilk açılışta tarayıcı eklentisinin kurulumunu adım adım gösterir.
+2. **KDDownloadManager.app**'i **Uygulamalar** klasörüne taşıyıp açın. Uygulama Apple Developer ID ile
+   imzalı ve Apple'ın noter onayından geçmiş; macOS uyarı vermeden açar.
+3. Uygulama ilk açılışta tarayıcı eklentisinin kurulumunu adım adım gösterir.
 
 Gereksinimler: Apple Silicon (M1 ve sonrası), macOS 14 Sonoma veya üstü. aria2, yt-dlp, ffmpeg ve QuickJS
 uygulamanın içinde gelir; Homebrew gerekmez.

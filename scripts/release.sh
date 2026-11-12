@@ -6,7 +6,9 @@
 #
 # Adımlar: tarayıcı eklentisinin sürümünü uygulamanınkiyle eşitler, paketler (package-app.sh), zip'i Anahtar Zinciri'ndeki gizli anahtarla imzalar, imzayı denetler,
 # v1.6.0 etiketini ve main'i gönderir, zip + imzayla GitHub sürümünü oluşturur.
-# Gerekenler: gh (giriş yapılmış), temiz çalışma ağacı, scripts/update-key.sh ile oluşturulmuş anahtar.
+# Gerekenler: gh (giriş yapılmış), temiz çalışma ağacı, scripts/update-key.sh ile oluşturulmuş anahtar,
+# Anahtar Zinciri'nde "Developer ID Application" sertifikası ve noter onayı profili (KDNotary; bkz. package-app.sh).
+# Paket Developer ID ile imzalanıp Apple'ın noter onayından geçmeden sürüm yayımlanmaz.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -45,7 +47,7 @@ if [[ -n "$(git status --porcelain "$MANIFEST")" ]]; then
     git commit -q -m "Sürüm $VERSION" -- "$MANIFEST"
 fi
 
-VERSION="$VERSION" scripts/package-app.sh
+VERSION="$VERSION" NOTARIZE=1 scripts/package-app.sh
 ASSET="dist/KDDownloadManager-$VERSION.zip"
 cp dist/KDDownloadManager.zip "$ASSET"
 
@@ -66,7 +68,6 @@ cat >> "$NOTES" <<NOTES
 
 ---
 **Kurulum:** \`KDDownloadManager-$VERSION.zip\` dosyasını indirip açın, uygulamayı **Uygulamalar** klasörüne taşıyın.
-İlk açılışta macOS "geliştirici doğrulanamadı" derse: Sistem Ayarları › Gizlilik ve Güvenlik › **Yine de Aç**.
 Kurulu uygulama yeni sürümleri kendisi bulur (Ayarlar › Uygulama güncellemesi). Apple Silicon (M1 ve sonrası), macOS 14+.
 NOTES
 

@@ -8,10 +8,19 @@
 # Tarayıcı eklentisi de aynı sürümü alır.
 # aria2c, yt-dlp, ffmpeg ve QuickJS uygulamanın içine gömülür (scripts/bundle-tools.sh); hedef Mac'te
 # Homebrew gerekmez ama paket sadece Apple Silicon'da çalışır.
-# İmza yerel (ad-hoc): bu Mac'te sorunsuz açılır. Başka Mac'lere dağıtmak için Developer ID
-# imzası ve notarization gerekir.
+#
+# İmza: Anahtar Zinciri'nde "Developer ID Application" sertifikası varsa onunla (Hardened Runtime ve
+# zaman damgası), sonra Apple'ın noter onayına gönderilir ve onay pakete iliştirilir (staple); başka
+# Mac'lerde uyarısız açılır. Sertifika yoksa yerel (ad-hoc) imza: sadece bu Mac'te sorunsuz açılır.
+#   SIGN_IDENTITY="Developer ID Application: …"  → bu kimlikle imzala (SIGN_IDENTITY=- → ad-hoc)
+#   NOTARIZE=0     → noter onayını atla (hızlı yerel deneme)
+#   NOTARIZE=1     → noter onayı zorunlu; olmazsa hata (release.sh böyle çağırır)
+#   NOTARY_PROFILE → notarytool'un Anahtar Zinciri profili (varsayılan KDNotary; bir kez kurulur:
+#                    xcrun notarytool store-credentials KDNotary --apple-id … --team-id …)
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+fail() { echo "✗ $*" >&2; exit 1; }
 
 NAME="KD Download Manager"
 EXECUTABLE="KDDownloadManager"
@@ -23,6 +32,14 @@ APP="dist/$EXECUTABLE.app"
 # Depo, origin adresinden okunur (github.com/kullanıcı/depo); anahtar scripts/update-key.sh ile oluşturulur.
 UPDATE_REPOSITORY="${UPDATE_REPOSITORY:-$(git remote get-url origin 2>/dev/null | sed -nE 's#^(https://|git@)github\.com[:/]([^/]+/[^/.]+)(\.git)?$#\2#p' || true)}"
 UPDATE_PUBLIC_KEY="$(cat scripts/update-public-key.txt 2>/dev/null || true)"
+SIGN_IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
+    | sed -nE 's/.*"(Developer ID Application: [^"]+)".*/\1/p' | head -1)}"
+SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+NOTARIZE="${NOTARIZE:-auto}"
+NOTARY_PROFILE="${NOTARY_PROFILE:-KDNotary}"
+if [[ "$NOTARIZE" == "1" && "$SIGN_IDENTITY" == "-" ]]; then
+    fail "Noter onayı için Developer ID Application sertifikası gerekli (Anahtar Zinciri'nde yok)"
+fi
 
 echo "→ Yardımcı programlar hazırlanıyor (aria2c, yt-dlp, ffmpeg, QuickJS)…"
 scripts/bundle-tools.sh
@@ -146,9 +163,52 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
 
-echo "→ İmzalanıyor (ad-hoc)…"
-codesign --force --sign - --timestamp=none "$APP"
-codesign --verify --strict "$APP"
+if [[ "$SIGN_IDENTITY" == "-" ]]; then
+    echo "→ İmzalanıyor (ad-hoc; Developer ID sertifikası yok)…"
+    codesign --force --sign - --timestamp=none "$APP"
+    codesign --verify --strict "$APP"
+else
+    echo "→ İmzalanıyor ($SIGN_IDENTITY)…"
+    SIGN=(codesign --force --timestamp --options runtime --sign "$SIGN_IDENTITY")
+    # Noter onayı paketteki her programın ve kütüphanenin (yt-dlp'nin Python dosyaları dahil) ayrı ayrı
+    # Hardened Runtime ve zaman damgasıyla imzalanmasını ister; dıştaki uygulama en son imzalanır.
+    CODE=()
+    while IFS= read -r -d '' file; do
+        file -b "$file" | grep -q '^Mach-O' && CODE+=("$file")
+    done < <(find "$APP/Contents/Helpers" "$APP/Contents/Resources/yt-dlp" -type f -print0)
+    # Sırayla: aynı anda çalışan codesign'lar anahtara erişirken errSecInternalComponent ile düşebiliyor.
+    printf '%s\0' "${CODE[@]}" | xargs -0 -n 32 "${SIGN[@]}" 2> "$ICON_WORK/codesign.log" \
+        || { grep -v ': replacing existing signature$' "$ICON_WORK/codesign.log" >&2; fail "Gömülü dosyalar imzalanamadı"; }
+    "${SIGN[@]}" "$APP" 2>/dev/null || fail "Uygulama imzalanamadı"
+    codesign --verify --deep --strict "$APP" || fail "İmza doğrulanamadı"
+    echo "  ${#CODE[@]} gömülü program ve kütüphane imzalandı."
+
+    if [[ "$NOTARIZE" == "auto" ]]; then
+        if xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
+            NOTARIZE=1
+        else
+            NOTARIZE=0
+            echo "  ! Noter onayı atlandı: '$NOTARY_PROFILE' profili yok (xcrun notarytool store-credentials)."
+        fi
+    fi
+    if [[ "$NOTARIZE" == "1" ]]; then
+        echo "→ Apple'ın noter onayına gönderiliyor (birkaç dakika sürebilir)…"
+        SUBMISSION="$ICON_WORK/$EXECUTABLE.zip"
+        ditto -c -k --keepParent "$APP" "$SUBMISSION"
+        xcrun notarytool submit "$SUBMISSION" --keychain-profile "$NOTARY_PROFILE" --wait \
+            --output-format json > "$ICON_WORK/notary.json" || true
+        STATUS="$(plutil -extract status raw -o - "$ICON_WORK/notary.json" 2>/dev/null || echo "?")"
+        if [[ "$STATUS" != "Accepted" ]]; then
+            cat "$ICON_WORK/notary.json" >&2
+            ID="$(plutil -extract id raw -o - "$ICON_WORK/notary.json" 2>/dev/null || true)"
+            [[ -n "$ID" ]] && xcrun notarytool log "$ID" --keychain-profile "$NOTARY_PROFILE" >&2 || true
+            fail "Noter onayı alınamadı ($STATUS)"
+        fi
+        xcrun stapler staple -q "$APP" || fail "Noter onayı pakete iliştirilemedi"
+        spctl --assess --type execute "$APP" 2>/dev/null || fail "Gatekeeper paketi kabul etmedi"
+        echo "  Noter onayı alındı ve pakete iliştirildi."
+    fi
+fi
 
 (cd dist && rm -f "$EXECUTABLE.zip" && ditto -c -k --keepParent "$EXECUTABLE.app" "$EXECUTABLE.zip")
 echo "✓ Hazır: $APP  (sürüm $VERSION, derleme $BUILD_NUMBER)"
