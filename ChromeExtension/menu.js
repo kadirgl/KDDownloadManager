@@ -8,6 +8,7 @@ globalThis.KDMenu = (() => {
   const STYLE = `
     :host { all: initial; z-index: 2147483000; color-scheme: light dark; }
     :host([hidden]) { display: none; }
+    [hidden] { display: none !important; }
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
     .button {
       display: flex; align-items: center; gap: 6px;
@@ -28,6 +29,39 @@ globalThis.KDMenu = (() => {
     .compact .button { width: 48px; height: 48px; padding: 0; justify-content: center; }
     .compact .button svg { width: 22px; height: 22px; }
     .caption { color: var(--kd-caption, #F1F1F1); font-size: 12px; font-weight: 400; line-height: 1; }
+    /* Videoların üstündeki butonun yanındaki ×: fare butona gelince belirir, o videoda butonu gizler. */
+    .group { display: flex; align-items: center; gap: 4px; }
+    .dismiss {
+      display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%;
+      background: rgba(24, 22, 30, 0.62); color: #fff; cursor: pointer;
+      -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 8px rgba(0, 0, 0, 0.25);
+      opacity: 0; transform: scale(0.8); transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .dismiss svg { width: 10px; height: 10px; }
+    :host(:hover) .dismiss, .dismiss:focus-visible { opacity: 1; transform: none; }
+    .dismiss:hover { background: rgba(24, 22, 30, 0.82); }
+    .dismiss:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    /* Gizledikten sonra butonun yerinde birkaç saniye: "Gizlendi · Geri al · Bu sitede kapat". */
+    .toast {
+      display: flex; align-items: center; gap: 2px; height: var(--kd-height, 34px); padding: 0 4px 0 12px;
+      border-radius: 999px; font-size: 12.5px; white-space: nowrap;
+      background: rgba(24, 22, 30, 0.72); color: #fff;
+      -webkit-backdrop-filter: blur(30px) saturate(190%); backdrop-filter: blur(30px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 30px rgba(0, 0, 0, 0.35);
+      --toast-hover: rgba(255, 255, 255, 0.12);
+    }
+    @media (prefers-color-scheme: light) {
+      .toast { background: rgba(255, 255, 255, 0.82); color: #1D1D1F; border-color: rgba(0, 0, 0, 0.06);
+        box-shadow: inset 0 1px 0 #fff, 0 10px 30px rgba(40, 30, 80, 0.22); --toast-hover: rgba(0, 0, 0, 0.06); }
+    }
+    .toast-text { margin-right: 6px; opacity: 0.8; }
+    .toast button {
+      height: 26px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent;
+      color: var(--accent-text); font-size: 12.5px; font-weight: 600; cursor: pointer;
+    }
+    .toast button:hover, .toast button:focus-visible { background: var(--toast-hover); outline: none; }
     /* Menü "popover" olarak sayfanın en üst katmanında açılır: butonun girdiği satır ya da oynatıcı taşanı
        kesse (overflow) ya da kaydırma için dönüştürülse (transform) de tam görünür. Konumu show() veriyor. */
     .menu {
@@ -112,6 +146,7 @@ globalThis.KDMenu = (() => {
     play: "M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z",
     note: "M19 3.5v11.25a3.25 3.25 0 1 1-2-3V7.6l-8 1.8v7.35a3.25 3.25 0 1 1-2-3V6.5a1 1 0 0 1 .78-.98l10-2.25A1 1 0 0 1 19 4.25Z",
     arrow: "M13.3 5.3a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.4-1.4L17.58 13H4a1 1 0 1 1 0-2h13.58l-4.3-4.3a1 1 0 0 1 0-1.4Z",
+    close: "M5.3 5.3a1 1 0 0 1 1.4 0L12 10.58l5.3-5.3a1 1 0 1 1 1.4 1.42L13.42 12l5.3 5.3a1 1 0 0 1-1.42 1.4L12 13.42l-5.3 5.3a1 1 0 0 1-1.4-1.42L10.58 12l-5.3-5.3a1 1 0 0 1 0-1.4Z",
     stream: "M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Zm6 3.2v5.6a.6.6 0 0 0 .9.52l4.6-2.8a.6.6 0 0 0 0-1.04l-4.6-2.8a.6.6 0 0 0-.9.52Z",
   };
 
@@ -182,7 +217,8 @@ globalThis.KDMenu = (() => {
 
   // Kapsül "İndir" butonu ve altındaki menü. `position` gölge kökünün (host) konumu: absolute, fixed ya da
   // sayfanın düğme satırına yerleşince relative. `compact`: yuvarlak ikon ve altında "İndir" etiketi.
-  function create(position, { compact = false } = {}) {
+  // `onDismiss` verilirse butonun yanında, fare üstüne gelince beliren bir × olur.
+  function create(position, { compact = false, onDismiss = null } = {}) {
     const host = document.createElement("div");
     host.style.setProperty("position", position, "important");
     const shadow = host.attachShadow({ mode: "closed" });
@@ -204,13 +240,28 @@ globalThis.KDMenu = (() => {
     const panel = element("div", "menu");
     panel.setAttribute("role", "menu");
     panel.popover = "manual";
+    // Butonun kendisi (ve varsa ×); bildirim gösterilirken bunun yerine bildirim durur.
+    let face;
     if (compact) {
-      const stack = element("div", "compact");
-      stack.append(button, element("span", "caption", "İndir"));
-      shadow.append(style, stack, panel);
+      face = element("div", "compact");
+      face.append(button, element("span", "caption", "İndir"));
+    } else if (onDismiss) {
+      face = element("div", "group");
+      const dismiss = element("button", "dismiss");
+      dismiss.type = "button";
+      dismiss.title = "Bu videoda gizle";
+      dismiss.setAttribute("aria-label", "Bu videoda İndir butonunu gizle");
+      dismiss.append(icon("close"));
+      dismiss.addEventListener("click", () => onDismiss());
+      face.append(button, dismiss);
     } else {
-      shadow.append(style, button, panel);
+      face = button;
     }
+    const toastBox = element("div", "toast");
+    toastBox.setAttribute("role", "status");
+    toastBox.hidden = true;
+    shadow.append(style, face, toastBox, panel);
+    let toastTimer = null;
 
     // Sayfanın kendi tıklama/klavye işleyicileri (oynat/durdur, kısayollar) tetiklenmesin.
     for (const type of ["click", "dblclick", "mousedown", "mouseup", "pointerdown", "pointerup", "keydown", "wheel"]) {
@@ -245,6 +296,36 @@ globalThis.KDMenu = (() => {
         button.setAttribute("aria-expanded", "false");
       },
       accent(value) { applyAccent(host, value); },
+      // Butonun yerinde kısa bir bildirim: yazı ve eylem düğmeleri ({ label, run }). `duration` sonra
+      // `onEnd` çağrılır; bir eylem seçilirse bildirim hemen kapanır (eylem yeni bir bildirim açabilir).
+      toast(text, actions = [], { duration = 5000, onEnd = null } = {}) {
+        menu.close();
+        clearTimeout(toastTimer);
+        const end = () => {
+          clearTimeout(toastTimer);
+          menu.clearToast();
+          onEnd?.();
+        };
+        toastBox.replaceChildren(element("span", "toast-text", text), ...actions.map(({ label, run }) => {
+          const action = element("button", "", label);
+          action.type = "button";
+          action.addEventListener("click", () => {
+            clearTimeout(toastTimer);
+            menu.clearToast();
+            run();
+          });
+          return action;
+        }));
+        face.hidden = true;
+        toastBox.hidden = false;
+        toastTimer = setTimeout(end, duration);
+      },
+      clearToast() {
+        clearTimeout(toastTimer);
+        toastBox.hidden = true;
+        face.hidden = false;
+      },
+      get toasting() { return !toastBox.hidden; },
     };
     shadow.addEventListener("keydown", (event) => {
       if (event.key === "Escape") menu.close();

@@ -15,6 +15,9 @@ const sendPage = document.getElementById("send-page");
 const streams = document.getElementById("streams");
 const streamList = document.getElementById("stream-list");
 const message = document.getElementById("message");
+const siteCard = document.getElementById("site-card");
+const siteNote = document.getElementById("site-note");
+const siteButton = document.getElementById("site-button");
 
 // Sayfadaki menüyle aynı küçük ikonlar (24×24, dolu).
 const SVG = "http://www.w3.org/2000/svg";
@@ -195,6 +198,29 @@ async function showStreams(tab) {
   }));
 }
 
+// Videoların üstündeki "İndir" butonu bu sitede açık mı (sayfada "Bu sitede kapat" ile kapatılabiliyor;
+// buradan geri açılır). YouTube'da buton oynatıcının üstünde değil düğme satırında olduğu için orada yok.
+async function showSiteSwitch(url) {
+  let site;
+  try {
+    const parsed = new URL(url ?? "");
+    if (!/^https?:$/.test(parsed.protocol) || /(^|\.)youtube\.com$/.test(parsed.hostname)) return;
+    site = parsed.hostname.replace(/^www\./, "");
+  } catch {
+    return;
+  }
+  const { hiddenSites = [] } = await chrome.storage.local.get("hiddenSites");
+  siteButton.checked = !hiddenSites.includes(site);
+  siteNote.textContent = `${site} sitesinde fare videonun üstüne gelince görünür.`;
+  siteCard.hidden = false;
+  siteButton.addEventListener("change", async () => {
+    const { hiddenSites: current = [] } = await chrome.storage.local.get("hiddenSites");
+    const next = current.filter((s) => s !== site);
+    if (!siteButton.checked) next.push(site);
+    await chrome.storage.local.set({ hiddenSites: next });
+  });
+}
+
 async function init() {
   videoTile.append(icon("play"));
   applyAccent(await accentColor());
@@ -209,6 +235,7 @@ async function init() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const page = tab?.url && isDownloadable(tab.url) ? tab : null;
   const formatsRequest = page ? fetchFormats(page.url) : null;
+  showSiteSwitch(tab?.url);
 
   const running = await isAppRunning();
   applyAccent(await accentColor());

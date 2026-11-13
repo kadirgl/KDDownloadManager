@@ -3,6 +3,11 @@
 // (~1.800 site tanınıyor) ve sayfa oynatırken ağ trafiğinden yakalanan akışlar (HLS/DASH listeleri,
 // doğrudan video dosyaları). Buton oynatıcının içine değil sayfanın üstüne konuyor (oynatıcıların kendi
 // düzenini bozmamak için). Görünüm ve menü menu.js'te.
+//
+// Buton sayfadaki yazıların ya da düğmelerin üstüne gelmesin diye önce videonun üstünde, sonra altında boş
+// yer aranır; ikisi de doluysa videonun sağ üst köşesine girer. Yine de istenmeyen bir yerde çıkarsa
+// yanındaki × ile o videoda gizlenir; ardından çıkan bildirimden "Bu sitede kapat" seçilebilir (açılır
+// pencereden geri açılır).
 (() => {
   // Önizleme ve reklam gibi küçük videolarda buton çıkmasın.
   const MIN_WIDTH = 240;
@@ -13,15 +18,80 @@
 
   const { create, send, note, loading, header, option, qualityRows, footer, element, formatSize } = globalThis.KDMenu;
 
+  // Bu sürelerden sık olmamak üzere butonun yerinin boş olup olmadığına yeniden bakılır.
+  const ROOM_CHECK_INTERVAL = 800;
+
   const videos = document.getElementsByTagName("video");
+  // × ile butonu gizlenen videolar (sayfa yenilenene kadar).
+  const dismissed = new WeakSet();
+  // Videonun üstündeki ve altındaki yer dolu mu (yazı, link, düğme); her videonun son ölçümü.
+  const room = new WeakMap();
+  let siteHidden = false;
   let menu = null;
   let target = null; // Butonun bağlı olduğu <video>.
   let hideTimer = null;
   let lastMove = 0;
   let formatsCache = { url: null, promise: null, failed: false };
 
+  // Kullanıcının "bu site" dediği yer: gömülü oynatıcılarda (iframe) da üstteki sayfanın adresi.
+  function siteName() {
+    const origins = location.ancestorOrigins;
+    const top = origins?.length ? origins[origins.length - 1] : location.origin;
+    try {
+      return new URL(top).hostname.replace(/^www\./, "");
+    } catch {
+      return location.hostname.replace(/^www\./, "");
+    }
+  }
+
+  const site = siteName();
+
+  async function loadSiteSetting() {
+    try {
+      const { hiddenSites = [] } = await chrome.storage.local.get("hiddenSites");
+      siteHidden = hiddenSites.includes(site);
+    } catch {
+      siteHidden = false; // Eklenti yeniden yüklendiyse bu betik eskidi.
+    }
+    // "Bu sitede kapat"ın onay bildirimi kendisi kapanınca butonu gizler.
+    if (siteHidden && !menu?.toasting) hide();
+  }
+
+  async function hideOnSite() {
+    siteHidden = true;
+    try {
+      const { hiddenSites = [] } = await chrome.storage.local.get("hiddenSites");
+      if (!hiddenSites.includes(site)) await chrome.storage.local.set({ hiddenSites: [...hiddenSites, site] });
+    } catch {
+      // Eklenti yeniden yüklendiyse kalıcı olarak kaydedilemedi; bu sayfada yine de gizli kalır.
+    }
+  }
+
+  // ×: bu videoda gizle; birkaç saniye "Geri al" ve "Bu sitede kapat" seçenekleri.
+  function dismiss() {
+    const video = target;
+    if (!video) return;
+    dismissed.add(video);
+    menu.toast("Bu videoda gizlendi", [
+      {
+        label: "Geri al",
+        run: () => {
+          dismissed.delete(video);
+          show(video);
+        },
+      },
+      {
+        label: "Bu sitede kapat",
+        run: () => {
+          hideOnSite();
+          menu.toast(`${site} için kapatıldı. Eklenti penceresinden açabilirsiniz.`, [], { duration: 3500, onEnd: hide });
+        },
+      },
+    ], { onEnd: hide });
+  }
+
   function createMenu() {
-    menu = create("fixed");
+    menu = create("fixed", { onDismiss: dismiss });
     menu.host.hidden = true;
     menu.button.addEventListener("click", toggleMenu);
     menu.host.addEventListener("pointerenter", () => clearTimeout(hideTimer));
@@ -127,23 +197,84 @@
     return rect.width >= MIN_WIDTH && rect.height >= MIN_HEIGHT && getComputedStyle(video).visibility !== "hidden";
   }
 
-  // Buton videonun dışında: üstünde yer varsa üst kenarın, yoksa alt kenarın hemen dışında, sağa hizalı.
+  // Bir noktada sayfanın yazısı var mı: imlecin o noktaya düşeceği metnin satır kutuları noktayı içeriyorsa.
+  function textAt(x, y) {
+    const range = document.caretRangeFromPoint?.(x, y);
+    const node = range?.startContainer;
+    if (!node || node.nodeType !== Node.TEXT_NODE || !node.data.trim()) return false;
+    const lines = document.createRange();
+    lines.selectNodeContents(node);
+    for (const box of lines.getClientRects()) {
+      if (x >= box.left - 2 && x <= box.right + 2 && y >= box.top - 2 && y <= box.bottom + 2) return true;
+    }
+    return false;
+  }
+
+  // Bir noktada tıklanabilir bir şey (link, düğme, alan) var mı; videoyu da içine alan link sayılmaz
+  // (bazı sitelerde bütün kart bir link).
+  function controlAt(x, y, video) {
+    const hit = document.elementFromPoint(x, y)?.closest("a, button, input, select, textarea, [role=button], [role=link]");
+    return Boolean(hit && !hit.contains(video));
+  }
+
+  // Butonun kaplayacağı alanda (çevresinde biraz pay bırakarak) yazı ya da düğme var mı; 5×4 noktaya
+  // bakılır. Ölçerken buton tıklamaları almasın ki kendisini "dolu" saymasın.
+  const CLEARANCE = 6;
+  function occupied(box, video) {
+    const left = box.left - CLEARANCE;
+    const width = box.right - box.left + 2 * CLEARANCE;
+    const top = box.top - CLEARANCE;
+    const height = box.bottom - box.top + 2 * CLEARANCE;
+    const xs = [0, 0.25, 0.5, 0.75, 1].map((f) => left + f * width);
+    const ys = [0, 1 / 3, 2 / 3, 1].map((f) => top + f * height);
+    menu.host.style.pointerEvents = "none";
+    try {
+      return xs.some((x) => ys.some((y) => textAt(x, y) || controlAt(x, y, video)));
+    } finally {
+      menu.host.style.pointerEvents = "";
+    }
+  }
+
+  // Videonun üstü ve altı dolu mu; ölçüm pahalı olmasın diye en fazla ROOM_CHECK_INTERVAL'da bir ve yalnızca
+  // fare hareketinde (kaydırırken eski ölçüm kullanılır).
+  function measureRoom(video, rect, width, viewportWidth) {
+    const known = room.get(video);
+    const now = performance.now();
+    if (known && now - known.at < ROOM_CHECK_INTERVAL) return known;
+    const right = viewportWidth - Math.max(viewportWidth - rect.right, GAP);
+    const box = (top) => ({ left: right - width, right, top, bottom: top + BUTTON_HEIGHT });
+    const measured = {
+      at: now,
+      above: occupied(box(rect.top - GAP - BUTTON_HEIGHT), video),
+      below: occupied(box(rect.bottom + GAP), video),
+    };
+    room.set(video, measured);
+    return measured;
+  }
+
+  // Buton videonun dışında, sağa hizalı: üstünde boş yer varsa üst kenarın, yoksa alt kenarın hemen dışında.
   // Oynatıcıların köşelerinde kendi butonları (ses, paylaş, kapat) olduğu için videonun içine yalnızca
-  // dışarıda hiç yer kalmadığında (tam ekran, videoyu dolduran gömülü oynatıcı) girer.
-  function place() {
+  // dışarıda yer kalmadığında ya da dışarısı yazı/düğmeyle doluysa girer (sağ üst köşe).
+  function place({ measure = false } = {}) {
     if (!menu || !target) return;
     if (!target.isConnected || !eligible(target)) {
-      if (!menuOpen()) hide();
+      if (!menuOpen() && !menu.toasting) hide();
       return;
     }
     const rect = target.getBoundingClientRect();
     const viewportWidth = document.documentElement.clientWidth;
     const viewportHeight = document.documentElement.clientHeight;
+    const width = menu.host.getBoundingClientRect().width || 90;
+    const fitsAbove = rect.top - GAP - BUTTON_HEIGHT >= 0;
+    const fitsBelow = rect.bottom + GAP + BUTTON_HEIGHT <= viewportHeight;
+    const busy = measure && (fitsAbove || fitsBelow)
+      ? measureRoom(target, rect, width, viewportWidth)
+      : room.get(target) ?? { above: false, below: false };
     let top;
     let right = Math.max(viewportWidth - rect.right, GAP);
-    if (rect.top - GAP - BUTTON_HEIGHT >= 0) {
+    if (fitsAbove && !busy.above) {
       top = rect.top - GAP - BUTTON_HEIGHT;
-    } else if (rect.bottom + GAP + BUTTON_HEIGHT <= viewportHeight) {
+    } else if (fitsBelow && !busy.below) {
       top = rect.bottom + GAP;
     } else {
       top = Math.max(rect.top, 0) + 12;
@@ -154,6 +285,7 @@
   }
 
   function show(video) {
+    if (siteHidden || dismissed.has(video)) return;
     if (!menu) createMenu();
     // Tam ekranda yalnızca tam ekran öğesi ve içindekiler görünüyor.
     const parent = document.fullscreenElement && !(document.fullscreenElement instanceof HTMLVideoElement)
@@ -162,31 +294,36 @@
     if (menu.host.parentElement !== parent) parent.appendChild(menu.host);
     if (target !== video) {
       menu.close();
+      menu.clearToast();
       target = video;
     }
     menu.host.hidden = false;
-    place();
+    place({ measure: true });
     // Kalite listesi yt-dlp ile birkaç saniye sürüyor: buton belirir belirmez sorulur ki tıklanınca hazır
     // olsun (sayfa başına bir kez; uygulama da 10 dakika hatırlıyor).
     loadFormats(location.href);
   }
 
   function hide() {
-    if (menu) menu.host.hidden = true;
+    if (menu) {
+      menu.close();
+      menu.clearToast();
+      menu.host.hidden = true;
+    }
     target = null;
   }
 
   function scheduleHide() {
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
-      if (!menuOpen()) hide();
+      if (!menuOpen() && !menu?.toasting) hide();
     }, HIDE_DELAY);
   }
 
   // Videoların üstünde çoğu zaman oynatıcının kendi katmanları olduğu için fare olayının hedefine
   // değil konumuna bakılıyor.
   function onPointerMove(event) {
-    if (videos.length === 0) return;
+    if (videos.length === 0 || siteHidden) return;
     const now = performance.now();
     if (now - lastMove < 100) return;
     lastMove = now;
@@ -195,14 +332,21 @@
       const rect = video.getBoundingClientRect();
       const inside = event.clientX >= rect.left && event.clientX <= rect.right
         && event.clientY >= rect.top && event.clientY <= rect.bottom;
-      if (inside && eligible(video)) {
+      if (inside && eligible(video) && !dismissed.has(video)) {
         clearTimeout(hideTimer);
-        show(video);
+        // Gizleme bildirimi dururken başka videoya geçilmesin; bildirim kendi kapanır.
+        if (!menu?.toasting) show(video);
         return;
       }
     }
-    if (target && !menuOpen()) scheduleHide();
+    if (target && !menuOpen() && !menu?.toasting) scheduleHide();
   }
+
+  loadSiteSetting();
+  // Açılır pencereden bu site için yeniden açılır ya da kapatılırsa hemen uygulanır.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.hiddenSites) loadSiteSetting();
+  });
 
   document.addEventListener("pointermove", onPointerMove, { passive: true, capture: true });
   addEventListener("scroll", () => {

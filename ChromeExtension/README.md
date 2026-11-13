@@ -35,7 +35,10 @@ sayesinde sabit). Uygulama yalnızca bu kimlikten gelen istekleri kabul eder.
 - **Her sitede videolar:** "İndir" butonu videonun içine değil dışına konur (oynatıcıların köşelerinde
   kendi düğmeleri var): YouTube'da beğen/paylaş satırında, Shorts'ta sağdaki düğme sütununun en üstünde;
   diğer sitelerde fare videonun üzerine gelince videonun hemen üstünde, sağ kenarına hizalı. Yalnızca tam
-  ekranda ya da dışarıda hiç yer yokken oynatıcının sağ üst köşesine girer. yt-dlp'nin tanımadığı sitelerde de sayfa oynatırken
+  ekranda, dışarıda yer yokken ya da videonun hemen üstü ve altı yazı veya düğmeyle doluyken (X gibi) oynatıcının
+  sağ üst köşesine girer; böylece sayfanın yazılarını kapatmaz. Butonun yanında fare üstüne gelince beliren × o
+  videoda butonu gizler; ardından çıkan bildirimden "Geri al" ya da "Bu sitede kapat" seçilebilir. Kapatılan site
+  açılır pencereden ("Videolarda İndir butonu") yeniden açılır. yt-dlp'nin tanımadığı sitelerde de sayfa oynatırken
   açtığı akışlar (HLS `.m3u8`, DASH `.mpd`, doğrudan video dosyaları) yakalanır; araç çubuğu ikonunda
   o sekmede bulunan akış sayısı görünür, butondan ya da açılır pencereden indirilebilir. Akışlar
   sayfanın başlığıyla kaydedilir.
