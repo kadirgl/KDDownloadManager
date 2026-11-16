@@ -34,17 +34,27 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === HELLO_ALARM) sayHello();
 });
 
-async function createMenus() {
-  // Eklenti yeniden yüklendiğinde aynı kimlikle tekrar oluşturmak hata verir; önce temizle.
+// Menüler sırayla kurulur: iki kurulum üst üste binerse (eklenti güncellenip kendini yeniden yüklerken
+// olabiliyor) biri temizledikten sonra diğeri aynı kimlikleri oluşturuyor ve Chrome her madde için
+// "duplicate id" hatası kaydediyordu.
+let menusReady = Promise.resolve();
+
+function createMenus() {
+  menusReady = menusReady.then(buildMenus, buildMenus);
+  return menusReady;
+}
+
+async function buildMenus() {
+  // Eklenti yeniden yüklendiğinde menüler Chrome'da kalıyor; aynı kimlikle tekrar oluşturmamak için önce temizle.
   await chrome.contextMenus.removeAll();
   // Linklerde ve resimlerde. Resim bir linkin içindeyse (Google Görseller gibi) linkin götürdüğü sayfa
   // değil resmin kendisi indirilir.
-  chrome.contextMenus.create({
+  addMenu({
     id: MENU_LINK,
     title: "KD Download Manager ile indir",
     contexts: ["link", "image"],
   });
-  chrome.contextMenus.create({
+  addMenu({
     id: MENU_MEDIA,
     title: "Bu medyayı KD Download Manager ile indir",
     contexts: ["video", "audio"],
@@ -52,13 +62,13 @@ async function createMenus() {
 
   // Herhangi bir sayfadaki videoyu kalite seçerek indirme (yt-dlp ~1.800 siteyi tanıyor) ve video
   // sitelerindeki video linkleri (örn. küçük resimler).
-  chrome.contextMenus.create({
+  addMenu({
     id: MENU_PAGE,
     title: "Bu sayfadaki videoyu KD Download Manager ile indir",
     contexts: ["page"],
     documentUrlPatterns: ["http://*/*", "https://*/*"],
   });
-  chrome.contextMenus.create({
+  addMenu({
     id: MENU_VIDEO_LINK,
     title: "Videoyu kalite seçerek indir",
     contexts: ["link"],
@@ -66,7 +76,7 @@ async function createMenus() {
   });
   for (const quality of QUALITIES) {
     for (const parentId of [MENU_PAGE, MENU_VIDEO_LINK]) {
-      chrome.contextMenus.create({
+      addMenu({
         id: `${parentId}:${quality.id}`,
         parentId,
         title: quality.title,
@@ -74,6 +84,16 @@ async function createMenus() {
       });
     }
   }
+}
+
+// Madde zaten varsa (temizlikten sonra başka bir yerden oluşturulduysa) hata yerine günceller; böylece
+// Chrome eklentinin Hatalar sayfasına "Unchecked runtime.lastError" yazmaz.
+function addMenu(properties) {
+  chrome.contextMenus.create(properties, () => {
+    if (!chrome.runtime.lastError) return;
+    const { id, ...rest } = properties;
+    chrome.contextMenus.update(id, rest, () => void chrome.runtime.lastError);
+  });
 }
 
 // Sağ tık menüsü
