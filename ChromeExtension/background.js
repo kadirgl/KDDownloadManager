@@ -309,13 +309,30 @@ async function saveStream(tabId, stream) {
   if (streams.some((s) => s.url === stream.url)) return;
   const updated = [stream, ...streams].slice(0, STREAM_LIMIT);
   await chrome.storage.session.set({ [streamKey(tabId)]: updated });
-  chrome.action.setBadgeBackgroundColor({ tabId, color: await accentColor() });
-  chrome.action.setBadgeText({ tabId, text: String(updated.length) });
+  await showStreamCount(tabId, updated.length);
+}
+
+// Sekme bu arada kapanmış olabilir; arka planda önceden yüklenen (prerender) sayfaların sekmesi de henüz
+// yoktur. Chrome ikisinde de "No tab with id" ile reddeder; bu hata eklentinin Hatalar sayfasına düşmesin.
+async function showStreamCount(tabId, count) {
+  const color = await accentColor();
+  await chrome.action.setBadgeBackgroundColor({ tabId, color }).catch(() => {});
+  await chrome.action.setBadgeText({ tabId, text: count ? String(count) : "" }).catch(() => {});
 }
 
 async function forgetStreams(tabId) {
   await chrome.storage.session.remove(streamKey(tabId));
   chrome.action.setBadgeText({ tabId, text: "" }).catch(() => {});
+}
+
+// Önceden yüklenen sayfa açılınca Chrome onu yeni kimlikli bir sekmeyle değiştirir; o sırada yakalanan
+// akışlar yeni sekmeye taşınır.
+async function moveStreams(addedTabId, removedTabId) {
+  const streams = await tabStreams(removedTabId);
+  await chrome.storage.session.remove(streamKey(removedTabId));
+  if (!streams.length) return;
+  await chrome.storage.session.set({ [streamKey(addedTabId)]: streams });
+  await showStreamCount(addedTabId, streams.length);
 }
 
 chrome.webRequest.onHeadersReceived.addListener(
@@ -333,3 +350,6 @@ chrome.tabs.onUpdated.addListener((tabId, change) => {
   if (change.url) forgetStreams(tabId);
 });
 chrome.tabs.onRemoved.addListener((tabId) => forgetStreams(tabId));
+chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+  streamQueue = streamQueue.then(() => moveStreams(addedTabId, removedTabId)).catch(() => {});
+});
