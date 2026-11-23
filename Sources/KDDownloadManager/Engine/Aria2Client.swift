@@ -25,7 +25,7 @@ final class Aria2Client: Sendable {
     func call(_ method: String, _ params: [JSONValue] = []) async throws -> JSONValue {
         let response = try await send(method, [token] + params)
         if let error = response["error"] {
-            throw Aria2Error(message: error["message"]?.stringValue ?? "aria2 hatası")
+            throw Aria2Error(message: error["message"]?.stringValue ?? String(localized: "aria2 hatası"))
         }
         return response["result"] ?? .null
     }
@@ -38,14 +38,14 @@ final class Aria2Client: Sendable {
         })
         let response = try await send("system.multicall", [payload])
         if let error = response["error"] {
-            throw Aria2Error(message: error["message"]?.stringValue ?? "aria2 hatası")
+            throw Aria2Error(message: error["message"]?.stringValue ?? String(localized: "aria2 hatası"))
         }
         return (response["result"]?.arrayValue ?? []).map { entry in
             // Başarılı çağrı tek elemanlı dizi, başarısız çağrı {faultCode, faultString} döner.
             if let value = entry[0] {
                 .success(value)
             } else {
-                .failure(Aria2Error(message: entry["faultString"]?.stringValue ?? "aria2 hatası"))
+                .failure(Aria2Error(message: entry["faultString"]?.stringValue ?? String(localized: "aria2 hatası")))
             }
         }
     }

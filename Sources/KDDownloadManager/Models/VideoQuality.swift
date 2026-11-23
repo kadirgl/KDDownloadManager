@@ -17,10 +17,10 @@ enum VideoQuality: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .auto: "Otomatik"
+        case .auto: String(localized: "Otomatik")
         case .p2160: "2160p (4K)"
         case .p1440: "1440p"
-        case .audio: "Sadece ses (MP3)"
+        case .audio: String(localized: "Sadece ses (MP3)")
         default: "\(rawValue)p"
         }
     }

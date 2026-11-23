@@ -14,41 +14,41 @@ enum ErrorText {
             return http(status)
         }
         switch code {
-        case "2": return "Bağlantı zaman aşımına uğradı"
-        case "3": return "Dosya sunucuda bulunamadı (404)"
-        case "5": return "Sunucu çok yavaş yanıt verdi"
-        case "6": return "Ağ bağlantısı koptu"
-        case "8": return "Sunucu kaldığı yerden devam etmeyi desteklemiyor"
-        case "13": return "Aynı adla bir dosya zaten var"
-        case "15", "16", "17", "18": return "Dosya diske yazılamadı (klasör izni ya da disk sorunu)"
-        case "19": return "Sunucu bulunamadı; internet bağlantınızı kontrol edin"
-        case "22": return "Sunucu geçersiz bir yanıt verdi"
-        case "23": return "Çok fazla yönlendirme"
-        case "24": return "Giriş gerekiyor (yetkilendirme başarısız)"
-        case "26", "27": return "Torrent dosyası ya da magnet linki bozuk"
-        case "29": return "Sunucu şu an çok yoğun; biraz sonra tekrar deneyin"
-        case "32": return "Dosya doğrulanamadı (sağlama toplamı tutmuyor)"
-        default: return message.isEmpty ? "İndirme başarısız" : message
+        case "2": return String(localized: "Bağlantı zaman aşımına uğradı")
+        case "3": return String(localized: "Dosya sunucuda bulunamadı (404)")
+        case "5": return String(localized: "Sunucu çok yavaş yanıt verdi")
+        case "6": return String(localized: "Ağ bağlantısı koptu")
+        case "8": return String(localized: "Sunucu kaldığı yerden devam etmeyi desteklemiyor")
+        case "13": return String(localized: "Aynı adla bir dosya zaten var")
+        case "15", "16", "17", "18": return String(localized: "Dosya diske yazılamadı (klasör izni ya da disk sorunu)")
+        case "19": return String(localized: "Sunucu bulunamadı; internet bağlantınızı kontrol edin")
+        case "22": return String(localized: "Sunucu geçersiz bir yanıt verdi")
+        case "23": return String(localized: "Çok fazla yönlendirme")
+        case "24": return String(localized: "Giriş gerekiyor (yetkilendirme başarısız)")
+        case "26", "27": return String(localized: "Torrent dosyası ya da magnet linki bozuk")
+        case "29": return String(localized: "Sunucu şu an çok yoğun; biraz sonra tekrar deneyin")
+        case "32": return String(localized: "Dosya doğrulanamadı (sağlama toplamı tutmuyor)")
+        default: return message.isEmpty ? String(localized: "İndirme başarısız") : message
         }
     }
 
     /// yt-dlp'nin son "ERROR:" satırı.
     static func ytDlp(_ message: String?, exitCode: Int32) -> String {
-        guard let message, !message.isEmpty else { return "Video indirilemedi (kod \(exitCode))" }
+        guard let message, !message.isEmpty else { return String(localized: "Video indirilemedi (kod \(exitCode))") }
         let rules: [(needles: [String], text: String)] = [
             (["No space left"], diskFull(remaining: nil)),
-            (["Unsupported URL"], "Bu sayfada indirilebilir video bulunamadı"),
-            (["Private video"], "Video gizli; yalnızca sahibi izleyebilir"),
-            (["members-only", "Join this channel"], "Video yalnızca kanal üyelerine açık"),
-            (["Premieres in", "live event will begin", "This live event"], "Canlı yayın ya da gösterim henüz başlamadı"),
-            (["not available in your country", "geo restrict", "geo-restricted"], "Video bu ülkede kullanılamıyor"),
+            (["Unsupported URL"], String(localized: "Bu sayfada indirilebilir video bulunamadı")),
+            (["Private video"], String(localized: "Video gizli; yalnızca sahibi izleyebilir")),
+            (["members-only", "Join this channel"], String(localized: "Video yalnızca kanal üyelerine açık")),
+            (["Premieres in", "live event will begin", "This live event"], String(localized: "Canlı yayın ya da gösterim henüz başlamadı")),
+            (["not available in your country", "geo restrict", "geo-restricted"], String(localized: "Video bu ülkede kullanılamıyor")),
             (["Video unavailable", "This video is unavailable", "has been removed", "no longer available"],
-             "Video kullanılamıyor ya da kaldırılmış"),
-            (["Requested format is not available"], "İstenen kalite bu videoda yok; Otomatik'i deneyin"),
-            (["ffmpeg", "Postprocessing", "Conversion failed"], "Video birleştirilemedi (ffmpeg)"),
+             String(localized: "Video kullanılamıyor ya da kaldırılmış")),
+            (["Requested format is not available"], String(localized: "İstenen kalite bu videoda yok; Otomatik'i deneyin")),
+            (["ffmpeg", "Postprocessing", "Conversion failed"], String(localized: "Video birleştirilemedi (ffmpeg)")),
             (["Unable to download webpage", "Failed to resolve", "nodename nor servname", "Name or service not known",
-              "Connection refused", "Network is unreachable"], "Siteye bağlanılamadı; internet bağlantınızı kontrol edin"),
-            (["timed out"], "Bağlantı zaman aşımına uğradı"),
+              "Connection refused", "Network is unreachable"], String(localized: "Siteye bağlanılamadı; internet bağlantınızı kontrol edin")),
+            (["timed out"], String(localized: "Bağlantı zaman aşımına uğradı")),
         ]
         for rule in rules where rule.needles.contains(where: { message.localizedCaseInsensitiveContains($0) }) {
             return rule.text
@@ -64,20 +64,20 @@ enum ErrorText {
     }
 
     static func diskFull(remaining: Int64?) -> String {
-        guard let remaining, remaining > 0 else { return "Diskte yer kalmadı" }
-        return "Diskte yer kalmadı · \(ByteFormat.size(remaining)) gerekli"
+        guard let remaining, remaining > 0 else { return String(localized: "Diskte yer kalmadı") }
+        return String(localized: "Diskte yer kalmadı · \(ByteFormat.size(remaining)) gerekli")
     }
 
     private static func http(_ status: Int) -> String {
         switch status {
-        case 401: "Giriş gerekiyor (401)"
-        case 403: "Sunucu erişime izin vermedi (403); bağlantının süresi dolmuş olabilir"
-        case 404: "Dosya sunucuda bulunamadı (404)"
-        case 410: "Dosya sunucudan kaldırılmış (410)"
-        case 416: "Sunucu kaldığı yerden devam etmeyi kabul etmedi (416)"
-        case 429: "Sunucu çok fazla istek dedi (429); biraz sonra tekrar deneyin"
-        case 500..<600: "Sunucu hatası (\(status)); biraz sonra tekrar deneyin"
-        default: "Sunucu isteği reddetti (\(status))"
+        case 401: String(localized: "Giriş gerekiyor (401)")
+        case 403: String(localized: "Sunucu erişime izin vermedi (403); bağlantının süresi dolmuş olabilir")
+        case 404: String(localized: "Dosya sunucuda bulunamadı (404)")
+        case 410: String(localized: "Dosya sunucudan kaldırılmış (410)")
+        case 416: String(localized: "Sunucu kaldığı yerden devam etmeyi kabul etmedi (416)")
+        case 429: String(localized: "Sunucu çok fazla istek dedi (429); biraz sonra tekrar deneyin")
+        case 500..<600: String(localized: "Sunucu hatası (\(status)); biraz sonra tekrar deneyin")
+        default: String(localized: "Sunucu isteği reddetti (\(status))")
         }
     }
 

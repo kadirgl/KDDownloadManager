@@ -72,7 +72,7 @@ struct DownloadArchive {
             case .active: .queued
             case .paused: .paused
             case .completed: .completed
-            case .failed: .failed(record.error ?? "İndirme başarısız")
+            case .failed: .failed(record.error ?? String(localized: "İndirme başarısız"))
             }
             let item = DownloadItem(
                 id: record.id,

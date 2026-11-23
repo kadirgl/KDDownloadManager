@@ -9,7 +9,7 @@ final class Aria2Daemon {
 
     func start(maxConcurrent: Int, globalLimit: Int64?) async throws -> Aria2Client {
         guard let binary = Executables.find("aria2c") else {
-            throw Aria2Error(message: "aria2c bulunamadı (brew install aria2)")
+            throw Aria2Error(message: String(localized: "aria2c bulunamadı (brew install aria2)"))
         }
         let port = try Self.freePort()
         let secret = UUID().uuidString
@@ -62,7 +62,7 @@ final class Aria2Daemon {
             try await Task.sleep(for: .milliseconds(100))
         }
         stop()
-        throw Aria2Error(message: "aria2c başlatılamadı")
+        throw Aria2Error(message: String(localized: "aria2c başlatılamadı"))
     }
 
     func stop() {
@@ -73,7 +73,7 @@ final class Aria2Daemon {
     /// İşletim sisteminden boş bir yerel port ister.
     private static func freePort() throws -> Int {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
-        guard fd >= 0 else { throw Aria2Error(message: "Boş port bulunamadı") }
+        guard fd >= 0 else { throw Aria2Error(message: String(localized: "Boş port bulunamadı")) }
         defer { close(fd) }
 
         var address = sockaddr_in()
@@ -88,7 +88,7 @@ final class Aria2Daemon {
                 bind(fd, $0, length) == 0 && getsockname(fd, $0, &length) == 0
             }
         }
-        guard bound else { throw Aria2Error(message: "Boş port bulunamadı") }
+        guard bound else { throw Aria2Error(message: String(localized: "Boş port bulunamadı")) }
         return Int(UInt16(bigEndian: address.sin_port))
     }
 }

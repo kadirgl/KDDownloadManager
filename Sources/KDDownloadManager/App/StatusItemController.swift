@@ -269,9 +269,9 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         }
         image.accessibilityDescription = switch state {
         case .idle: "KD Download Manager"
-        case .progress(let step): "KD Download Manager, yüzde \(step * 100 / 36) indi"
-        case .error: "KD Download Manager, indirme hatası var"
-        case .done: "KD Download Manager, indirmeler tamamlandı"
+        case .progress(let step): String(localized: "KD Download Manager, yüzde \(step * 100 / 36) indi")
+        case .error: String(localized: "KD Download Manager, indirme hatası var")
+        case .done: String(localized: "KD Download Manager, indirmeler tamamlandı")
         }
         return image
     }

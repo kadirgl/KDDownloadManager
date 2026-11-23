@@ -155,10 +155,10 @@ final class DownloadItem: Identifiable {
             return URL(string: url)?.lastPathComponent ?? "Torrent"
         case .video:
             // Gerçek başlık yt-dlp'den gelecek.
-            return "\(Self.siteName(for: url)) videosu"
+            return String(localized: "\(Self.siteName(for: url)) videosu")
         case .direct:
             let name = URL(string: url)?.lastPathComponent ?? ""
-            guard !name.isEmpty, name != "/" else { return "İndirme" }
+            guard !name.isEmpty, name != "/" else { return String(localized: "İndirme") }
             return name.removingPercentEncoding ?? name
         }
     }

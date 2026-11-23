@@ -24,22 +24,22 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     func downloadsAdded(_ names: [String]) {
         guard Self.enabled(SettingsKey.notifyOnAdd), !names.isEmpty else { return }
-        let title = names.count == 1 ? "İndirme eklendi" : "\(names.count) indirme eklendi"
+        let title = names.count == 1 ? String(localized: "İndirme eklendi") : String(localized: "\(names.count) indirme eklendi")
         post(title: title, body: names.prefix(3).joined(separator: ", ") + (names.count > 3 ? "…" : ""), sound: false)
     }
 
     func downloadFinished(_ item: DownloadItem) {
         guard Self.enabled(SettingsKey.notifyOnFinish) else { return }
-        post(title: "İndirme tamamlandı", body: item.fileName, file: item.destination, sound: true)
+        post(title: String(localized: "İndirme tamamlandı"), body: item.fileName, file: item.destination, sound: true)
     }
 
     func downloadFailed(_ item: DownloadItem, message: String) {
         guard Self.enabled(SettingsKey.notifyOnFail) else { return }
-        post(title: "İndirme başarısız", body: "\(item.fileName)\n\(message)", sound: true)
+        post(title: String(localized: "İndirme başarısız"), body: "\(item.fileName)\n\(message)", sound: true)
     }
 
     func updateAvailable(_ version: String) {
-        post(title: "Yeni sürüm: \(version)", body: "KD Download Manager'ı güncellemek için tıklayın.", sound: false)
+        post(title: String(localized: "Yeni sürüm: \(version)"), body: String(localized: "KD Download Manager'ı güncellemek için tıklayın."), sound: false)
     }
 
     /// Ayarlanmamışsa açık sayılır.

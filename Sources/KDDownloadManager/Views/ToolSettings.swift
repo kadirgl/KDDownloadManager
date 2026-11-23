@@ -7,7 +7,7 @@ struct YtDlpSettings: View {
     private let updater = YtDlpUpdater.shared
 
     var body: some View {
-        SettingsSection(title: "Video indirici (yt-dlp)") {
+        SettingsSection(title: String(localized: "Video indirici (yt-dlp)")) {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(updater.current.version.map { "yt-dlp \($0)" } ?? "yt-dlp").fontWeight(.semibold)
@@ -25,9 +25,9 @@ struct YtDlpSettings: View {
                 .help("yt-dlp'nin yeni sürümü var mı denetle")
             }
             GlassDivider()
-            SettingsToggle(title: "Otomatik güncelle", isOn: $autoUpdate)
+            SettingsToggle(title: String(localized: "Otomatik güncelle"), isOn: $autoUpdate)
                 .disabled(updater.current.origin == .system)
-            SettingsNote("YouTube sık değiştiği için yt-dlp güncel tutulmazsa video indirmeleri bozulabilir. Güncellemeler yt-dlp'nin resmi GitHub sürümünden alınır ve doğrulanır.")
+            SettingsNote(String(localized: "YouTube sık değiştiği için yt-dlp güncel tutulmazsa video indirmeleri bozulabilir. Güncellemeler yt-dlp'nin resmi GitHub sürümünden alınır ve doğrulanır."))
         }
     }
 
@@ -44,21 +44,21 @@ struct YtDlpSettings: View {
 
     private var statusText: String {
         switch updater.state {
-        case .checking: return "Denetleniyor…"
-        case .downloading(let version): return "\(version) indiriliyor…"
-        case .upToDate: return "Güncel"
-        case .updated(let version): return "\(version) sürümüne güncellendi"
+        case .checking: return String(localized: "Denetleniyor…")
+        case .downloading(let version): return String(localized: "\(version) indiriliyor…")
+        case .upToDate: return String(localized: "Güncel")
+        case .updated(let version): return String(localized: "\(version) sürümüne güncellendi")
         case .failed(let message): return message
         case .idle: break
         }
         switch updater.current.origin {
         case .system:
-            return "Sistemdeki (Homebrew) yt-dlp kullanılıyor; uygulama içinden güncellenmez."
+            return String(localized: "Sistemdeki (Homebrew) yt-dlp kullanılıyor; uygulama içinden güncellenmez.")
         case .bundled, .downloaded:
-            let origin = updater.current.origin == .bundled ? "Uygulamayla gelen" : "Güncellenmiş"
-            guard let lastCheck = updater.lastCheck else { return "\(origin) · henüz denetlenmedi" }
-            let ago = lastCheck.formatted(.relative(presentation: .named, unitsStyle: .wide).locale(Locale(identifier: "tr_TR")))
-            return "\(origin) · son denetim \(ago)"
+            let origin = updater.current.origin == .bundled ? String(localized: "Uygulamayla gelen") : String(localized: "Güncellenmiş")
+            guard let lastCheck = updater.lastCheck else { return String(localized: "\(origin) · henüz denetlenmedi") }
+            let ago = AppLanguage.relative(lastCheck)
+            return String(localized: "\(origin) · son denetim \(ago)")
         }
     }
 }
@@ -70,7 +70,7 @@ struct AppUpdateSettings: View {
     private let updater = AppUpdater.shared
 
     var body: some View {
-        SettingsSection(title: "Uygulama güncellemesi") {
+        SettingsSection(title: String(localized: "Uygulama güncellemesi")) {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("KD Download Manager \(AppUpdater.currentVersion)").fontWeight(.semibold)
@@ -96,7 +96,7 @@ struct AppUpdateSettings: View {
             }
 
             GlassDivider()
-            SettingsToggle(title: "Günde bir denetle", isOn: $autoCheck)
+            SettingsToggle(title: String(localized: "Günde bir denetle"), isOn: $autoCheck)
                 .disabled(!AppUpdater.isAvailable)
             SettingsNote(note, isError: AppUpdater.isAvailable && AppUpdater.installProblem != nil)
         }
@@ -154,7 +154,7 @@ struct AppUpdateSettings: View {
                     }
                 }
                 if store.items.contains(where: { $0.status == .downloading }) {
-                    SettingsNote("Süren indirmeler uygulama yeniden açılınca kaldıkları yerden devam eder.")
+                    SettingsNote(String(localized: "Süren indirmeler uygulama yeniden açılınca kaldıkları yerden devam eder."))
                 }
             }
         }
@@ -186,22 +186,23 @@ struct AppUpdateSettings: View {
 
     private var statusText: String {
         switch updater.state {
-        case .checking: return "Denetleniyor…"
-        case .upToDate: return "Güncel"
-        case .available(let release): return "Yeni sürüm: \(release.version)"
-        case .downloading(let release, let progress): return "\(release.version) indiriliyor… %\(Int(progress * 100))"
-        case .installing(let release): return "\(release.version) kuruluyor…"
+        case .checking: return String(localized: "Denetleniyor…")
+        case .upToDate: return String(localized: "Güncel")
+        case .available(let release): return String(localized: "Yeni sürüm: \(release.version)")
+        case .downloading(let release, let progress):
+            return String(localized: "\(release.version) indiriliyor… \(AppLanguage.percent(progress))")
+        case .installing(let release): return String(localized: "\(release.version) kuruluyor…")
         case .failed(let message): return message
         case .idle: break
         }
-        guard AppUpdater.isAvailable else { return "Paketli uygulamada kullanılabilir" }
-        guard let lastCheck = updater.lastCheck else { return "Henüz denetlenmedi" }
-        let ago = lastCheck.formatted(.relative(presentation: .named, unitsStyle: .wide).locale(Locale(identifier: "tr_TR")))
-        return "Son denetim \(ago)"
+        guard AppUpdater.isAvailable else { return String(localized: "Paketli uygulamada kullanılabilir") }
+        guard let lastCheck = updater.lastCheck else { return String(localized: "Henüz denetlenmedi") }
+        let ago = AppLanguage.relative(lastCheck)
+        return String(localized: "Son denetim \(ago)")
     }
 
     private var note: String {
         if AppUpdater.isAvailable, let problem = AppUpdater.installProblem { return problem }
-        return "Yeni sürümler GitHub'dan indirilir ve kurulmadan önce imzası doğrulanır. Tarayıcı eklentisi de uygulamayla birlikte güncellenir."
+        return String(localized: "Yeni sürümler GitHub'dan indirilir ve kurulmadan önce imzası doğrulanır. Tarayıcı eklentisi de uygulamayla birlikte güncellenir.")
     }
 }

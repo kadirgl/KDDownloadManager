@@ -196,7 +196,7 @@ final class Aria2Engine: DownloadEngine {
                 if let file = URL(string: item.url), file.isFileURL {
                     // Diskteki .torrent dosyası: içeriği base64 olarak verilir.
                     guard let torrent = try? Data(contentsOf: file) else {
-                        throw Aria2Error(message: "Torrent dosyası okunamadı")
+                        throw Aria2Error(message: String(localized: "Torrent dosyası okunamadı"))
                     }
                     if !Self.isPrivate(torrent) {
                         options["bt-tracker"] = .string(Self.publicTrackers.joined(separator: ","))
@@ -209,7 +209,7 @@ final class Aria2Engine: DownloadEngine {
                     result = try await client.call("aria2.addUri", [[.string(item.url)], .object(options)])
                 }
                 guard let gid = result.stringValue else {
-                    throw Aria2Error(message: "aria2 indirme kimliği vermedi")
+                    throw Aria2Error(message: String(localized: "aria2 indirme kimliği vermedi"))
                 }
                 // Bu arada iptal edildiyse aria2'den de kaldır.
                 guard items[item.id] != nil else {
@@ -354,7 +354,7 @@ final class Aria2Engine: DownloadEngine {
         startup = nil
         for (id, _) in gids {
             if let item = items[id], item.status != .completed {
-                item.setStatus(.failed("İndirme motoru (aria2c) durdu"))
+                item.setStatus(.failed(String(localized: "İndirme motoru (aria2c) durdu")))
             }
         }
         gids.removeAll()

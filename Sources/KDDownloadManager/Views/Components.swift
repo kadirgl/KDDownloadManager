@@ -244,8 +244,8 @@ struct SectionLabel: View {
     let title: String
 
     var body: some View {
-        // Türkçe kurala göre büyüt: "indirici" → "İNDİRİCİ" (textCase sistemin diline göre "INDIRICI" yapıyor).
-        Text(title.uppercased(with: Locale(identifier: "tr_TR")))
+        // Arayüzün diline göre büyüt: "indirici" → "İNDİRİCİ" (textCase sistemin diline göre "INDIRICI" yapıyor).
+        Text(title.uppercased(with: AppLanguage.locale))
             .font(.system(size: 11, weight: .semibold))
             .tracking(0.8)
             .foregroundStyle(Theme.tertiaryText)
@@ -310,7 +310,7 @@ struct ProgressBar: View {
         }
         .frame(height: 5)
         .accessibilityElement()
-        .accessibilityValue("%\(Int(value * 100))")
+        .accessibilityValue(AppLanguage.percent(value))
     }
 }
 

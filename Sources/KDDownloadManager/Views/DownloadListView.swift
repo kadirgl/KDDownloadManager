@@ -259,7 +259,7 @@ private struct CompletedHint: View {
         HStack(spacing: 5) {
             Text("Çift tıkla: aç")
             Text("·")
-            KeyCap(key: "boşluk")
+            KeyCap(key: String(localized: "boşluk", comment: "Boşluk tuşu"))
             Text("önizle")
             Text("·")
             Text("Sürükle: Finder'a taşı")
@@ -455,18 +455,18 @@ private struct ListSummary: View {
         switch store.tab {
         case .active:
             var parts: [String] = []
-            func add(_ count: Int, _ word: String) { if count > 0 { parts.append("\(count) \(word)") } }
-            add(items.filter { $0.status == .downloading || $0.status == .processing }.count, "iniyor")
-            add(items.filter { $0.status == .queued }.count, "sırada")
-            add(items.filter { $0.status == .paused }.count, "duraklatıldı")
-            add(items.filter(\.isFailed).count, "hata")
+            func add(_ count: Int, _ text: (Int) -> String) { if count > 0 { parts.append(text(count)) } }
+            add(items.filter { $0.status == .downloading || $0.status == .processing }.count) { String(localized: "\($0) iniyor") }
+            add(items.filter { $0.status == .queued }.count) { String(localized: "\($0) sırada") }
+            add(items.filter { $0.status == .paused }.count) { String(localized: "\($0) duraklatıldı") }
+            add(items.filter(\.isFailed).count) { String(localized: "\($0) hata") }
             return parts.joined(separator: " · ")
         case .completed:
             if !store.searchText.trimmingCharacters(in: .whitespaces).isEmpty {
-                return "\(store.visibleItems.count) sonuç · \(items.count) dosya"
+                return String(localized: "\(store.visibleItems.count) sonuç · \(items.count) dosya")
             }
             let size = items.reduce(Int64(0)) { $0 + $1.totalBytes }
-            return "\(items.count) dosya · \(ByteFormat.size(size))"
+            return String(localized: "\(items.count) dosya · \(ByteFormat.size(size))")
         }
     }
 }
@@ -548,7 +548,7 @@ private struct BottomBar: View {
         .accessibilityLabel("Toplam indirme hızı \(ByteFormat.speed(store.displaySpeed))")
         .accessibilityHint("Genel hız sınırını seçer")
         .popover(isPresented: $showingLimit, arrowEdge: .top) {
-            SpeedLimitMenu(current: globalLimit, title: "Toplam hız sınırı", showsGlobalNote: false) { limit in
+            SpeedLimitMenu(current: globalLimit, title: String(localized: "Toplam hız sınırı"), showsGlobalNote: false) { limit in
                 if let limit {
                     limitMB = Double(limit / 1_048_576)
                     limitEnabled = true
@@ -703,11 +703,11 @@ private struct ExtensionBanner: View {
     private func message(now: Date) -> String? {
         guard now.timeIntervalSince1970 - dismissed > 7 * 86_400 else { return nil }
         guard store.extensionEverConnected else {
-            return skipped ? "Tarayıcı eklentisi kurulu değil" : nil
+            return skipped ? String(localized: "Tarayıcı eklentisi kurulu değil") : nil
         }
         switch store.extensionProblem(now: now) {
-        case .notInstalled: return "Tarayıcı eklentisi kurulu değil"
-        case .notConnected: return "Tarayıcı eklentisi bağlı değil"
+        case .notInstalled: return String(localized: "Tarayıcı eklentisi kurulu değil")
+        case .notConnected: return String(localized: "Tarayıcı eklentisi bağlı değil")
         case nil: return nil
         }
     }

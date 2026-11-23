@@ -58,6 +58,12 @@ cp -R ChromeExtension "$APP/Contents/Resources/BrowserExtension"
 sed -i '' -E 's/"version": "[^"]*"/"version": "'"$VERSION"'"/' "$APP/Contents/Resources/BrowserExtension/manifest.json"
 grep -q "\"version\": \"$VERSION\"" "$APP/Contents/Resources/BrowserExtension/manifest.json" \
     || { echo "✗ Eklentinin sürümü ayarlanamadı" >&2; exit 1; }
+# Arayüz çevirileri (en.lproj, tr.lproj). Yayımlanan sürümde İngilizcesi eksik metin olmasın.
+if ! scripts/strings.sh check; then
+    [[ "$NOTARIZE" == "1" ]] && fail "Önce eksik çevirileri tamamlayın (scripts/strings.sh sync)"
+    echo "  ! Eksik çeviriler İngilizce arayüzde Türkçe görünecek."
+fi
+scripts/strings.sh compile "$APP/Contents/Resources"
 # Gömülü araçlar (her biri bundle-tools.sh'de ayrıca imzalandı); uygulama önce bunları kullanır.
 mkdir -p "$APP/Contents/Helpers"
 cp -R dist/tools/bin dist/tools/lib "$APP/Contents/Helpers/"
@@ -91,8 +97,15 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <string>$BUILD_NUMBER</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <!-- Arayüz Türkçe ve İngilizce. Sistem dili ikisi de değilse İngilizce (geliştirme bölgesi yalnızca bu
+         geri dönüşü belirler; kaynak metinler Türkçe). Ayarlar > Görünüm > Dil ile değiştirilebilir. -->
     <key>CFBundleDevelopmentRegion</key>
-    <string>tr</string>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>tr</string>
+        <string>en</string>
+    </array>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSApplicationCategoryType</key>

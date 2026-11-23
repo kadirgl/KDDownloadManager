@@ -8,14 +8,14 @@ enum DownloadCategory: CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .all: "Tümü"
-        case .video: "Video"
-        case .music: "Müzik"
-        case .image: "Resim"
-        case .app: "Uygulama"
-        case .archive: "Arşiv"
-        case .document: "Döküman"
-        case .other: "Diğer"
+        case .all: String(localized: "Tümü")
+        case .video: String(localized: "Video")
+        case .music: String(localized: "Müzik")
+        case .image: String(localized: "Resim")
+        case .app: String(localized: "Uygulama")
+        case .archive: String(localized: "Arşiv")
+        case .document: String(localized: "Döküman")
+        case .other: String(localized: "Diğer")
         }
     }
 
@@ -94,9 +94,9 @@ enum CompletedSort: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .newest: "En yeni"
-        case .name: "Ada göre"
-        case .size: "Boyuta göre"
+        case .newest: String(localized: "En yeni")
+        case .name: String(localized: "Ada göre")
+        case .size: String(localized: "Boyuta göre")
         }
     }
 }
@@ -109,8 +109,8 @@ enum ListTab: CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .active: "Devam Eden"
-        case .completed: "Tamamlanan"
+        case .active: String(localized: "Devam Eden")
+        case .completed: String(localized: "Tamamlanan")
         }
     }
 

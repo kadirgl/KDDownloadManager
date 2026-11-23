@@ -176,7 +176,7 @@ final class YtDlpUpdater {
         guard (response as? HTTPURLResponse)?.statusCode == 200,
               let tag = try JSONDecoder().decode(JSONValue.self, from: data)["tag_name"]?.stringValue,
               tag.range(of: #"^\d{4}\.\d{2}\.\d{2}(\.\d+)?$"#, options: .regularExpression) != nil else {
-            throw UpdateError(message: "Güncel sürüm bilgisi alınamadı")
+            throw UpdateError(message: String(localized: "Güncel sürüm bilgisi alınamadı"))
         }
         return tag
     }
@@ -189,18 +189,18 @@ final class YtDlpUpdater {
             .split(whereSeparator: \.isNewline)
             .map({ $0.split(separator: " ", omittingEmptySubsequences: true) })
             .first(where: { $0.count == 2 && $0[1] == "yt-dlp_macos.zip" })?[0] else {
-            throw UpdateError(message: "Doğrulama listesi okunamadı")
+            throw UpdateError(message: String(localized: "Doğrulama listesi okunamadı"))
         }
 
         let (temporary, response) = try await URLSession.shared.download(from: base.appendingPathComponent("yt-dlp_macos.zip"))
         defer { try? FileManager.default.removeItem(at: temporary) }
         guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            throw UpdateError(message: "yt-dlp indirilemedi")
+            throw UpdateError(message: String(localized: "yt-dlp indirilemedi"))
         }
         let archive = corruptedForTesting(try Data(contentsOf: temporary))
         let actual = SHA256.hash(data: archive).map { String(format: "%02x", $0) }.joined()
         guard actual == String(expected) else {
-            throw UpdateError(message: "İndirilen dosya doğrulanamadı (SHA-256 uyuşmuyor); kurulmadı")
+            throw UpdateError(message: String(localized: "İndirilen dosya doğrulanamadı (SHA-256 uyuşmuyor); kurulmadı"))
         }
 
         let manager = FileManager.default
@@ -216,7 +216,7 @@ final class YtDlpUpdater {
         try deduplicate(staged)
 
         guard try await reportedVersion(of: staged.appendingPathComponent("yt-dlp_macos")) == version else {
-            throw UpdateError(message: "İndirilen yt-dlp çalıştırılamadı; kurulmadı")
+            throw UpdateError(message: String(localized: "İndirilen yt-dlp çalıştırılamadı; kurulmadı"))
         }
         let target = versionFolder(version)
         try? manager.removeItem(at: target)
@@ -235,7 +235,7 @@ final class YtDlpUpdater {
             try process.run()
             process.waitUntilExit()
             guard process.terminationStatus == 0 else {
-                throw UpdateError(message: "İndirilen yt-dlp açılamadı")
+                throw UpdateError(message: String(localized: "İndirilen yt-dlp açılamadı"))
             }
         }.value
     }

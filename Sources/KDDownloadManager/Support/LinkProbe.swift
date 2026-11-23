@@ -40,7 +40,7 @@ enum LinkProbe {
     /// Sadece başlıklar okunur: ilk bayt istenir, gövde beklenmeden bağlantı kapatılır.
     private static func file(_ link: String) async -> Outcome {
         guard let url = URL(string: link), let scheme = url.scheme?.lowercased() else {
-            return .invalid("Adres eksik ya da hatalı görünüyor.")
+            return .invalid(String(localized: "Adres eksik ya da hatalı görünüyor."))
         }
         guard scheme == "http" || scheme == "https" else {
             // FTP vb. aria2 indirebiliyor ama burada denetlenemiyor.
@@ -52,32 +52,32 @@ enum LinkProbe {
         do {
             let (bytes, received) = try await URLSession.shared.bytes(for: request)
             bytes.task.cancel()
-            guard let http = received as? HTTPURLResponse else { return .warning("Sunucu beklenmedik bir yanıt verdi.") }
+            guard let http = received as? HTTPURLResponse else { return .warning(String(localized: "Sunucu beklenmedik bir yanıt verdi.")) }
             response = http
         } catch let error as URLError {
             switch error.code {
-            case .timedOut: return .warning("Sunucu yanıt vermiyor.")
-            case .cannotFindHost, .dnsLookupFailed: return .invalid("Sunucu bulunamadı. Adresi kontrol edip tekrar dene.")
-            case .notConnectedToInternet: return .warning("İnternet bağlantısı yok.")
-            case .unsupportedURL, .badURL: return .invalid("Adres eksik ya da hatalı görünüyor.")
-            case .cannotConnectToHost: return .invalid("Sunucuya bağlanılamadı.")
-            default: return .warning("Bağlantı denetlenemedi; indirme yine de denenebilir.")
+            case .timedOut: return .warning(String(localized: "Sunucu yanıt vermiyor."))
+            case .cannotFindHost, .dnsLookupFailed: return .invalid(String(localized: "Sunucu bulunamadı. Adresi kontrol edip tekrar dene."))
+            case .notConnectedToInternet: return .warning(String(localized: "İnternet bağlantısı yok."))
+            case .unsupportedURL, .badURL: return .invalid(String(localized: "Adres eksik ya da hatalı görünüyor."))
+            case .cannotConnectToHost: return .invalid(String(localized: "Sunucuya bağlanılamadı."))
+            default: return .warning(String(localized: "Bağlantı denetlenemedi; indirme yine de denenebilir."))
             }
         } catch {
-            return .warning("Bağlantı denetlenemedi; indirme yine de denenebilir.")
+            return .warning(String(localized: "Bağlantı denetlenemedi; indirme yine de denenebilir."))
         }
 
         switch response.statusCode {
         case 200..<300:
             break
         case 404, 410:
-            return .invalid("Sunucuda böyle bir dosya yok (\(response.statusCode)).")
+            return .invalid(String(localized: "Sunucuda böyle bir dosya yok (\(response.statusCode))."))
         case 401, 403:
-            return .warning("Sunucu erişime izin vermedi (\(response.statusCode)). Giriş gerekiyorsa Chrome'dan indirmeyi dene.")
+            return .warning(String(localized: "Sunucu erişime izin vermedi (\(response.statusCode)). Giriş gerekiyorsa Chrome'dan indirmeyi dene."))
         case 400..<500:
-            return .invalid("Sunucu isteği kabul etmedi (\(response.statusCode)).")
+            return .invalid(String(localized: "Sunucu isteği kabul etmedi (\(response.statusCode))."))
         default:
-            return .warning("Sunucu hata verdi (\(response.statusCode)); indirme yine de denenebilir.")
+            return .warning(String(localized: "Sunucu hata verdi (\(response.statusCode)); indirme yine de denenebilir."))
         }
 
         let headers = response.allHeaderFields

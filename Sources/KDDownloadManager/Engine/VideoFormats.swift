@@ -42,7 +42,7 @@ struct VideoFormats: Sendable {
     /// `cookies` verilirse yt-dlp'ye geçici bir çerez dosyasıyla verilir (YouTube robot doğrulaması için).
     static func fetch(_ url: String, cookies: [BrowserCookie]? = nil) async throws -> VideoFormats {
         guard let binary = Executables.find("yt-dlp") else {
-            throw FetchError(message: "yt-dlp bulunamadı (brew install yt-dlp)")
+            throw FetchError(message: String(localized: "yt-dlp bulunamadı (brew install yt-dlp)"))
         }
         let work = FileManager.default.temporaryDirectory.appendingPathComponent("kd-formats-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: work) }
@@ -72,9 +72,9 @@ struct VideoFormats: Sendable {
             timer.cancel()
             guard process.terminationStatus == 0 else {
                 if process.terminationReason == .uncaughtSignal {
-                    throw FetchError(message: "Video bilgisi zamanında alınamadı", timedOut: true)
+                    throw FetchError(message: String(localized: "Video bilgisi zamanında alınamadı"), timedOut: true)
                 }
-                throw FetchError(message: "Video bilgisi alınamadı")
+                throw FetchError(message: String(localized: "Video bilgisi alınamadı"))
             }
             return data
         }.value
@@ -134,7 +134,7 @@ struct VideoFormats: Sendable {
             options.append(Option(quality: .audio, size: audioSize))
         }
         return VideoFormats(
-            title: info["title"]?.stringValue ?? "Video",
+            title: info["title"]?.stringValue ?? String(localized: "Video"),
             duration: info["duration"]?.doubleValue,
             options: options
         )

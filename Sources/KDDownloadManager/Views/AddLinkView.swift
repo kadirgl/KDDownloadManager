@@ -37,7 +37,7 @@ struct AddLinkView: View {
     private var textIsInvalid: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && links.isEmpty }
 
     private var invalidReason: String? {
-        if textIsInvalid { return "Adres eksik ya da hatalı görünüyor. \"https://\" ile başladığını kontrol edip tekrar dene." }
+        if textIsInvalid { return String(localized: "Adres eksik ya da hatalı görünüyor. \"https://\" ile başladığını kontrol edip tekrar dene.") }
         if case .done(.invalid(let reason)) = probe, duplicate == nil { return reason }
         return nil
     }
@@ -73,12 +73,12 @@ struct AddLinkView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PanelHeader(title: "Link ekle", onBack: { store.route = .list })
+            PanelHeader(title: String(localized: "Link ekle"), onBack: { store.route = .list })
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
                     VStack(alignment: .leading, spacing: 8) {
-                        SectionLabel(title: "Bağlantı")
+                        SectionLabel(title: String(localized: "Bağlantı"))
                         editor
                         if invalidReason == nil {
                             Label(
@@ -97,10 +97,10 @@ struct AddLinkView: View {
 
                     if duplicate != nil, invalidReason == nil {
                         VStack(alignment: .leading, spacing: 8) {
-                            SectionLabel(title: "Yine de indirilirse")
+                            SectionLabel(title: String(localized: "Yine de indirilirse"))
                             VStack(alignment: .leading, spacing: 12) {
                                 nameRow
-                                SettingsNote("Eski dosyanın üzerine yazılmaz, yeni kopya bu adla kaydedilir.")
+                                SettingsNote(String(localized: "Eski dosyanın üzerine yazılmaz, yeni kopya bu adla kaydedilir."))
                                 GlassDivider()
                                 saveRow
                             }
@@ -109,13 +109,13 @@ struct AddLinkView: View {
                     } else if invalidReason == nil, !links.isEmpty {
                         if hasVideoLinks {
                             VStack(alignment: .leading, spacing: 8) {
-                                SectionLabel(title: "Kalite")
+                                SectionLabel(title: String(localized: "Kalite"))
                                 QualityRail(selection: $quality, formats: videoFormats)
                             }
                         }
                         if showsNameField {
                             VStack(alignment: .leading, spacing: 8) {
-                                SectionLabel(title: "Dosya")
+                                SectionLabel(title: String(localized: "Dosya"))
                                 VStack(alignment: .leading, spacing: 12) {
                                     nameRow
                                     GlassDivider()
@@ -125,7 +125,7 @@ struct AddLinkView: View {
                             }
                         }
                         VStack(alignment: .leading, spacing: 8) {
-                            SectionLabel(title: "Seçenekler")
+                            SectionLabel(title: String(localized: "Seçenekler"))
                             VStack(alignment: .leading, spacing: 12) {
                                 if !showsNameField {
                                     saveRow
@@ -133,7 +133,7 @@ struct AddLinkView: View {
                                 }
                                 limitRow
                                 GlassDivider()
-                                SettingsToggle(title: "Hemen başlat", isOn: $startNow)
+                                SettingsToggle(title: String(localized: "Hemen başlat"), isOn: $startNow)
                             }
                             .optionsCard(warning: !showsNameField && missingSpace != nil)
                         }
@@ -209,6 +209,7 @@ struct AddLinkView: View {
                 Label("Yapıştır", systemImage: "doc.on.clipboard")
             }
             .buttonStyle(GlassCapsuleButtonStyle(height: 28, fontSize: 12))
+            .fixedSize()
             .padding(.top, 3)
         }
         .padding(.leading, 12)
@@ -244,7 +245,7 @@ struct AddLinkView: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .tintedCard(Theme.error)
-                SettingsNote("Desteklenenler: doğrudan dosya linkleri, magnet linkleri ve YouTube gibi video sayfaları.")
+                SettingsNote(String(localized: "Desteklenenler: doğrudan dosya linkleri, magnet linkleri ve YouTube gibi video sayfaları."))
                     .padding(.horizontal, 4)
             }
         } else if let duplicate {
@@ -294,7 +295,7 @@ struct AddLinkView: View {
 
     private var saveRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SettingsRow("Kaydet") {
+            SettingsRow(String(localized: "Kaydet")) {
                 HStack(spacing: 6) {
                     Image(systemName: "folder.fill")
                         .font(.system(size: 11))
@@ -323,14 +324,14 @@ struct AddLinkView: View {
     }
 
     private var limitRow: some View {
-        SettingsRow("Hız sınırı") {
+        SettingsRow(String(localized: "Hız sınırı")) {
             Menu {
                 ForEach(SpeedLimitMenu.options, id: \.title) { option in
                     Button(option.title) { speedLimit = option.limit }
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Text(speedLimit.map(ByteFormat.speed) ?? "Sınırsız")
+                    Text(speedLimit.map(ByteFormat.speed) ?? String(localized: "Sınırsız"))
                     Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
                 }
                 .font(.system(size: 12, weight: .semibold))
@@ -373,9 +374,9 @@ struct AddLinkView: View {
     }
 
     private var downloadTitle: String {
-        if duplicate != nil { return "Yine de indir" }
-        if links.count > 1 { return "\(links.count) dosyayı indir" }
-        return ["İndir", expectedSize.map { "~\(ByteFormat.size($0))" }].compactMap { $0 }.joined(separator: " · ")
+        if duplicate != nil { return String(localized: "Yine de indir") }
+        if links.count > 1 { return String(localized: "\(links.count) dosyayı indir") }
+        return [String(localized: "İndir"), expectedSize.map { "~\(ByteFormat.size($0))" }].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func download() {
@@ -432,7 +433,7 @@ struct AddLinkView: View {
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         panel.directoryURL = URL(fileURLWithPath: downloadFolder, isDirectory: true)
-        panel.prompt = "Seç"
+        panel.prompt = String(localized: "Seç")
         NSApp.activate()
         if panel.runModal() == .OK, let url = panel.url {
             downloadFolder = url.path
@@ -443,7 +444,7 @@ struct AddLinkView: View {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "torrent") ?? .data]
         panel.allowsMultipleSelection = true
-        panel.prompt = "Ekle"
+        panel.prompt = String(localized: "Ekle")
         NSApp.activate()
         if panel.runModal() == .OK {
             store.addTorrentFiles(panel.urls)
@@ -541,8 +542,8 @@ private struct CheckingCard: View {
             .padding(12)
             .glassCard()
             SettingsNote(slow
-                ? "İstersen beklemeden indirebilirsin; ad ve boyut indirme başlayınca öğrenilir."
-                : "Dosya adı ve boyutu birkaç saniye içinde görünür. İstersen beklemeden İptal'e basabilirsin.")
+                ? String(localized: "İstersen beklemeden indirebilirsin; ad ve boyut indirme başlayınca öğrenilir.")
+                : String(localized: "Dosya adı ve boyutu birkaç saniye içinde görünür. İstersen beklemeden İptal'e basabilirsin."))
                 .padding(.horizontal, 4)
         }
     }
@@ -602,7 +603,7 @@ private struct FoundCard: View {
             }
             if case .videoUnknown = outcome {
                 GlassDivider()
-                SettingsNote("Video bilgisi şimdi alınamadı; indirme sırasında yeniden denenecek.")
+                SettingsNote(String(localized: "Video bilgisi şimdi alınamadı; indirme sırasında yeniden denenecek."))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
             }
@@ -645,16 +646,16 @@ private struct FoundCard: View {
         var parts = [host]
         switch outcome {
         case .video(let formats):
-            parts.append(quality == .audio ? "Ses" : "Video")
+            parts.append(quality == .audio ? String(localized: "Ses") : String(localized: "Video"))
             if let duration = formats.duration {
                 parts.append(Duration.seconds(duration).formatted(.time(pattern: duration >= 3600 ? .hourMinuteSecond : .minuteSecond)))
             }
         case .file(let info):
             let category = DownloadCategory.forFile(named: title(source))
-            parts.append(source == .torrent ? "Torrent" : category == .other ? "Dosya" : category.title)
+            parts.append(source == .torrent ? "Torrent" : category == .other ? String(localized: "Dosya") : category.title)
             parts.append(info.size.map(ByteFormat.size))
         default:
-            parts.append(source == .video ? "Video" : "Dosya")
+            parts.append(source == .video ? String(localized: "Video") : String(localized: "Dosya"))
         }
         return parts.compactMap { $0 }.joined(separator: " · ")
     }
@@ -708,9 +709,9 @@ private struct DuplicateCard: View {
 
     private func details(completed: Bool) -> String {
         let folder = (item.folder.path as NSString).abbreviatingWithTildeInPath
-        guard completed else { return "%\(Int(item.progress * 100)) indi · \(folder)" }
+        guard completed else { return String(localized: "\(AppLanguage.percent(item.progress)) indi · \(folder)") }
         guard let date = item.completedAt else { return folder }
-        let ago = date.formatted(.relative(presentation: .named, unitsStyle: .wide).locale(Locale(identifier: "tr_TR")))
+        let ago = AppLanguage.relative(date)
         return "\(ago) · \(folder)"
     }
 }
@@ -761,8 +762,8 @@ private struct LinkPreviewRow: View {
     private func kind(_ source: DownloadSource, _ category: DownloadCategory) -> String {
         switch source {
         case .torrent: "Torrent"
-        case .video: quality == .audio ? "Ses (MP3)" : "Video"
-        case .direct: category == .other ? "Dosya" : category.title
+        case .video: quality == .audio ? String(localized: "Ses (MP3)") : String(localized: "Video")
+        case .direct: category == .other ? String(localized: "Dosya") : category.title
         }
     }
 }
@@ -818,7 +819,7 @@ private struct QualityRail: View {
     private func title(_ quality: VideoQuality) -> String {
         switch quality {
         case .p2160: "4K"
-        case .audio: "Sadece ses"
+        case .audio: String(localized: "Sadece ses")
         default: quality.title
         }
     }

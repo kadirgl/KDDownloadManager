@@ -280,9 +280,9 @@ final class DownloadStore {
                     // Sunucu dosya yerine giriş ya da hata sayfası verdi; "tamamlandı" görünmesin.
                     try? FileManager.default.removeItem(at: page)
                     item.destination = nil
-                    item.status = .failed("Dosya yerine bir web sayfası indi; site giriş istiyor olabilir. Tarayıcıdan indirmeyi deneyin.")
+                    item.status = .failed(String(localized: "Dosya yerine bir web sayfası indi; site giriş istiyor olabilir. Tarayıcıdan indirmeyi deneyin."))
                     current[item.id] = item.status
-                    Notifier.shared.downloadFailed(item, message: "Dosya yerine bir web sayfası indi")
+                    Notifier.shared.downloadFailed(item, message: String(localized: "Dosya yerine bir web sayfası indi"))
                     continue
                 }
                 addMissingExtension(to: item)

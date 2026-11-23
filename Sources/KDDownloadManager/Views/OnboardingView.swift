@@ -42,7 +42,7 @@ struct OnboardingView: View {
                     if let browser {
                         steps(for: browser)
                     } else {
-                        SettingsNote("Desteklenen bir tarayıcı bulunamadı (Chrome, Edge, Brave, Arc, Vivaldi, Opera).")
+                        SettingsNote(String(localized: "Desteklenen bir tarayıcı bulunamadı (Chrome, Edge, Brave, Arc, Vivaldi, Opera)."))
                             .padding(16)
                             .glassCard()
                     }
@@ -54,7 +54,7 @@ struct OnboardingView: View {
                         .padding(.horizontal, 6)
                         .padding(.top, 10)
                     if installFailed {
-                        SettingsNote("Eklenti dosyaları hazırlanamadı.", isError: true)
+                        SettingsNote(String(localized: "Eklenti dosyaları hazırlanamadı."), isError: true)
                             .padding(.top, 6)
                     }
 
@@ -159,7 +159,7 @@ struct OnboardingView: View {
     }
 
     private func step<Detail: View, Trailing: View>(
-        _ number: Int, title: String,
+        _ number: Int, title: LocalizedStringKey,
         @ViewBuilder detail: () -> Detail,
         @ViewBuilder trailing: () -> Trailing
     ) -> some View {

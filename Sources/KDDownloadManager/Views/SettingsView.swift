@@ -16,6 +16,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.notifyOnAdd) private var notifyOnAdd = true
     @AppStorage(SettingsKey.notifyOnFinish) private var notifyOnFinish = true
     @AppStorage(SettingsKey.notifyOnFail) private var notifyOnFail = true
+    @State private var language = AppLanguage.stored
     // Kaynak macOS; burada sadece gösterim için tutuluyor.
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var launchAtLoginError: String?
@@ -24,7 +25,7 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PanelHeader(title: "Ayarlar", onBack: { store.route = .list })
+            PanelHeader(title: String(localized: "Ayarlar"), onBack: { store.route = .list })
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
@@ -33,7 +34,7 @@ struct SettingsView: View {
                         AppUpdateSettings()
                     }
 
-                    SettingsSection(title: "İndirme klasörü") {
+                    SettingsSection(title: String(localized: "İndirme klasörü")) {
                         HStack(spacing: 10) {
                             Image(systemName: "folder.fill")
                                 .foregroundStyle(Theme.accent)
@@ -48,39 +49,55 @@ struct SettingsView: View {
                         }
                     }
 
-                    SettingsSection(title: "Görünüm") {
-                        SettingsRow("Tema") {
+                    SettingsSection(title: String(localized: "Görünüm")) {
+                        SettingsRow(String(localized: "Tema")) {
                             GlassSegmented(
                                 options: AppTheme.allCases.map { ($0.rawValue, $0.title) },
                                 selection: $theme
                             )
                         }
                         GlassDivider()
-                        SettingsRow("Vurgu rengi") {
+                        SettingsRow(String(localized: "Vurgu rengi")) {
                             AccentPicker(selection: $accent)
+                        }
+                        GlassDivider()
+                        SettingsRow(String(localized: "Dil")) {
+                            GlassSegmented(
+                                options: AppLanguage.allCases.map { ($0, $0.title) },
+                                selection: $language
+                            )
+                        }
+                        if language != AppLanguage.launchChoice {
+                            HStack(spacing: 10) {
+                                SettingsNote(String(localized: "Dil, uygulama yeniden açılınca değişir."))
+                                Spacer(minLength: 4)
+                                Button(String(localized: "Yeniden başlat")) { AppLanguage.relaunch() }
+                                    .buttonStyle(GlassCapsuleButtonStyle(height: 26, fontSize: 12))
+                                    .fixedSize()
+                            }
                         }
                     }
 
-                    SettingsSection(title: "Hız") {
-                        SettingsToggle(title: "Genel hız sınırı", isOn: $limitEnabled)
+                    SettingsSection(title: String(localized: "Hız")) {
+                        SettingsToggle(title: String(localized: "Genel hız sınırı"), isOn: $limitEnabled)
                         if limitEnabled {
-                            SettingsRow("Sınır", note: "Tüm indirmelerin toplamı bunu geçmez; indirmeye özel daha yüksek sınırlar da buna göre kısıtlanır.") {
+                            SettingsRow(String(localized: "Sınır"), note: String(localized: "Tüm indirmelerin toplamı bunu geçmez; indirmeye özel daha yüksek sınırlar da buna göre kısıtlanır.")) {
                                 GlassStepper(
-                                    label: "Sınır",
+                                    label: String(localized: "Sınır"),
                                     value: Binding(get: { Int(limitMB) }, set: { limitMB = Double($0) }),
                                     range: 1...100,
-                                    format: { "\($0) MB/sn" }
+                                    format: { String(localized: "\($0) MB/sn") }
                                 )
                             }
                         }
                         GlassDivider()
-                        SettingsRow("Aynı anda en fazla") {
-                            GlassStepper(label: "Aynı anda en fazla", value: $maxConcurrent, range: 1...10,
-                                         format: { "\($0) indirme" })
+                        SettingsRow(String(localized: "Aynı anda en fazla")) {
+                            GlassStepper(label: String(localized: "Aynı anda en fazla"), value: $maxConcurrent, range: 1...10,
+                                         format: { String(localized: "\($0) indirme") })
                         }
                         GlassDivider()
-                        SettingsRow("Bağlantı sayısı", note: "Parçalı indirme: her dosya ve video bu kadar paralel bağlantıyla iner. Sunucu izin vermezse o indirme tek bağlantıya düşer.") {
-                            GlassStepper(label: "Bağlantı sayısı", value: $connections, range: 1...16)
+                        SettingsRow(String(localized: "Bağlantı sayısı"), note: String(localized: "Parçalı indirme: her dosya ve video bu kadar paralel bağlantıyla iner. Sunucu izin vermezse o indirme tek bağlantıya düşer.")) {
+                            GlassStepper(label: String(localized: "Bağlantı sayısı"), value: $connections, range: 1...16)
                         }
                     }
 
@@ -94,23 +111,23 @@ struct SettingsView: View {
 
                     YtDlpSettings()
 
-                    SettingsSection(title: "Bildirimler") {
-                        SettingsToggle(title: "İndirme eklendiğinde", isOn: $notifyOnAdd)
+                    SettingsSection(title: String(localized: "Bildirimler")) {
+                        SettingsToggle(title: String(localized: "İndirme eklendiğinde"), isOn: $notifyOnAdd)
                         GlassDivider()
-                        SettingsToggle(title: "İndirme tamamlandığında", isOn: $notifyOnFinish)
+                        SettingsToggle(title: String(localized: "İndirme tamamlandığında"), isOn: $notifyOnFinish)
                         GlassDivider()
-                        SettingsToggle(title: "Hata olduğunda", isOn: $notifyOnFail)
+                        SettingsToggle(title: String(localized: "Hata olduğunda"), isOn: $notifyOnFail)
                         if !Notifier.isAvailable {
-                            SettingsNote("Uygulama .app olarak paketlenip açıldığında çalışır.")
+                            SettingsNote(String(localized: "Uygulama .app olarak paketlenip açıldığında çalışır."))
                         }
                     }
 
-                    SettingsSection(title: "Menü çubuğu") {
-                        SettingsToggle(title: "Toplam hızı göster", isOn: $showSpeed)
+                    SettingsSection(title: String(localized: "Menü çubuğu")) {
+                        SettingsToggle(title: String(localized: "Toplam hızı göster"), isOn: $showSpeed)
                     }
 
-                    SettingsSection(title: "Başlangıç") {
-                        SettingsToggle(title: "Oturum açınca başlat", isOn: $launchAtLogin)
+                    SettingsSection(title: String(localized: "Başlangıç")) {
+                        SettingsToggle(title: String(localized: "Oturum açınca başlat"), isOn: $launchAtLogin)
                             .disabled(!LaunchAtLogin.isAvailable)
                         if let note = launchAtLoginError ?? launchAtLoginNote {
                             SettingsNote(note, isError: launchAtLoginError != nil)
@@ -137,13 +154,14 @@ struct SettingsView: View {
         }
         .onChange(of: maxConcurrent) { store.applyMaxConcurrent() }
         .onChange(of: theme) { AppTheme.apply() }
+        .onChange(of: language) { AppLanguage.store(language) }
         .onChange(of: launchAtLogin) { _, enabled in
             guard enabled != LaunchAtLogin.isEnabled else { return }
             do {
                 try LaunchAtLogin.set(enabled)
                 launchAtLoginError = nil
             } catch {
-                launchAtLoginError = "Ayarlanamadı: \(error.localizedDescription)"
+                launchAtLoginError = String(localized: "Ayarlanamadı: \(error.localizedDescription)")
                 launchAtLogin = LaunchAtLogin.isEnabled
             }
         }
@@ -178,8 +196,8 @@ struct SettingsView: View {
 
     private var launchAtLoginNote: String? {
         LaunchAtLogin.isAvailable
-            ? "Chrome eklentisinin çalışması için uygulamanın açık olması gerekir."
-            : "Uygulama .app olarak paketlenip açıldığında kullanılabilir."
+            ? String(localized: "Chrome eklentisinin çalışması için uygulamanın açık olması gerekir.")
+            : String(localized: "Uygulama .app olarak paketlenip açıldığında kullanılabilir.")
     }
 
     private var versionText: String {
@@ -194,7 +212,7 @@ struct SettingsView: View {
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.directoryURL = URL(fileURLWithPath: downloadFolder, isDirectory: true)
-        panel.prompt = "Seç"
+        panel.prompt = String(localized: "Seç")
         NSApp.activate()
         if panel.runModal() == .OK, let url = panel.url {
             downloadFolder = url.path

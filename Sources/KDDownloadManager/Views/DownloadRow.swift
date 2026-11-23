@@ -26,7 +26,7 @@ struct DownloadRow: View {
                         .help(item.fileName)
                     Spacer(minLength: 0)
                     if !isCompleted {
-                        Text("%\(Int(item.progress * 100))")
+                        Text(AppLanguage.percent(item.progress))
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(Theme.secondaryText)
                             .monospacedDigit()
@@ -147,10 +147,10 @@ struct DownloadRow: View {
     /// "Bugün 14:32", "Dün 09:10", "28 Eki".
     static func finished(_ date: Date) -> String {
         let calendar = Calendar.current
-        let time = date.formatted(.dateTime.hour().minute().locale(Locale(identifier: "tr_TR")))
-        if calendar.isDateInToday(date) { return "Bugün \(time)" }
-        if calendar.isDateInYesterday(date) { return "Dün \(time)" }
-        return date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "tr_TR")))
+        let time = date.formatted(.dateTime.hour().minute().locale(AppLanguage.locale))
+        if calendar.isDateInToday(date) { return String(localized: "Bugün \(time)") }
+        if calendar.isDateInYesterday(date) { return String(localized: "Dün \(time)") }
+        return date.formatted(.dateTime.day().month(.abbreviated).locale(AppLanguage.locale))
     }
 
     private var barTint: Color {
@@ -163,12 +163,12 @@ struct DownloadRow: View {
 
     private var accessibilityStatus: String {
         switch item.status {
-        case .downloading: "indiriliyor, yüzde \(Int(item.progress * 100))"
-        case .queued: "sırada"
-        case .processing: "birleştiriliyor"
-        case .paused: "duraklatıldı, yüzde \(Int(item.progress * 100))"
-        case .completed: "tamamlandı"
-        case .failed(let message): "başarısız: \(message)"
+        case .downloading: String(localized: "indiriliyor, yüzde \(Int(item.progress * 100))")
+        case .queued: String(localized: "sırada")
+        case .processing: String(localized: "birleştiriliyor")
+        case .paused: String(localized: "duraklatıldı, yüzde \(Int(item.progress * 100))")
+        case .completed: String(localized: "tamamlandı")
+        case .failed(let message): String(localized: "başarısız: \(message)")
         }
     }
 
@@ -180,8 +180,8 @@ struct DownloadRow: View {
         HStack(spacing: 6) {
             if isCompleted {
                 if showSecondary {
-                    iconButton("folder", help: "Klasörde göster") { store.revealInFinder(item) }
-                    iconButton("xmark", help: "Listeden kaldır (dosya diskte kalır)") { store.removeFromList(item) }
+                    iconButton("folder", help: String(localized: "Klasörde göster")) { store.revealInFinder(item) }
+                    iconButton("xmark", help: String(localized: "Listeden kaldır (dosya diskte kalır)")) { store.removeFromList(item) }
                 }
             } else {
                 if showSecondary || item.speedLimit != nil, !item.isFailed {
@@ -199,7 +199,7 @@ struct DownloadRow: View {
                     }
                 }
                 if showSecondary {
-                    iconButton("trash", help: "İndirmeyi sil") { store.delete(item) }
+                    iconButton("trash", help: String(localized: "İndirmeyi sil")) { store.delete(item) }
                 }
                 iconButton(pauseSymbol, help: pauseHelp) { store.togglePause(item) }
             }
@@ -227,9 +227,9 @@ struct DownloadRow: View {
 
     private var pauseHelp: String {
         switch item.status {
-        case .paused: "Devam et"
-        case .failed: "Tekrar dene"
-        default: "Duraklat"
+        case .paused: String(localized: "Devam et")
+        case .failed: String(localized: "Tekrar dene")
+        default: String(localized: "Duraklat")
         }
     }
 
@@ -290,7 +290,7 @@ private struct FileDrag: ViewModifier {
 /// Hız sınırı butonunun açtığı cam menü: bir indirmenin sınırı ya da (alt bardaki hız göstergesinden) genel sınır.
 struct SpeedLimitMenu: View {
     let current: Int64?
-    var title = "Bu indirme için hız sınırı"
+    var title = String(localized: "Bu indirme için hız sınırı")
     /// İndirmeye özel sınırda, genel sınırın bunu kısıtladığı hatırlatılır.
     var showsGlobalNote = true
     let onSelect: (Int64?) -> Void
@@ -298,12 +298,12 @@ struct SpeedLimitMenu: View {
     @AppStorage(SettingsKey.globalLimitMB) private var limitMB = SettingsKey.defaultGlobalLimitMB
 
     static let options: [(title: String, limit: Int64?)] =
-        [("Sınırsız", nil)] + [1, 2, 5, 10, 25, 50].map { ("\($0) MB/sn", Int64($0) * 1_048_576) }
+        [(String(localized: "Sınırsız"), nil)] + [1, 2, 5, 10, 25, 50].map { (String(localized: "\($0) MB/sn"), Int64($0) * 1_048_576) }
 
     /// Ayarlar'da listede olmayan bir değer (örn. 7 MB/sn) seçildiyse o da seçili olarak görünür.
     private var rows: [(title: String, limit: Int64?)] {
         guard let current, !Self.options.contains(where: { $0.limit == current }) else { return Self.options }
-        return (Self.options + [("\(current / 1_048_576) MB/sn", current)])
+        return (Self.options + [(String(localized: "\(current / 1_048_576) MB/sn"), current)])
             .sorted { ($0.limit ?? 0) < ($1.limit ?? 0) }
     }
 

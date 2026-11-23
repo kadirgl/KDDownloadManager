@@ -55,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // .app paketinde Info.plist'teki LSUIElement bunu zaten sağlıyor;
         // `swift run` ile çalışırken de Dock ikonu çıkmasın diye burada da ayarlıyoruz.
         NSApp.setActivationPolicy(.accessory)
+        _ = AppLanguage.launchChoice
         Notifier.shared.setUp()
         AppTheme.apply()
         let statusController = StatusItemController(store: store)

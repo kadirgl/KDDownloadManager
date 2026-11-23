@@ -111,9 +111,9 @@ enum AppTheme: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .system: "Sistem"
-        case .light: "Açık"
-        case .dark: "Koyu"
+        case .system: String(localized: "Sistem")
+        case .light: String(localized: "Açık")
+        case .dark: String(localized: "Koyu")
         }
     }
 
@@ -140,15 +140,15 @@ enum AccentChoice: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .orange: "Turuncu"
-        case .system: "Sistem vurgu rengi"
-        case .blue: "Mavi"
-        case .purple: "Mor"
-        case .pink: "Pembe"
-        case .red: "Kırmızı"
-        case .green: "Yeşil"
-        case .teal: "Turkuaz"
-        case .custom: "Özel renk"
+        case .orange: String(localized: "Turuncu")
+        case .system: String(localized: "Sistem vurgu rengi")
+        case .blue: String(localized: "Mavi")
+        case .purple: String(localized: "Mor")
+        case .pink: String(localized: "Pembe")
+        case .red: String(localized: "Kırmızı")
+        case .green: String(localized: "Yeşil")
+        case .teal: String(localized: "Turkuaz")
+        case .custom: String(localized: "Özel renk")
         }
     }
 

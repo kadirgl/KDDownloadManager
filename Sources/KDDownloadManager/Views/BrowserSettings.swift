@@ -9,8 +9,8 @@ struct ExtensionSettings: View {
     @State private var installFailed = false
 
     var body: some View {
-        SettingsSection(title: "Tarayıcı eklentisi") {
-            SettingsNote("Eklenti tarayıcıdaki indirmeleri, magnet linklerini ve videoları (kalite seçerek) uygulamaya gönderir.")
+        SettingsSection(title: String(localized: "Tarayıcı eklentisi")) {
+            SettingsNote(String(localized: "Eklenti tarayıcıdaki indirmeleri, magnet linklerini ve videoları (kalite seçerek) uygulamaya gönderir."))
 
             // Göreli zamanlar ("2 dk önce") ve bağlantı durumu güncel kalsın.
             // Bağlantı durumu ve tarayıcı ayarları değiştikçe görünsün (kaldırma birkaç saniyede yansır).
@@ -35,10 +35,10 @@ struct ExtensionSettings: View {
                 steps(for: installing)
             }
             if installFailed {
-                SettingsNote("Eklenti dosyaları hazırlanamadı.", isError: true)
+                SettingsNote(String(localized: "Eklenti dosyaları hazırlanamadı."), isError: true)
             }
             GlassDivider()
-            SettingsNote("Safari için eklenti yok; magnet linkleri aşağıdaki Torrent ayarıyla Safari'de de çalışır.")
+            SettingsNote(String(localized: "Safari için eklenti yok; magnet linkleri aşağıdaki Torrent ayarıyla Safari'de de çalışır."))
         }
     }
 
@@ -95,14 +95,14 @@ struct ExtensionSettings: View {
     private func statusLine(_ status: DownloadStore.ExtensionStatus) -> StatusLine {
         func ago(_ date: Date?) -> String {
             guard let date else { return "" }
-            return " · son bağlantı " + date.formatted(.relative(presentation: .named, unitsStyle: .wide).locale(Locale(identifier: "tr_TR")))
+            return String(localized: " · son bağlantı \(AppLanguage.relative(date))")
         }
         return switch status {
-        case .connected: StatusLine(text: "Bağlı", kind: .connected)
-        case .notInstalled: StatusLine(text: "Kurulu değil", kind: .error)
-        case .disabled: StatusLine(text: "Eklenti kapalı (devre dışı)", kind: .error)
-        case .browserClosed(let seen): StatusLine(text: "Tarayıcı kapalı" + ago(seen))
-        case .notConnected(let seen): StatusLine(text: "Bağlı değil" + ago(seen), kind: .error)
+        case .connected: StatusLine(text: String(localized: "Bağlı"), kind: .connected)
+        case .notInstalled: StatusLine(text: String(localized: "Kurulu değil"), kind: .error)
+        case .disabled: StatusLine(text: String(localized: "Eklenti kapalı (devre dışı)"), kind: .error)
+        case .browserClosed(let seen): StatusLine(text: String(localized: "Tarayıcı kapalı") + ago(seen))
+        case .notConnected(let seen): StatusLine(text: String(localized: "Bağlı değil") + ago(seen), kind: .error)
         }
     }
 
@@ -152,7 +152,7 @@ struct TorrentSettings: View {
                                 try await TorrentHandler.makeDefault()
                                 error = nil
                             } catch {
-                                self.error = "Ayarlanamadı: \(error.localizedDescription)"
+                                self.error = String(localized: "Ayarlanamadı: \(error.localizedDescription)")
                             }
                             isDefault = TorrentHandler.isDefault
                             handlerName = TorrentHandler.currentHandlerName
@@ -166,13 +166,13 @@ struct TorrentSettings: View {
                 SettingsNote(error, isError: true)
             }
             GlassDivider()
-            SettingsNote("Diskteki .torrent dosyalarını panele sürükleyip bırakabilir ya da Link ekle ekranından seçebilirsiniz.")
+            SettingsNote(String(localized: "Diskteki .torrent dosyalarını panele sürükleyip bırakabilir ya da Link ekle ekranından seçebilirsiniz."))
         }
     }
 
     private var statusText: String {
-        if !TorrentHandler.isAvailable { return "Uygulama .app olarak paketlenip açıldığında ayarlanabilir." }
-        if isDefault { return "KD Download Manager ile açılıyor" }
-        return handlerName.map { "Şu an \($0) ile açılıyor" } ?? "Şu an bunları açan bir uygulama yok"
+        if !TorrentHandler.isAvailable { return String(localized: "Uygulama .app olarak paketlenip açıldığında ayarlanabilir.") }
+        if isDefault { return String(localized: "KD Download Manager ile açılıyor") }
+        return handlerName.map { String(localized: "Şu an \($0) ile açılıyor") } ?? String(localized: "Şu an bunları açan bir uygulama yok")
     }
 }

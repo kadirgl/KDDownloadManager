@@ -93,10 +93,10 @@ final class AppUpdater {
     static var installProblem: String? {
         let app = installedApp
         if app.path.contains("/AppTranslocation/") {
-            return "Uygulamayı Uygulamalar klasörüne taşıyıp oradan açın; güncellemeler ancak öyle kurulabilir."
+            return String(localized: "Uygulamayı Uygulamalar klasörüne taşıyıp oradan açın; güncellemeler ancak öyle kurulabilir.")
         }
         if !FileManager.default.isWritableFile(atPath: app.deletingLastPathComponent().path) {
-            return "\(app.deletingLastPathComponent().path) klasörüne yazma izni yok; yeni sürümü GitHub'dan indirin."
+            return String(localized: "\(app.deletingLastPathComponent().path) klasörüne yazma izni yok; yeni sürümü GitHub'dan indirin.")
         }
         return nil
     }
@@ -171,12 +171,12 @@ final class AppUpdater {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         // Henüz hiç sürüm yayımlanmamış.
         if status == 404 { return nil }
-        guard status == 200 else { throw UpdateError(message: "Güncelleme bilgisi alınamadı (HTTP \(status))") }
+        guard status == 200 else { throw UpdateError(message: String(localized: "Güncelleme bilgisi alınamadı (HTTP \(status))")) }
         let info = try JSONDecoder().decode(JSONValue.self, from: data)
-        guard let tag = info["tag_name"]?.stringValue else { throw UpdateError(message: "Güncelleme bilgisi okunamadı") }
+        guard let tag = info["tag_name"]?.stringValue else { throw UpdateError(message: String(localized: "Güncelleme bilgisi okunamadı")) }
         let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
         guard version.range(of: #"^\d+(\.\d+){0,3}$"#, options: .regularExpression) != nil else {
-            throw UpdateError(message: "Sürüm numarası anlaşılamadı: \(tag)")
+            throw UpdateError(message: String(localized: "Sürüm numarası anlaşılamadı: \(tag)"))
         }
         let assets = info["assets"]?.arrayValue ?? []
         func asset(_ name: String) -> (url: URL, size: Int64)? {
@@ -239,14 +239,14 @@ final class AppUpdater {
 
     /// İndirir, imzayı doğrular, açar ve paketi denetler; kurulmaya hazır .app'in yolunu döndürür.
     private func download(_ release: Release) async throws -> URL {
-        guard let key = Self.publicKey else { throw UpdateError(message: "Güncelleme anahtarı yok") }
-        guard release.size <= Self.maximumSize else { throw UpdateError(message: "Güncelleme dosyası beklenenden büyük") }
+        guard let key = Self.publicKey else { throw UpdateError(message: String(localized: "Güncelleme anahtarı yok")) }
+        guard release.size <= Self.maximumSize else { throw UpdateError(message: String(localized: "Güncelleme dosyası beklenenden büyük")) }
         state = .downloading(release, progress: 0)
 
         let (signatureData, _) = try await URLSession.shared.data(from: release.signature)
         guard let signature = Data(base64Encoded: String(decoding: signatureData, as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            throw UpdateError(message: "Güncellemenin imzası okunamadı")
+            throw UpdateError(message: String(localized: "Güncellemenin imzası okunamadı"))
         }
 
         let file = try await ProgressDownload.run(release.archive, limit: Self.maximumSize) { [weak self] progress in
@@ -260,7 +260,7 @@ final class AppUpdater {
         try Task.checkCancellation()
 
         guard key.isValidSignature(signature, for: Self.corruptedForTesting(archive)) else {
-            throw UpdateError(message: "Güncellemenin imzası doğrulanamadı; kurulmadı")
+            throw UpdateError(message: String(localized: "Güncellemenin imzası doğrulanamadı; kurulmadı"))
         }
         state = .downloading(release, progress: 1)
         return try await Self.unpack(archive, version: release.version)
@@ -274,16 +274,16 @@ final class AppUpdater {
         let folder = workFolder.appendingPathComponent(version, isDirectory: true)
         try archive.write(to: zip)
         defer { try? manager.removeItem(at: zip) }
-        try await run("/usr/bin/ditto", ["-x", "-k", zip.path, folder.path], failure: "Güncelleme açılamadı")
+        try await run("/usr/bin/ditto", ["-x", "-k", zip.path, folder.path], failure: String(localized: "Güncelleme açılamadı"))
 
         let app = folder.appendingPathComponent(installedApp.lastPathComponent)
         guard let bundle = Bundle(url: app),
               bundle.bundleIdentifier == (Bundle.main.bundleIdentifier ?? bundle.bundleIdentifier),
               bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String == version else {
-            throw UpdateError(message: "İndirilen paket beklenen sürüm değil; kurulmadı")
+            throw UpdateError(message: String(localized: "İndirilen paket beklenen sürüm değil; kurulmadı"))
         }
         try await run("/usr/bin/codesign", ["--verify", "--deep", "--strict", app.path],
-                      failure: "İndirilen paketin kod imzası bozuk; kurulmadı")
+                      failure: String(localized: "İndirilen paketin kod imzası bozuk; kurulmadı"))
         return app
     }
 
@@ -400,7 +400,7 @@ private final class ProgressDownload: NSObject, URLSessionDownloadDelegate, @unc
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         guard (downloadTask.response as? HTTPURLResponse)?.statusCode == 200 else {
-            finish(.failure(DownloadFailure(message: "Güncelleme indirilemedi")))
+            finish(.failure(DownloadFailure(message: String(localized: "Güncelleme indirilemedi"))))
             return
         }
         // Geçici dosya bu metottan çıkınca silindiği için hemen taşınır.
@@ -417,7 +417,7 @@ private final class ProgressDownload: NSObject, URLSessionDownloadDelegate, @unc
         guard let error else { return }
         if (error as? URLError)?.code == .cancelled {
             let byUser = lock.withLock { cancelledByUser }
-            finish(.failure(byUser ? CancellationError() : DownloadFailure(message: "Güncelleme dosyası beklenenden büyük")))
+            finish(.failure(byUser ? CancellationError() : DownloadFailure(message: String(localized: "Güncelleme dosyası beklenenden büyük"))))
         } else {
             finish(.failure(error))
         }

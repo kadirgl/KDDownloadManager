@@ -32,7 +32,8 @@ enum DebugSnapshot {
                 ("list", .list, .active),
                 ("completed", .list, .completed),
                 ("add-link", .addLink, .active),
-                ("settings", .settings, .active)
+                ("settings", .settings, .active),
+                ("onboarding", .onboarding, .active)
             ]
             for (name, route, tab) in screens {
                 store.route = route
@@ -40,6 +41,12 @@ enum DebugSnapshot {
                 for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                     await render(store, appearance: appearance, to: folder.appendingPathComponent("\(name)-\(suffix).png"))
                 }
+            }
+            // Ayarların tamamı (kaydırmadan görünmeyen bölümler dahil); uzun metinlerin taşmasını denetlemek için.
+            store.route = .settings
+            for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                await render(SettingsView().environment(store), appearance: appearance, height: 2600,
+                             to: folder.appendingPathComponent("settings-all-\(suffix).png"))
             }
             exit(0)
         }

@@ -173,7 +173,7 @@ final class YtDlpEngine: DownloadEngine {
 
     private func launch(_ item: DownloadItem) {
         guard let binary = Executables.find("yt-dlp") else {
-            item.setStatus(.failed("yt-dlp bulunamadı (brew install yt-dlp)"))
+            item.setStatus(.failed(String(localized: "yt-dlp bulunamadı (brew install yt-dlp)")))
             return
         }
         let process = Process()
@@ -258,8 +258,8 @@ final class YtDlpEngine: DownloadEngine {
                     awaitingCookies.insert(item.id)
                     CookieVault.shared.requestFresh(for: item.url)
                     item.setStatus(.failed(job.usedCookies
-                        ? "Site oturum doğrulaması istedi (robot ya da yaş kontrolü). Tarayıcıda siteye giriş yapın; indirme kendiliğinden yeniden denenecek."
-                        : "Site oturum doğrulaması istedi; tarayıcı çerezleri bekleniyor. Eklenti bağlıysa bir dakika içinde yeniden denenecek."))
+                        ? String(localized: "Site oturum doğrulaması istedi (robot ya da yaş kontrolü). Tarayıcıda siteye giriş yapın; indirme kendiliğinden yeniden denenecek.")
+                        : String(localized: "Site oturum doğrulaması istedi; tarayıcı çerezleri bekleniyor. Eklenti bağlıysa bir dakika içinde yeniden denenecek.")))
                     return
                 }
                 if job.usedSegmented, !singleConnection.contains(item.id) {

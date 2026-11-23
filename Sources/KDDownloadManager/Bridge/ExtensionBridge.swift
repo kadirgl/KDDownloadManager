@@ -99,7 +99,7 @@ final class ExtensionBridge {
                 case .incomplete where !isComplete && error == nil:
                     self.receive(on: connection, buffer: buffer)
                 case .incomplete, .invalid:
-                    Self.send(status: 400, ["error": "Geçersiz istek"], origin: nil, on: connection)
+                    Self.send(status: 400, ["error": .string(String(localized: "Geçersiz istek"))], origin: nil, on: connection)
                 }
             }
         }
@@ -107,7 +107,7 @@ final class ExtensionBridge {
 
     private func respond(to request: HTTPRequest, on connection: NWConnection) {
         guard let origin = request.headers["origin"], Self.allowedOrigins.contains(origin) else {
-            Self.send(status: 403, ["error": "Bu kaynaktan istek kabul edilmiyor"], origin: nil, on: connection)
+            Self.send(status: 403, ["error": .string(String(localized: "Bu kaynaktan istek kabul edilmiyor"))], origin: nil, on: connection)
             return
         }
 
@@ -122,7 +122,7 @@ final class ExtensionBridge {
 
         case ("POST", "/hello"):
             let hello = try? JSONDecoder().decode(JSONValue.self, from: request.body)
-            let browser = hello?["browser"]?.stringValue.map { String($0.prefix(60)) } ?? "Tarayıcı"
+            let browser = hello?["browser"]?.stringValue.map { String($0.prefix(60)) } ?? String(localized: "Tarayıcı")
             onHello(browser)
             // Çerezi gereken video siteleri; eklenti hemen /cookies ile gönderir.
             let wanted = JSONValue.array(CookieVault.shared.wantedSites.map { .string($0) })
@@ -137,7 +137,7 @@ final class ExtensionBridge {
             }
             guard let payload = try? JSONDecoder().decode(Payload.self, from: request.body),
                   DownloadSource.videoHostList.contains(payload.site) else {
-                Self.send(status: 400, ["error": "Geçersiz çerez listesi"], origin: origin, on: connection)
+                Self.send(status: 400, ["error": .string(String(localized: "Geçersiz çerez listesi"))], origin: origin, on: connection)
                 return
             }
             CookieVault.shared.store(payload.cookieJar, for: payload.site)
@@ -151,7 +151,7 @@ final class ExtensionBridge {
             // Herhangi bir sayfa: yt-dlp video bulamazsa 502 döner, eklenti "video bulunamadı" der.
             guard let payload = try? JSONDecoder().decode(Payload.self, from: request.body),
                   payload.url.lowercased().hasPrefix("http") else {
-                Self.send(status: 422, ["error": "Geçersiz adres"], origin: origin, on: connection)
+                Self.send(status: 422, ["error": .string(String(localized: "Geçersiz adres"))], origin: origin, on: connection)
                 return
             }
             if let jar = payload.cookieJar, let site = CookieVault.site(of: payload.url) {
@@ -165,12 +165,12 @@ final class ExtensionBridge {
             }
             guard let payload = try? JSONDecoder().decode(Payload.self, from: request.body),
                   (1...Self.maxLinksPerRequest).contains(payload.links.count) else {
-                Self.send(status: 400, ["error": "Geçersiz link listesi"], origin: origin, on: connection)
+                Self.send(status: 400, ["error": .string(String(localized: "Geçersiz link listesi"))], origin: origin, on: connection)
                 return
             }
             let valid = payload.links.filter { DownloadSource.looksLikeLink($0.url) }
             guard !valid.isEmpty else {
-                Self.send(status: 422, ["error": "Desteklenen bir link yok"], origin: origin, on: connection)
+                Self.send(status: 422, ["error": .string(String(localized: "Desteklenen bir link yok"))], origin: origin, on: connection)
                 return
             }
             guard valid.contains(where: { $0.fromBrowserDownload == true }) else {
@@ -193,7 +193,7 @@ final class ExtensionBridge {
                     }
                 }
                 guard !accepted.isEmpty else {
-                    Self.send(status: 422, ["error": "Bu indirme tarayıcıda kalmalı"], origin: origin, on: connection)
+                    Self.send(status: 422, ["error": .string(String(localized: "Bu indirme tarayıcıda kalmalı"))], origin: origin, on: connection)
                     return
                 }
                 onAdd(accepted)
@@ -201,7 +201,7 @@ final class ExtensionBridge {
             }
 
         default:
-            Self.send(status: 404, ["error": "Bulunamadı"], origin: origin, on: connection)
+            Self.send(status: 404, ["error": .string(String(localized: "Bulunamadı"))], origin: origin, on: connection)
         }
     }
 
