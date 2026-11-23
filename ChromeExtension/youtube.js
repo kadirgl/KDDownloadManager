@@ -2,7 +2,8 @@
 // kalite KD Download Manager'a gönderilir. Görünüm ve menü menu.js'te.
 // Buton videonun içine konmuyor (oynatıcının köşelerinde YouTube'un kendi düğmeleri var): izleme sayfasında
 // beğen/paylaş satırına, Shorts'ta sağdaki düğme sütununun en üstüne yerleşir. Yalnızca tam ekranda ya da
-// bu yerler bulunamazsa oynatıcının sağ üst köşesine girer.
+// bu yerler bulunamazsa oynatıcının sağ üst köşesine girer. Oradayken YouTube'un kendi düğmeleriyle birlikte
+// gizlenir (fare durunca) ve yanındaki × ile o video için kapatılabilir.
 // YouTube sayfa yenilemeden video değiştirdiği için buton saniyede bir doğru yerde ve doğru videoya
 // bağlı mı diye kontrol edilir.
 (() => {
@@ -12,6 +13,10 @@
   const menus = {};
   let menu = null; // Şu an sayfada olan.
   let boundUrl = null;
+  // Oynatıcının içindeki butonu × ile kapatılan video; başka videoya geçince yeniden çıkar.
+  let dismissedUrl = null;
+  let watchedPlayer = null;
+  const controlsObserver = new MutationObserver(() => followControls());
   // Video başına tek istek: fare butonun üzerine gelince başlar, tıklayınca aynı istek beklenir.
   let formatsCache = { url: null, promise: null };
 
@@ -76,11 +81,14 @@
 
   function menuFor(mode) {
     if (menus[mode]) return menus[mode];
-    const created = mode === "overlay" ? create("absolute") : create("relative", { compact: mode === "column" });
+    const created = mode === "overlay"
+      ? create("absolute", { onDismiss: dismissOverlay })
+      : create("relative", { compact: mode === "column" });
     created.host.id = `kd-download-manager-${mode}`;
     if (mode === "overlay") {
       created.host.style.top = "12px";
       created.host.style.right = "12px";
+      created.host.style.transition = "opacity 0.25s";
     } else if (mode === "row") {
       // Boy ve dikey konum komşu düğmelerden alınıyor (alignWithRow).
       created.host.style.setProperty("--kd-height", "36px");
@@ -149,11 +157,36 @@
     current.panel.querySelector(".option")?.focus();
   }
 
+  // ×: bu videoda oynatıcının içindeki butonu kaldır (beğen/paylaş satırındaki yerinde kalır).
+  function dismissOverlay() {
+    dismissedUrl = boundUrl;
+    sync();
+  }
+
+  // Oynatıcının içindeyken YouTube'un kontrolleriyle birlikte görünür: video oynarken fare durunca YouTube
+  // oynatıcıya "ytp-autohide" ekliyor; o zaman buton da kaybolur, fare oynayınca geri gelir. Menü açıkken kalır.
+  function followControls() {
+    const overlay = menus.overlay;
+    if (!overlay) return;
+    const hidden = menu === overlay && !overlay.open && Boolean(watchedPlayer?.classList.contains("ytp-autohide"));
+    overlay.host.style.opacity = hidden ? "0" : "";
+    overlay.host.style.pointerEvents = hidden ? "none" : "";
+  }
+
+  function watchControls(player) {
+    if (watchedPlayer === player) return;
+    controlsObserver.disconnect();
+    watchedPlayer = player;
+    if (player) controlsObserver.observe(player, { attributes: true, attributeFilter: ["class"] });
+  }
+
   // Doğru yerde ve doğru videoya bağlı tut.
   function sync() {
     const url = videoUrl();
     const player = url ? findPlayer() : null;
-    const spot = player ? findSpot(player) : null;
+    let spot = player ? findSpot(player) : null;
+    if (spot?.mode === "overlay" && url === dismissedUrl) spot = null;
+    watchControls(spot?.mode === "overlay" ? player : null);
     if (!spot) {
       menu?.close();
       menu?.host.remove();
@@ -180,6 +213,7 @@
       boundUrl = url;
       menu.close();
     }
+    followControls();
   }
 
   sync();

@@ -7,12 +7,15 @@
 // Buton sayfadaki yazıların ya da düğmelerin üstüne gelmesin diye önce videonun üstünde, sonra altında boş
 // yer aranır; ikisi de doluysa videonun sağ üst köşesine girer. Yine de istenmeyen bir yerde çıkarsa
 // yanındaki × ile o videoda gizlenir; ardından çıkan bildirimden "Bu sitede kapat" seçilebilir (açılır
-// pencereden geri açılır).
+// pencereden geri açılır). Oynatıcıların kendi düğmeleri gibi fare videonun üzerinde birkaç saniye
+// hareketsiz kalınca (tam ekranda da) kaybolur, fare oynayınca geri gelir.
 (() => {
   // Önizleme ve reklam gibi küçük videolarda buton çıkmasın.
   const MIN_WIDTH = 240;
   const MIN_HEIGHT = 135;
   const HIDE_DELAY = 1500;
+  // Fare videonun üzerinde bu kadar hareketsiz kalınca buton gizlenir.
+  const IDLE_DELAY = 2500;
   const BUTTON_HEIGHT = 34;
   const GAP = 8;
 
@@ -313,11 +316,11 @@
     target = null;
   }
 
-  function scheduleHide() {
+  function scheduleHide(delay = HIDE_DELAY) {
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
       if (!menuOpen() && !menu?.toasting) hide();
-    }, HIDE_DELAY);
+    }, delay);
   }
 
   // Videoların üstünde çoğu zaman oynatıcının kendi katmanları olduğu için fare olayının hedefine
@@ -333,9 +336,9 @@
       const inside = event.clientX >= rect.left && event.clientX <= rect.right
         && event.clientY >= rect.top && event.clientY <= rect.bottom;
       if (inside && eligible(video) && !dismissed.has(video)) {
-        clearTimeout(hideTimer);
         // Gizleme bildirimi dururken başka videoya geçilmesin; bildirim kendi kapanır.
         if (!menu?.toasting) show(video);
+        scheduleHide(IDLE_DELAY);
         return;
       }
     }
