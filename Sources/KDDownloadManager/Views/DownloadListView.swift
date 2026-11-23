@@ -479,6 +479,8 @@ private struct BottomBar: View {
     @AppStorage(SettingsKey.globalLimitEnabled) private var limitEnabled = false
     @AppStorage(SettingsKey.globalLimitMB) private var limitMB = SettingsKey.defaultGlobalLimitMB
     @Namespace private var namespace
+    @State private var showingLimit = false
+    @State private var hoveringSpeed = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -492,33 +494,71 @@ private struct BottomBar: View {
 
             Spacer(minLength: 0)
 
-            VStack(alignment: .trailing, spacing: 1) {
-                HStack(spacing: 5) {
-                    Image(systemName: "arrow.down")
-                        .font(.system(size: 11, weight: .bold))
-                    Text(ByteFormat.speed(store.displaySpeed))
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
-                }
-                .lineLimit(1)
-                .fixedSize()
-                .font(.system(size: 13, weight: .semibold))
-                .opacity(store.displaySpeed > 0 ? 1 : 0.55)
-                if limitEnabled {
-                    Label("Sınır \(Int(limitMB)) MB/sn", systemImage: "gauge.with.dots.needle.33percent")
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(Theme.secondaryText)
-                }
-            }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 46)
-            .strongGlass(Capsule(), floating: true)
-            .help("Toplam indirme hızı")
-            .accessibilityElement(children: .combine)
+            speedButton
         }
         .padding(.horizontal, Theme.margin - 4)
         .padding(.bottom, 14)
         .animation(.snappy(duration: 0.25), value: store.tab)
+    }
+
+    private var globalLimit: Int64? {
+        limitEnabled ? Int64(limitMB * 1_048_576) : nil
+    }
+
+    /// Toplam hız; tıklayınca genel hız sınırı seçilir (Ayarlar'daki "Genel hız sınırı" ile aynı ayar).
+    private var speedButton: some View {
+        Button { showingLimit.toggle() } label: {
+            HStack(spacing: 8) {
+                VStack(alignment: .trailing, spacing: 1) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.down")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(ByteFormat.speed(store.displaySpeed))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                    }
+                    .lineLimit(1)
+                    .fixedSize()
+                    .font(.system(size: 13, weight: .semibold))
+                    .opacity(store.displaySpeed > 0 ? 1 : 0.55)
+                    if limitEnabled {
+                        Text("Sınır \(Int(limitMB)) MB/sn")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(Theme.secondaryText)
+                            .lineLimit(1)
+                            .fixedSize()
+                    }
+                }
+                Image(systemName: "gauge.with.dots.needle.33percent")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(limitEnabled ? Theme.accentText : Theme.secondaryText)
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 46)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .background(Capsule().fill(Color.primary.opacity(hoveringSpeed || showingLimit ? 0.06 : 0)))
+        .strongGlass(Capsule(), floating: true)
+        .onHover { hoveringSpeed = $0 }
+        .animation(.easeOut(duration: 0.15), value: hoveringSpeed)
+        .help(limitEnabled ? "Toplam indirme hızı · sınır \(Int(limitMB)) MB/sn — değiştirmek için tıklayın"
+                            : "Toplam indirme hızı — hız sınırı koymak için tıklayın")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Toplam indirme hızı \(ByteFormat.speed(store.displaySpeed))")
+        .accessibilityHint("Genel hız sınırını seçer")
+        .popover(isPresented: $showingLimit, arrowEdge: .top) {
+            SpeedLimitMenu(current: globalLimit, title: "Toplam hız sınırı", showsGlobalNote: false) { limit in
+                if let limit {
+                    limitMB = Double(limit / 1_048_576)
+                    limitEnabled = true
+                } else {
+                    limitEnabled = false
+                }
+                store.applyGlobalSpeedLimit()
+                showingLimit = false
+            }
+        }
     }
 
     private func tabButton(_ tab: ListTab) -> some View {

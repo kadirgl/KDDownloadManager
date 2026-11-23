@@ -287,9 +287,12 @@ private struct FileDrag: ViewModifier {
     }
 }
 
-/// Hız sınırı butonunun açtığı cam menü.
+/// Hız sınırı butonunun açtığı cam menü: bir indirmenin sınırı ya da (alt bardaki hız göstergesinden) genel sınır.
 struct SpeedLimitMenu: View {
     let current: Int64?
+    var title = "Bu indirme için hız sınırı"
+    /// İndirmeye özel sınırda, genel sınırın bunu kısıtladığı hatırlatılır.
+    var showsGlobalNote = true
     let onSelect: (Int64?) -> Void
     @AppStorage(SettingsKey.globalLimitEnabled) private var limitEnabled = false
     @AppStorage(SettingsKey.globalLimitMB) private var limitMB = SettingsKey.defaultGlobalLimitMB
@@ -297,12 +300,19 @@ struct SpeedLimitMenu: View {
     static let options: [(title: String, limit: Int64?)] =
         [("Sınırsız", nil)] + [1, 2, 5, 10, 25, 50].map { ("\($0) MB/sn", Int64($0) * 1_048_576) }
 
+    /// Ayarlar'da listede olmayan bir değer (örn. 7 MB/sn) seçildiyse o da seçili olarak görünür.
+    private var rows: [(title: String, limit: Int64?)] {
+        guard let current, !Self.options.contains(where: { $0.limit == current }) else { return Self.options }
+        return (Self.options + [("\(current / 1_048_576) MB/sn", current)])
+            .sorted { ($0.limit ?? 0) < ($1.limit ?? 0) }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            SectionLabel(title: "Bu indirme için hız sınırı")
+            SectionLabel(title: title)
                 .padding(.horizontal, 6)
                 .padding(.bottom, 4)
-            ForEach(Self.options, id: \.title) { option in
+            ForEach(rows, id: \.title) { option in
                 let selected = current == option.limit
                 Button { onSelect(option.limit) } label: {
                     HStack {
@@ -318,7 +328,7 @@ struct SpeedLimitMenu: View {
                 }
                 .buttonStyle(MenuRowButtonStyle(selected: selected))
             }
-            if limitEnabled {
+            if limitEnabled && showsGlobalNote {
                 Text("Genel sınır \(Int(limitMB)) MB/sn; daha yüksek değerler bununla kısıtlanır.")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.secondaryText)

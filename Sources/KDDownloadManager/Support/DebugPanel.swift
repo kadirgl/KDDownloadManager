@@ -13,7 +13,8 @@ import QuickLookUI
 /// KD_DEMO_BACKDROP=1: panelin arkasına tasarımdaki renkli zemini koyar.
 /// KD_DEMO_LINK: Link ekle alanına yazılacak metin (panoya dokunmadan); KD_DEMO_SEARCH: Tamamlanan'da arama.
 /// KD_DEMO=deleted: ilk indirmeyi silip "Geri al" bildirimini gösterir.
-/// KD_DEMO_KEYS: panel açılınca sırayla basılacak tuşlar, örn. "down,down,space" ya da "down,cmd-delete,cmd-z".
+/// KD_DEMO_KEYS: panel açılınca sırayla basılacak tuşlar, örn. "down,down,space" ya da "down,cmd-delete,cmd-z";
+/// "click:x:y" öndeki pencerede (panel ya da açık menü) o noktaya tıklar (eksi değerler sağdan/alttan).
 /// Gerçek listeye, ayarlara ve eklenti portuna dokunmaz (DebugHarness.isActive).
 @MainActor
 enum DebugPanel {
@@ -120,6 +121,13 @@ enum DebugPanel {
                         await scroll(down: key == "scroll-down", in: panel)
                         continue
                     }
+                    if key.hasPrefix("click:") {
+                        // "click:-60:-37": panelde bu noktaya tıklar (sol üstten; eksi değerler sağdan/alttan).
+                        let popover = NSApp.windows.first { $0.isVisible && String(describing: type(of: $0)).contains("Popover") }
+                        click(String(key), in: popover ?? panel)
+                        try? await Task.sleep(for: .seconds(0.6))
+                        continue
+                    }
                     press(String(key), in: NSApp.keyWindow ?? panel)
                     try? await Task.sleep(for: .seconds(0.6))
                     report(after: String(key), panel: panel)
@@ -195,6 +203,22 @@ enum DebugPanel {
     private final class FrameCounter: NSObject {
         var stamps: [CFTimeInterval] = []
         @objc func tick(_ link: CADisplayLink) { stamps.append(link.timestamp) }
+    }
+
+    private static func click(_ key: String, in window: NSWindow) {
+        let parts = key.split(separator: ":").dropFirst().compactMap { Double($0) }
+        guard parts.count == 2 else { return }
+        let size = window.frame.size
+        let x = parts[0] < 0 ? size.width + parts[0] : parts[0]
+        let fromTop = parts[1] < 0 ? size.height + parts[1] : parts[1]
+        let point = NSPoint(x: x, y: size.height - fromTop)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            guard let event = NSEvent.mouseEvent(
+                with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+            ) else { continue }
+            window.sendEvent(event)
+        }
     }
 
     private static func press(_ key: String, in window: NSWindow) {
