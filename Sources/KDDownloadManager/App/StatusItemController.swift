@@ -45,8 +45,26 @@ final class StatusItemController: NSObject, NSWindowDelegate {
 
     var isOpen: Bool { panel.isVisible }
 
+    /// Panelin dışına tıklanıp kapandığı an. Menü çubuğu ikonuna tıklama macOS'ta önce başka bir uygulamaya
+    /// (menü çubuğunu çizen sisteme) gidiyor: dış tıklama izleyicisi paneli kapatıyor, hemen ardından ikonun
+    /// eylemi gelip paneli yeniden açıyordu.
+    private var closedByOutsideClickAt: Date?
+
     @objc func toggle() {
-        isOpen ? close() : open()
+        if isOpen {
+            close()
+        } else if let closed = closedByOutsideClickAt, Date().timeIntervalSince(closed) < 0.5 {
+            // Bu tıklama az önce paneli kapatan tıklamanın ta kendisi; yeniden açma.
+            closedByOutsideClickAt = nil
+        } else {
+            open()
+        }
+    }
+
+    /// Menü çubuğu ikonunun ekrandaki çerçevesi.
+    private var buttonScreenFrame: NSRect? {
+        guard let button = statusItem.button, let window = button.window else { return nil }
+        return window.convertToScreen(button.convert(button.bounds, to: nil))
     }
 
     @objc private func otherApplicationActivated(_ notification: Notification) {
@@ -81,8 +99,16 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         panel.invalidateShadow()
         statusItem.button?.highlight(true)
         // Panelin dışına (başka bir uygulamaya ya da masaüstüne) tıklanınca kapansın.
+        closedByOutsideClickAt = nil
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            MainActor.assumeIsolated { self?.close() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                // İkonun kendisine tıklandıysa kapatmayı ikonun eylemine (toggle) bırak.
+                if let frame = self.buttonScreenFrame, frame.insetBy(dx: -2, dy: -2).contains(NSEvent.mouseLocation) { return }
+                guard self.isOpen else { return }
+                self.close()
+                self.closedByOutsideClickAt = Date()
+            }
         }
     }
 
