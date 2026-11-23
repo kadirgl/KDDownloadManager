@@ -183,12 +183,17 @@ final class ExtensionBridge {
             // indirmeler) reddedilir; eklenti Chrome'un indirmesini iptal etmez, dosya Chrome'da iner.
             Task {
                 var accepted: [DownloadRequest] = []
-                for link in valid {
-                    if link.fromBrowserDownload != true {
+                for var link in valid {
+                    guard link.fromBrowserDownload == true else {
                         accepted.append(link)
-                    } else if let reason = await LinkProbe.canTakeOver(link) {
+                        continue
+                    }
+                    switch await LinkProbe.canTakeOver(link) {
+                    case .refuse(let reason):
                         print("Tarayıcı indirmesi devralınmadı (\(reason)): \(link.url)")
-                    } else {
+                    case .accept(let name):
+                        // Chrome indirmeyi devrederken adı henüz bilmiyor; sunucunun verdiği ad kullanılır.
+                        if let name { link.filename = name }
                         accepted.append(link)
                     }
                 }

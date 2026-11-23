@@ -93,21 +93,28 @@ enum LinkProbe {
         return .file(FileInfo(name: name.flatMap { $0.isEmpty || $0 == "/" ? nil : $0 }, size: size, resumable: resumable))
     }
 
-    /// Chrome'dan devralınacak bir indirme uygulamada da inebilir mi? İnebiliyorsa nil, inemiyorsa nedeni.
+    /// Chrome'dan devralınacak bir indirme uygulamada da inebilir mi?
+    enum TakeOver: Sendable {
+        /// İnebilir. `name`: sunucunun Content-Disposition ile verdiği dosya adı (varsa).
+        case accept(name: String?)
+        /// İnemez; nedeni.
+        case refuse(String)
+    }
+
     /// Adres tarayıcının çerezi, referrer'ı ve kimliğiyle bir kez (ilk bayt) istenir. Chrome adresi zaten
     /// istediği için bu zararsız: yeniden istenemeyen bir bağlantıyı aria2 de indiremezdi.
     ///
     /// Eklenti bu sırada Chrome'un indirmesini duraklatıp en fazla 15 saniye cevap bekliyor. Yoklama ondan
     /// önce bitmeli: geç gelen bir "kabul" Chrome'unki sürerken uygulamada da indirme başlatırdı. Yavaş
     /// sunucular (uzun yönlendirme zincirleri) bu yüzden Chrome'a bırakılır.
-    static func canTakeOver(_ request: DownloadRequest) async -> String? {
-        await withTaskGroup(of: String?.self) { group in
+    static func canTakeOver(_ request: DownloadRequest) async -> TakeOver {
+        await withTaskGroup(of: TakeOver.self) { group in
             group.addTask { await probeTakeOver(request) }
             group.addTask {
                 try? await Task.sleep(for: .seconds(takeOverDeadline))
-                return "sunucu \(Int(takeOverDeadline)) saniyede yanıt vermedi"
+                return .refuse("sunucu \(Int(takeOverDeadline)) saniyede yanıt vermedi")
             }
-            let first = await group.next() ?? nil
+            let first = await group.next() ?? .refuse("yoklanamadı")
             group.cancelAll()
             return first
         }
@@ -115,9 +122,9 @@ enum LinkProbe {
 
     static let takeOverDeadline: TimeInterval = 8
 
-    private static func probeTakeOver(_ request: DownloadRequest) async -> String? {
+    private static func probeTakeOver(_ request: DownloadRequest) async -> TakeOver {
         guard let url = URL(string: request.url), let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https" else { return nil }
+              scheme == "http" || scheme == "https" else { return .accept(name: nil) }
         var probe = URLRequest(url: url, timeoutInterval: 6)
         probe.setValue("bytes=0-0", forHTTPHeaderField: "Range")
         if let cookies = request.cookies { probe.setValue(cookies, forHTTPHeaderField: "Cookie") }
@@ -127,18 +134,24 @@ enum LinkProbe {
         do {
             let (bytes, received) = try await URLSession.shared.bytes(for: probe)
             bytes.task.cancel()
-            guard let http = received as? HTTPURLResponse else { return "beklenmedik yanıt" }
-            guard (200..<300).contains(http.statusCode) else { return "sunucu \(http.statusCode) döndü" }
+            guard let http = received as? HTTPURLResponse else { return .refuse("beklenmedik yanıt") }
+            guard (200..<300).contains(http.statusCode) else { return .refuse("sunucu \(http.statusCode) döndü") }
             // Service worker'ın sunduğu adresler sunucuda sayfanın HTML kabuğunu döndürüyor; Chrome ise
             // gerçek dosyayı (başka bir türde) indiriyordu.
             let type = (http.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
             let expected = (request.mime ?? "").lowercased()
             if type.hasPrefix("text/html"), !expected.isEmpty, !expected.hasPrefix("text/html") {
-                return "dosya yerine sayfa döndü"
+                return .refuse("dosya yerine sayfa döndü")
             }
-            return nil
+            // Ad, Chrome'un yaptığı gibi Content-Disposition'dan alınır. aria2 bu başlığı yalnızca kurallara
+            // tam uyduğunda okuyor: Broadcom "attachment;" olmadan yalnızca "filename=…" gönderiyor, adres
+            // de "/?file=…" olduğu için dosya "index.html" adıyla iniyordu.
+            let name = http.value(forHTTPHeaderField: "Content-Disposition")
+                .flatMap(fileName(fromDisposition:))
+                .flatMap { $0.isEmpty ? nil : $0 }
+            return .accept(name: name)
         } catch {
-            return "adrese ulaşılamadı"
+            return .refuse("adrese ulaşılamadı")
         }
     }
 

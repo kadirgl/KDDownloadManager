@@ -429,7 +429,10 @@ final class DownloadStore {
             let name = saveAs ?? request.filename.flatMap { $0.isEmpty ? nil : $0 }
             let item = DownloadItem(url: request.url.trimmingCharacters(in: .whitespacesAndNewlines), fileName: name,
                                     forceVideo: request.video == true)
-            item.preferredName = saveAs
+            // Tarayıcının (ya da sunucunun) verdiği ad aria2'ye de verilir; yoksa aria2 adı adresten çıkarıyor
+            // ve "/?file=x.dmg" gibi adreslerde dosyaya "index.html" diyordu.
+            item.preferredName = saveAs ?? (item.source == .direct ? name.map(Self.sanitizedFileName).flatMap { $0.isEmpty ? nil : $0 } : nil)
+            if let preferred = item.preferredName { item.fileName = preferred }
             item.referrer = request.referrer
             item.userAgent = request.userAgent
             item.cookies = request.cookies
