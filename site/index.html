@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KD Download Manager</title>
+<meta name="description" content="Mac için indirme yöneticisi: video, torrent ve büyük dosyalar. Tek tıkla, tam hızda.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="app-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+/* Sayfanın tasarımı "Gradient hero – Açık – 1440" çalışmasından; sağdaki animasyonlar uygulamanın gerçek
+   ekranlarından (Swift görünümleri ve tarayıcı eklentisi) birebir çizildi. Renkler, ölçüler ve metinler
+   uygulamadakiyle aynı tutulmalı: Theme.swift, DownloadRow.swift, DownloadListView.swift, ChromeExtension/menu.js. */
+:root{
+  --accent:#F08A2E; --on-accent:#1D1D1F;
+  --accent-text:color-mix(in srgb,var(--accent) 62%,black);
+  --accent-light:color-mix(in srgb,var(--accent) 70%,white);
+  --accent-glow:color-mix(in srgb,var(--accent) 45%,transparent);
+  --ink:#1D1D1F; --sec:rgba(0,0,0,0.62); --ter:rgba(0,0,0,0.55);
+  --ok:#16A34A;
+  --sys:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",Inter,"Segoe UI",sans-serif;
+  --loop:30s; --beat:6s;
+}
+*{box-sizing:border-box}
+html{color-scheme:light}
+body{margin:0;background:#fbfaf8}
+a{text-decoration:none;color:inherit}
+.pg{position:relative;min-height:100vh;overflow:hidden;font-family:Inter,-apple-system,'SF Pro Text','Segoe UI',sans-serif;color:var(--ink);background:#fbfaf8;display:flex;flex-direction:column}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:0.75;will-change:transform}
+.b1{width:760px;height:760px;left:-160px;top:-240px;background:#FFB27A;animation:d1 22s ease-in-out infinite alternate}
+.b2{width:680px;height:680px;right:-200px;top:-120px;background:#C9BCFF;animation:d2 26s ease-in-out infinite alternate}
+.b3{width:620px;height:620px;left:30%;bottom:-320px;background:#9FD8FF;animation:d3 20s ease-in-out infinite alternate}
+.b4{width:480px;height:480px;right:12%;bottom:-120px;background:#B5F2D6;animation:d4 24s ease-in-out infinite alternate}
+.b5{width:420px;height:420px;left:38%;top:10%;background:#FFE1B8;animation:d5 18s ease-in-out infinite alternate}
+@keyframes d1{0%{transform:translate(0,0) scale(1)}50%{transform:translate(220px,140px) scale(1.15)}100%{transform:translate(80px,300px) scale(0.95)}}
+@keyframes d2{0%{transform:translate(0,0) scale(1)}50%{transform:translate(-260px,180px) scale(0.9)}100%{transform:translate(-120px,360px) scale(1.12)}}
+@keyframes d3{0%{transform:translate(0,0) scale(1)}50%{transform:translate(-200px,-160px) scale(1.2)}100%{transform:translate(160px,-80px) scale(1)}}
+@keyframes d4{0%{transform:translate(0,0)}50%{transform:translate(-180px,-220px) scale(1.1)}100%{transform:translate(-320px,-40px) scale(0.9)}}
+@keyframes d5{0%{transform:translate(0,0)}50%{transform:translate(160px,120px) scale(1.25)}100%{transform:translate(-140px,200px) scale(0.85)}}
+.grain{position:absolute;inset:0;opacity:0.22;mix-blend-mode:multiply;pointer-events:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.55 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>")}
+.wrap{position:relative;max-width:1216px;width:100%;margin:0 auto;padding:0 32px}
+.btn{border:0;cursor:pointer;font-family:inherit;color:inherit}
+.glass{background:rgba(255,255,255,0.55);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);box-shadow:0 1px 2px rgba(40,30,80,0.05),inset 0 1px 0 rgba(255,255,255,0.9),inset 0 0 0 1px rgba(255,255,255,0.6)}
+.mut{color:var(--sec)}
+.h1{margin:0;font-size:72px;line-height:1.02;font-weight:800;letter-spacing:-2.6px}
+.sub{margin:0;font-size:20px;line-height:1.55;max-width:480px}
+.cta{height:56px;padding:0 24px;border-radius:28px;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-size:16px;font-weight:700;transition:transform .2s ease}
+.cta:hover{transform:translateY(-1px)}
+.cta small{font-size:12px;font-weight:600;opacity:0.65}
+.pill{position:relative;overflow:hidden;height:32px;padding:0 14px;border-radius:16px;display:inline-flex;align-items:center;font-size:13px;font-weight:600;background:rgba(255,255,255,0.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);animation:pillOn var(--loop) linear infinite}
+.pill::after{content:'';position:absolute;left:0;bottom:0;height:2px;width:0;background:rgba(255,255,255,0.7);animation:pillBar var(--loop) linear infinite;animation-delay:inherit}
+@keyframes pillOn{0%,19.6%{background:#1d1d1f;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,0.18)}20%,100%{background:rgba(255,255,255,0.6);color:#1d1d1f;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06)}}
+@keyframes pillBar{0%{width:0}19.6%{width:100%}20%,100%{width:0}}
+
+/* ---------- sahne ---------- */
+.stagewrap{width:560px;flex:none}
+.stage{position:relative;width:560px;height:520px;border-radius:32px;overflow:hidden;box-shadow:0 40px 100px rgba(60,40,100,0.18),inset 0 1px 0 #fff,inset 0 0 0 1px rgba(255,255,255,0.7);background:rgba(255,255,255,0.45);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
+.scene{position:absolute;inset:0;opacity:0;animation:scene var(--loop) cubic-bezier(.3,.7,.2,1) infinite}
+@keyframes scene{0%{opacity:0;transform:translateY(14px) scale(0.985);filter:blur(8px)}2.4%,17.6%{opacity:1;transform:none;filter:blur(0)}20%,100%{opacity:0;transform:translateY(-14px) scale(0.985);filter:blur(8px)}}
+.scene *{animation-duration:var(--beat);animation-iteration-count:infinite}
+.cap{position:absolute;left:32px;right:32px;bottom:28px;display:flex;flex-direction:column;gap:4px}
+.cap b{font-size:20px;letter-spacing:-0.3px}
+.cap span{font-size:14px;color:rgba(0,0,0,0.6)}
+.cur{position:absolute;width:20px;height:24px;z-index:20;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3));transform-origin:3px 2px}
+.rip{position:absolute;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;z-index:19;opacity:0;pointer-events:none;background:rgba(255,255,255,0.65)}
+.rip.dark{background:rgba(0,0,0,0.16)}
+/* Değişen sayılar: alt alta dizilmiş satırlar adım adım kayar. */
+.tk{display:inline-block;height:var(--h,15px);line-height:var(--h,15px);overflow:hidden;vertical-align:bottom;font-variant-numeric:tabular-nums}
+.tk>span{display:flex;flex-direction:column}
+.tk.r>span{align-items:flex-end}
+html[lang=tr] .kpct .tk>span{align-items:flex-start}
+.tk b{font-weight:inherit;display:block;height:var(--h,15px);white-space:nowrap}
+.swap{position:relative;display:inline-grid}
+.swap>*{grid-area:1/1}
+
+/* ---------- uygulama arayüzü (gerçek ölçüler) ---------- */
+.ui{font-family:var(--sys);color:var(--ink);-webkit-font-smoothing:antialiased;letter-spacing:-0.1px}
+.ui svg{display:block;flex:none}
+.kp{position:absolute;width:460px;border-radius:26px;overflow:hidden;background:rgba(250,249,252,0.86);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);box-shadow:0 30px 70px rgba(40,30,80,0.18),0 2px 6px rgba(40,30,80,0.06),inset 0 0 0 1px rgba(0,0,0,0.06),inset 0 1px 0 rgba(255,255,255,0.95)}
+.kh{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 0}
+.kh b{font-size:20px;font-weight:600;letter-spacing:-0.3px}
+.kh .cbs{display:flex;gap:12px}
+.cb{width:38px;height:38px;border-radius:19px;display:grid;place-items:center;background:rgba(255,255,255,0.75);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06),inset 0 1px 0 #fff,0 1px 3px rgba(40,30,80,0.06)}
+.cb svg{width:17px;height:17px}
+.ksum{display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:24px;font-size:12.5px;font-weight:500;color:var(--sec)}
+.ksum .pa{display:flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:600;color:var(--ink);background:rgba(255,255,255,0.75);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06)}
+.ksum .pa svg{width:11px;height:11px}
+.ktabs{display:flex;gap:4px;margin:0 18px;padding:3px;border-radius:20px;background:rgba(255,255,255,0.55);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.05)}
+.ktabs span{height:30px;padding:0 12px;border-radius:15px;display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500}
+.ktabs span i{font-style:normal;font-size:11px;color:var(--ter)}
+.ktabs .on{background:var(--accent);color:var(--on-accent);font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,0.45),0 2px 6px var(--accent-glow)}
+.ktabs .on i{color:inherit;opacity:0.7}
+.krows{display:flex;flex-direction:column;gap:10px;padding:0 18px}
+.krow{display:flex;align-items:center;gap:14px;padding:12px 10px 12px 12px;border-radius:22px;background:rgba(255,255,255,0.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.05),inset 0 1px 0 rgba(255,255,255,0.95),0 4px 14px rgba(40,30,80,0.05)}
+.ktile{width:52px;height:52px;border-radius:13px;display:grid;place-items:center;color:#fff;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,0.4),0 2px 5px rgba(0,0,0,0.16);background-image:linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0) 60%),linear-gradient(180deg,var(--t1),var(--t2))}
+.ktile svg{width:22px;height:22px}
+.c-video{--t1:#B48CF0;--t2:#8150D6}.c-app{--t1:#5AA2F8;--t2:#2C6FE0}.c-music{--t1:#F57A9A;--t2:#D4436A}.c-arch{--t1:#D6AE74;--t2:#A67840}
+.kmid{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.ktop{display:flex;align-items:baseline;gap:10px}
+.knm{flex:1;min-width:0;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpct{font-size:13px;font-weight:500;color:var(--sec);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ktr{height:6px;border-radius:3px;background:rgba(0,0,0,0.08);overflow:hidden}
+.kbar{height:6px;border-radius:3px;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 85%,transparent),var(--accent))}
+.kbar.paused{background:rgba(0,0,0,0.22)}
+.kst{display:flex;align-items:center;gap:8px;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;height:15px}
+.kst b{font-weight:600}
+.kst .s{color:var(--sec)}
+.kst.swap{display:grid;justify-items:start}
+.kst.swap>*{grid-area:1/1}
+.kbtn{width:36px;height:36px;border-radius:18px;display:grid;place-items:center;flex:none;background:rgba(255,255,255,0.8);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06),inset 0 1px 0 #fff,0 1px 3px rgba(40,30,80,0.06)}
+.kbtn svg{width:14px;height:14px}
+.kbb{position:absolute;left:8px;right:8px;bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.kseg{display:flex;align-items:center;gap:2px;padding:4px;border-radius:24px;background:rgba(255,255,255,0.72);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06),inset 0 1px 0 #fff,0 6px 18px rgba(40,30,80,0.08)}
+.kseg>span{height:38px;padding:0 10px;border-radius:19px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;white-space:nowrap}
+.kseg>span>svg{width:11px;height:11px}
+.kseg i{font-style:normal;min-width:21px;height:21px;padding:0 6px;border-radius:11px;display:grid;place-items:center;font-size:11px;font-weight:700;background:rgba(0,0,0,0.07)}
+.kseg>.on{background:var(--accent);color:var(--on-accent);box-shadow:inset 0 1px 0 rgba(255,255,255,0.45),0 4px 10px var(--accent-glow)}
+.kseg .on i{background:rgba(0,0,0,0.13)}
+.kspd{position:relative;height:46px;padding:0 14px;border-radius:23px;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.78);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06),inset 0 1px 0 #fff,0 6px 18px rgba(40,30,80,0.08)}
+.kspd .v{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kspd .v svg{width:11px;height:11px}
+.kspd>svg{width:15px;height:15px;color:var(--sec)}
+.kspd .lim{font-size:10.5px;font-weight:500;color:var(--sec);text-align:right;white-space:nowrap}
+
+/* ---------- 1 · video ---------- */
+.vid{background:#16131d;background-image:radial-gradient(circle at 25% 35%,#3b5bdb 0,rgba(59,91,219,0) 42%),radial-gradient(circle at 72% 65%,#e8590c 0,rgba(232,89,12,0) 36%),radial-gradient(circle at 40% 100%,#12b886 0,rgba(18,184,134,0) 34%)}
+@keyframes kb{0%{transform:scale(1.04) translate(0,0)}100%{transform:scale(1.12) translate(-14px,-8px)}}
+@keyframes play{0%{width:32%}100%{width:36%}}
+/* Eklentinin butonu ve kalite menüsü: ChromeExtension/menu.js'teki stillerin açık tema hâli. */
+.xg{position:absolute;top:36px;right:44px;display:flex;align-items:center;gap:4px;z-index:5;animation-name:s1Grp}
+.xd{width:22px;height:22px;border-radius:11px;display:grid;place-items:center;color:#fff;background:rgba(24,22,30,0.62);box-shadow:inset 0 1px 0 rgba(255,255,255,0.25),0 2px 8px rgba(0,0,0,0.25);animation-name:s1X}
+.xd svg{width:10px;height:10px}
+.xb{display:flex;align-items:center;gap:6px;height:34px;padding:0 10px 0 12px;border-radius:17px;font-size:13px;font-weight:600;color:var(--on-accent);background:color-mix(in srgb,var(--accent) 88%,transparent);box-shadow:inset 0 1px 0 rgba(255,255,255,0.45);animation-name:s1Press}
+.xb svg{width:15px;height:15px}.xb .ch{width:10px;height:10px;opacity:0.8}
+.xm{position:absolute;top:76px;right:44px;width:300px;height:259px;overflow:hidden;padding:6px;border-radius:18px;font-size:13px;line-height:1.3;z-index:6;color:var(--ink);background:rgba(255,255,255,0.78);-webkit-backdrop-filter:blur(36px) saturate(190%);backdrop-filter:blur(36px) saturate(190%);border:1px solid rgba(0,0,0,0.06);box-shadow:inset 0 1px 0 rgba(255,255,255,0.95),0 24px 60px rgba(40,30,80,0.22);transform-origin:top right;opacity:0;animation-name:s1Menu;animation-timing-function:cubic-bezier(.2,1.1,.4,1)}
+.xo{animation-name:s1Opts}
+.xhd{display:flex;align-items:center;gap:10px;padding:8px 8px 10px}
+.xhd .t{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:#fff;background:linear-gradient(#B48CF0,#8150D6);box-shadow:inset 0 1px 0 rgba(255,255,255,0.4),0 1px 3px rgba(0,0,0,0.3)}
+.xhd .t svg{width:14px;height:14px}
+.xhd b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px}
+.xhd small{display:block;color:var(--sec);font-size:11.5px;margin-top:1px}
+.xl{position:relative}
+.xop{position:relative;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:10px}
+.xop.sel{background:rgba(0,0,0,0.07)}
+.xop .mk{width:14px;display:grid;place-items:center;color:var(--accent-text)}
+.xop .mk svg{width:12px;height:12px}
+.xop.au .mk{color:#F57A9A}
+.xop .nm{flex:1;font-weight:500}
+.xop .nm strong{color:var(--accent-text);font-weight:600}
+.xop .tg{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:5px;vertical-align:1px;background:rgba(0,0,0,0.07);font-size:10px;font-weight:700;letter-spacing:0.3px}
+.xop .sz{color:var(--sec);font-size:12px;font-variant-numeric:tabular-nums}
+.xhov{position:absolute;left:0;right:0;top:0;height:32px;border-radius:10px;background:rgba(0,0,0,0.05);opacity:0;animation-name:s1Hov;animation-timing-function:cubic-bezier(.3,.7,.2,1)}
+.xdiv{height:1px;margin:6px 10px;background:rgba(0,0,0,0.08)}
+.xft{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px 2px;color:var(--ter);font-size:11.5px}
+.xft svg{width:11px;height:11px}
+.xok{position:absolute;left:6px;right:6px;top:6px;padding:8px 10px;color:var(--ok);opacity:0;animation-name:s1Sent}
+@keyframes s1Grp{0%,5%{opacity:0;transform:translateY(-6px)}10%,100%{opacity:1;transform:none}}
+@keyframes s1X{0%,16%{opacity:0;transform:scale(.8)}20%,56%{opacity:1;transform:none}62%,100%{opacity:0;transform:scale(.8)}}
+@keyframes s1Press{0%,23.5%{transform:none}24.5%{transform:scale(.94)}26%,100%{transform:none}}
+@keyframes s1Menu{0%,25%{opacity:0;transform:translateY(-6px) scale(.92);height:259px}29%,46%{opacity:1;transform:none;height:259px}49.5%,53%{opacity:1;transform:none;height:44px}57%,100%{opacity:0;transform:translateY(-4px) scale(.96);height:44px}}
+@keyframes s1Opts{0%,46%{opacity:1}47.5%,100%{opacity:0}}
+@keyframes s1Sent{0%,47%{opacity:0}49.5%,100%{opacity:1}}
+@keyframes s1Hov{0%,30%{opacity:0;transform:none}33%,35%{opacity:1;transform:none}40%,100%{opacity:1;transform:translateY(32px)}}
+@keyframes s1Cur{0%{left:190px;top:220px;opacity:0;transform:scale(1)}6%{left:210px;top:200px;opacity:1}20%,23%{left:466px;top:46px;transform:scale(1)}24.5%{transform:scale(.82)}26%{transform:scale(1)}34%{left:330px;top:146px}40%,43%{left:330px;top:170px;transform:scale(1)}44.5%{transform:scale(.82)}46%{transform:scale(1)}54%{left:330px;top:170px;opacity:1}60%,100%{left:360px;top:205px;opacity:0;transform:scale(1)}}
+@keyframes s1RipA{0%,23.6%{opacity:0;transform:scale(.2)}25%{opacity:.8;transform:scale(.6)}32%,100%{opacity:0;transform:scale(1.6)}}
+@keyframes s1RipB{0%,44%{opacity:0;transform:scale(.2)}45.4%{opacity:.8;transform:scale(.6)}52%,100%{opacity:0;transform:scale(1.6)}}
+@keyframes s1Row{0%,52%{opacity:0;transform:translateY(18px) scale(.97)}58%,100%{opacity:1;transform:none}}
+@keyframes s1Bar{0%,58%{width:0}84%,100%{width:100%}}
+@keyframes s1Pct{0%,58%{transform:none}84%,100%{transform:translateY(-165px)}}
+@keyframes s1Eta{0%,58%{transform:none}84%,100%{transform:translateY(-75px)}}
+@keyframes jit4{to{transform:translateY(-60px)}}
+@keyframes s1Live{0%,84%{opacity:1}86%,100%{opacity:0}}
+@keyframes s1Merge{0%,84%{opacity:0}86%,100%{opacity:1}}
+
+/* ---------- 2 · 8 bağlantı ---------- */
+.lens{position:absolute;left:78px;top:278px;width:404px;padding:14px 16px 12px;border-radius:20px;background:rgba(255,255,255,0.82);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:0 20px 50px rgba(40,30,80,0.16),inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 40%,transparent),inset 0 1px 0 #fff;animation-name:s2Lens;animation-timing-function:cubic-bezier(.2,1.2,.4,1)}
+.lens .hd{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--sec)}
+.lens .hd i{width:7px;height:7px;border-radius:4px;background:rgba(0,0,0,0.15);animation-name:dotOn}
+.lens .segs{display:flex;gap:4px;height:14px;margin-top:12px}
+.lens .segs>div{flex:1;border-radius:4px;background:rgba(0,0,0,0.07);overflow:hidden}
+.lens .segs>div>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent-light),var(--accent))}
+.lens .nums{display:flex;gap:4px;margin-top:7px;font-size:10.5px;font-weight:600;color:var(--ter);text-align:center}
+.lens .nums span{flex:1}
+@keyframes s2Lens{0%,6%{opacity:0;transform:translateY(-12px) scale(.96)}14%,100%{opacity:1;transform:none}}
+@keyframes dotOn{0%,10%{background:rgba(0,0,0,0.15);box-shadow:none}13%,100%{background:#34C759;box-shadow:0 0 0 3px rgba(52,199,89,0.2)}}
+@keyframes segA{0%,14%{width:0}72%,100%{width:100%}}
+@keyframes segB{0%,15%{width:0}82%,100%{width:100%}}
+@keyframes segC{0%,14%{width:0}90%,100%{width:100%}}
+@keyframes segD{0%,16%{width:0}96%,100%{width:100%}}
+@keyframes s2Bar{0%{width:12%}100%{width:78%}}
+@keyframes s2Pct{to{transform:translateY(-165px)}}
+@keyframes s2Spd{0%,14%{transform:none}50%,100%{transform:translateY(-45px)}}
+
+/* ---------- 3 · torrent ---------- */
+.fw{position:absolute;left:32px;top:96px;width:168px;height:196px;border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.88);box-shadow:0 24px 60px rgba(40,30,80,0.16),0 2px 6px rgba(40,30,80,0.06),inset 0 0 0 1px rgba(0,0,0,0.06)}
+.fw .tb{height:30px;display:flex;align-items:center;gap:6px;padding:0 10px;position:relative;box-shadow:inset 0 -1px 0 rgba(0,0,0,0.05);background:rgba(250,250,252,0.8)}
+.fw .tb i{width:10px;height:10px;border-radius:5px;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15)}
+.fw .tb b{position:absolute;left:40px;right:6px;text-align:center;font-size:11.5px;font-weight:600}
+.fw .src{height:166px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;animation-name:tSrc}
+.fw .src span{font-size:11px;font-weight:600}
+.k3{left:216px;top:44px;height:430px;transform:scale(.678);transform-origin:top left}
+.tnew{overflow:hidden;animation-name:tNew;animation-timing-function:cubic-bezier(.2,1,.3,1)}
+@keyframes tGrp{0%{transform:translate(300px,420px);opacity:0}6%{opacity:1}12%,16%{transform:translate(116px,184px)}40%,46%{transform:translate(380px,196px)}56%{transform:translate(410px,236px);opacity:1}60%,100%{transform:translate(410px,236px);opacity:0}}
+@keyframes tGhost{0%,13%{opacity:0;transform:scale(.9) rotate(0)}16%{opacity:.95;transform:scale(1.06) rotate(-5deg)}40%{opacity:.95;transform:scale(1.02) rotate(3deg)}45%{opacity:.95;transform:scale(1) rotate(0)}49%,100%{opacity:0;transform:scale(.3) rotate(0)}}
+@keyframes tPress{0%,13%{transform:scale(1)}14.5%,45%{transform:scale(.86)}46.5%,100%{transform:scale(1)}}
+@keyframes tBadge{0%,30%{opacity:0;transform:scale(.5)}34%,45%{opacity:1;transform:none}47%,100%{opacity:0;transform:scale(.5)}}
+@keyframes tSrc{0%,14%{opacity:1}16%,46%{opacity:.35}50%,100%{opacity:1}}
+@keyframes tNew{0%,47%{max-height:0;opacity:0;margin-bottom:-10px}55%,100%{max-height:80px;opacity:1;margin-bottom:0}}
+@keyframes tOld{0%,52%{opacity:1}54%,100%{opacity:0}}
+@keyframes tNow{0%,52%{opacity:0}54%,100%{opacity:1}}
+@keyframes tConn{0%,63%{opacity:1}65%,100%{opacity:0}}
+@keyframes tLive{0%,63%{opacity:0}65%,100%{opacity:1}}
+@keyframes tBar{0%,64%{width:0}100%{width:22%}}
+@keyframes tPct{0%,64%{transform:none}100%{transform:translateY(-75px)}}
+
+/* ---------- 4 · hız sınırı (1.8.7: hız göstergesine tıklayınca) ---------- */
+.k4{left:50px;top:24px;height:392px}
+.pop{position:absolute;left:300px;top:66px;width:230px;padding:8px;border-radius:12px;z-index:8;background:rgba(244,243,246,0.94);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);box-shadow:0 14px 40px rgba(0,0,0,0.18),0 0 0 .5px rgba(0,0,0,0.18),inset 0 1px 0 rgba(255,255,255,0.8);transform-origin:132px 100%;opacity:0;animation-name:s4Pop;animation-timing-function:cubic-bezier(.2,1.1,.4,1)}
+.pop::after{content:'';position:absolute;left:125px;bottom:-7px;width:14px;height:14px;background:rgba(244,243,246,0.98);transform:rotate(45deg);box-shadow:.5px .5px 0 rgba(0,0,0,0.14);border-radius:0 0 3px 0}
+.pop .hd{height:24px;padding:0 10px;display:flex;align-items:center;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--ter)}
+.pop .ls{position:relative}
+.pop .op{position:relative;height:34px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;font-size:13px;border-radius:8px}
+.pop .op svg{width:12px;height:12px;color:var(--accent-text)}
+.pop .sel,.pop .hov{position:absolute;left:0;right:0;top:0;height:34px;border-radius:8px}
+.pop .sel{background:rgba(0,0,0,0.08);animation-name:s4Sel}
+.pop .hov{background:rgba(0,0,0,0.05);opacity:0;animation-name:s4Hov}
+.pop .ca{animation-name:s4ChkA}.pop .cb5{opacity:0;animation-name:s4ChkB}
+.k4 .kspd{animation-name:s4PillBg}
+.k4 .kspd>svg{animation-name:s4Gauge}
+.sbox{position:relative;width:88px;height:32px}
+.sbox>div{position:absolute;right:0;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:1px}
+.fast{animation-name:s4Fast}.slow{opacity:0;animation-name:s4Slow}
+@keyframes s4Cur{0%{left:250px;top:200px;opacity:0;transform:scale(1)}6%{left:260px;top:210px;opacity:1}24%,27%{left:426px;top:370px;transform:scale(1)}28.5%{transform:scale(.82)}30%{transform:scale(1)}40%,47%{left:360px;top:214px;transform:scale(1)}48.5%{transform:scale(.82)}50%{transform:scale(1)}58%{left:360px;top:214px;opacity:1}64%,100%{left:392px;top:250px;opacity:0;transform:scale(1)}}
+@keyframes s4RipA{0%,28%{opacity:0;transform:scale(.2)}29.4%{opacity:.8;transform:scale(.6)}36%,100%{opacity:0;transform:scale(1.6)}}
+@keyframes s4RipB{0%,48%{opacity:0;transform:scale(.2)}49.4%{opacity:.8;transform:scale(.6)}56%,100%{opacity:0;transform:scale(1.6)}}
+@keyframes s4Pop{0%,29%{opacity:0;transform:translateY(6px) scale(.94)}33%,51.5%{opacity:1;transform:none}55%,100%{opacity:0;transform:translateY(4px) scale(.97)}}
+@keyframes s4Hov{0%,39%{opacity:0;transform:translateY(102px)}42%,51%{opacity:1;transform:translateY(102px)}53%,100%{opacity:0;transform:translateY(102px)}}
+@keyframes s4Sel{0%,48.6%{transform:none}49.2%,100%{transform:translateY(102px)}}
+@keyframes s4ChkA{0%,48.6%{opacity:1}49.2%,100%{opacity:0}}
+@keyframes s4ChkB{0%,48.6%{opacity:0}49.2%,100%{opacity:1}}
+@keyframes s4PillBg{0%,28%{background:rgba(255,255,255,0.78)}30%,54%{background:rgba(236,236,240,0.92)}57%,100%{background:rgba(255,255,255,0.78)}}
+@keyframes s4Gauge{0%,54%{color:rgba(0,0,0,0.62)}58%,100%{color:var(--accent-text)}}
+@keyframes s4Fast{0%,53%{opacity:1;transform:none}57%,100%{opacity:0;transform:translateY(-8px)}}
+@keyframes s4Slow{0%,55%{opacity:0;transform:translateY(8px)}59%,100%{opacity:1;transform:none}}
+@keyframes jit3{to{transform:translateY(-45px)}}
+
+/* ---------- 5 · menü çubuğu ---------- */
+.desk{position:absolute;left:32px;top:24px;width:496px;height:330px;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#FFD3B0 0%,#E7DDFF 55%,#CBE9FF 100%);box-shadow:0 20px 50px rgba(40,30,80,0.12),inset 0 0 0 1px rgba(0,0,0,0.05)}
+.mb{position:absolute;left:0;right:0;top:0;height:28px;background:rgba(255,255,255,0.55);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);font-size:12.5px;font-weight:500;font-family:var(--sys)}
+.mb .l{position:absolute;left:16px;top:6px;display:flex;gap:16px}
+.si{position:absolute;right:94px;top:2px;width:26px;height:24px;border-radius:6px;animation-name:iconHi}
+.si svg{position:absolute;left:4px;top:3px;width:18px;height:18px}
+.k5{right:8px;top:32px;height:322px;transform:scale(.56);transform-origin:top right;opacity:0;animation-name:panel5;animation-timing-function:cubic-bezier(.2,1.2,.4,1)}
+.note5{position:absolute;top:36px;right:10px;width:286px;padding:11px 12px;border-radius:18px;display:flex;gap:10px;align-items:center;font-family:var(--sys);background:rgba(246,246,248,0.86);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);box-shadow:0 14px 36px rgba(40,30,80,0.18),inset 0 0 0 .5px rgba(0,0,0,0.12),inset 0 1px 0 rgba(255,255,255,0.9);opacity:0;animation-name:notif;animation-timing-function:cubic-bezier(.2,1.3,.4,1)}
+.note5 img{width:36px;height:36px;flex:none}
+.note5 .tx{flex:1;min-width:0;font-size:12.5px;line-height:1.3}
+.note5 .tx b{display:block;font-weight:600}
+.note5 .tx span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note5 small{align-self:flex-start;font-size:11px;color:var(--ter)}
+@keyframes ring5{0%{stroke-dashoffset:45}50%,100%{stroke-dashoffset:0}}
+@keyframes ringOut5{0%,50%{opacity:1}52%,100%{opacity:0}}
+@keyframes check5{0%,51%{opacity:0;transform:scale(.6)}55%,100%{opacity:1;transform:none}}
+@keyframes iconHi{0%,27.5%{background:transparent}28.5%,58%{background:rgba(0,0,0,0.1)}62%,100%{background:transparent}}
+@keyframes panel5{0%,29%{opacity:0;transform:translateY(-6px) scale(.53)}33%,58%{opacity:1;transform:scale(.56)}62%,100%{opacity:0;transform:scale(.54)}}
+@keyframes p5Bar{0%{width:72%}50%,100%{width:100%}}
+@keyframes p5Pct{0%{transform:none}50%,100%{transform:translateY(-120px)}}
+@keyframes notif{0%,62%{opacity:0;transform:translateX(40px)}68%,100%{opacity:1;transform:none}}
+@keyframes mCur{0%{left:250px;top:200px;opacity:0;transform:scale(1)}6%{opacity:1}24%,27%{left:387px;top:12px;transform:scale(1)}28.5%{transform:scale(.82)}30%{transform:scale(1)}42%{left:330px;top:120px}55%{left:330px;top:120px;opacity:1}59%,100%{left:330px;top:120px;opacity:0;transform:scale(1)}}
+@keyframes rD{0%,28%{opacity:0;transform:scale(.2)}29.4%{opacity:.8;transform:scale(.6)}36%,100%{opacity:0;transform:scale(1.6)}}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none !important}
+  .s1{opacity:1}
+  .s1 .xm,.s1 .xok{opacity:0}
+}
+@media (max-width: 960px){
+  .wrap{padding:0 16px}
+  .split{flex-direction:column !important;align-items:flex-start !important;gap:48px !important;padding-top:32px !important}
+  .h1{font-size:44px;letter-spacing:-1.4px}
+  .sub{font-size:17px}
+  .ctas{flex-direction:column;width:100%}
+  .ctas>a{width:100%}
+  /* Sahne telefonda sütun genişliğine sığacak kadar küçülür (oranı aşağıdaki betik hesaplar). */
+  .stagewrap{width:100%;max-width:560px;aspect-ratio:560/520}
+  .stage{transform:scale(var(--s,0.6125));transform-origin:top left}
+  .b1,.b2,.b3,.b4,.b5{width:420px;height:420px}
+}
+</style>
+</head>
+<body>
+
+<!-- Ortak ikonlar (SF Symbols'e benzer; uygulama ve eklentideki çizimlerle aynı) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-dl" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1ZM5 19h14a1 1 0 1 1 0 2H5a1 1 0 1 1 0-2Z"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path fill="currentColor" d="M6.3 9.3a1 1 0 0 1 1.4 0L12 13.58l4.3-4.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 0 1 0-1.42Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path fill="currentColor" d="M20.7 6.3a1 1 0 0 1 0 1.4l-10 10a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.4l4.3 4.29 9.3-9.3a1 1 0 0 1 1.4 0Z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3.5v11.25a3.25 3.25 0 1 1-2-3V7.6l-8 1.8v7.35a3.25 3.25 0 1 1-2-3V6.5a1 1 0 0 1 .78-.98l10-2.25A1 1 0 0 1 19 4.25Z"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M13.3 5.3a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.4-1.4L17.58 13H4a1 1 0 1 1 0-2h13.58l-4.3-4.3a1 1 0 0 1 0-1.4Z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path fill="currentColor" d="M5.3 5.3a1 1 0 0 1 1.4 0L12 10.58l5.3-5.3a1 1 0 1 1 1.4 1.42L13.42 12l5.3 5.3a1 1 0 0 1-1.42 1.4L12 13.42l-5.3 5.3a1 1 0 0 1-1.4-1.42L10.58 12l-5.3-5.3a1 1 0 0 1 0-1.4Z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><g fill="currentColor"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></g></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3.2v11.8a3 3 0 1 1-2-2.83V7.4l-7 1.5v8.1a3 3 0 1 1-2-2.83V6.5a1 1 0 0 1 .8-.98l9-1.9A1 1 0 0 1 19 3.2z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><g fill="currentColor"><rect x="6" y="4.5" width="4.2" height="15" rx="1.3"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.3"/></g></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.2 13.8a4 4 0 0 0 5.66 0l3.3-3.3a4 4 0 0 0-5.66-5.66l-1.2 1.2"/><path d="M13.8 10.2a4 4 0 0 0-5.66 0l-3.3 3.3a4 4 0 0 0 5.66 5.66l1.2-1.2"/></g></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" stroke="currentColor" stroke-width="0.6" stroke-linejoin="round" d="M19.07 9.81 L21.86 10.31 L21.86 13.69 L19.07 14.19 L18.55 15.45 L20.17 17.77 L17.77 20.17 L15.45 18.55 L14.19 19.07 L13.69 21.86 L10.31 21.86 L9.81 19.07 L8.55 18.55 L6.23 20.17 L3.83 17.77 L5.45 15.45 L4.93 14.19 L2.14 13.69 L2.14 10.31 L4.93 9.81 L5.45 8.55 L3.83 6.23 L6.23 3.83 L8.55 5.45 L9.81 4.93 L10.31 2.14 L13.69 2.14 L14.19 4.93 L15.45 5.45 L17.77 3.83 L20.17 6.23 L18.55 8.55Z M12 8.6a3.4 3.4 0 1 0 0 6.8a3.4 3.4 0 1 0 0-6.8Z"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.9"/><g fill="currentColor"><circle cx="7" cy="12.8" r="1"/><circle cx="7.9" cy="9.2" r="1"/><circle cx="10.4" cy="7.1" r="1"/><circle cx="13.6" cy="7.1" r="1"/><circle cx="16.1" cy="9.2" r="1"/><circle cx="17" cy="12.8" r="1"/><circle cx="12" cy="14.2" r="1.7"/></g><path d="M12 14.2 8.6 10.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v15M6 13l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-tick" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5L19.5 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-cur" viewBox="0 0 20 24"><path d="M2 1.5v18.2l4.6-4.4 2.9 6.6 3-1.3-2.9-6.5h6.4z" fill="#000" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-torrent" viewBox="0 0 48 58"><path d="M4 2h28l12 12v40a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fff" stroke="rgba(0,0,0,0.15)"/><path d="M32 2v10a2 2 0 0 0 2 2h10" fill="none" stroke="rgba(0,0,0,0.15)"/><rect x="5" y="34" width="38" height="12" rx="3" fill="#A67840"/><text x="24" y="42.8" text-anchor="middle" font-size="6.6" font-weight="800" fill="#fff" font-family="Inter, sans-serif">TORRENT</text></symbol>
+</svg>
+
+<div class="pg">
+<div class="blob b1" aria-hidden="true"></div>
+<div class="blob b2" aria-hidden="true"></div>
+<div class="blob b3" aria-hidden="true"></div>
+<div class="blob b4" aria-hidden="true"></div>
+<div class="blob b5" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="wrap" style="height:80px;display:flex;align-items:center;justify-content:space-between">
+  <a href="./" style="display:flex;align-items:center;gap:10px">
+    <img src="app-icon.png" width="36" height="36" alt="" style="filter:drop-shadow(0 4px 10px var(--accent-glow))">
+    <span style="font-size:16px;font-weight:700">KD Download Manager</span>
+  </a>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="glass" role="group" aria-label="Dil / Language" style="display:flex;padding:3px;border-radius:18px">
+      <button class="btn lang" data-lang="tr" style="height:30px;padding:0 11px;border-radius:15px;font-size:12.5px;font-weight:700">TR</button>
+      <button class="btn lang" data-lang="en" style="height:30px;padding:0 11px;border-radius:15px;font-size:12.5px;font-weight:700">EN</button>
+    </div>
+    <a href="https://github.com/kadirgl/KDDownloadManager" aria-label="GitHub" class="glass" style="width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.3-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5a3.9 3.9 0 0 1 1-2.7 3.6 3.6 0 0 1 .1-2.7s.8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7a3.9 3.9 0 0 1 1 2.7c0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg></a>
+  </div>
+</header>
+
+<main class="wrap split" style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:64px;padding-top:24px;padding-bottom:64px">
+
+<!-- SOL -->
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:24px;max-width:540px">
+  <h1 class="h1" data-t="h1">İndirmenin en şık yolu.</h1>
+  <p class="sub mut" data-t="sub">Mac için indirme yöneticisi. Video, torrent ve büyük dosyalar; tek tıkla, tam hızda.</p>
+  <div class="ctas" style="display:flex;gap:12px;margin-top:8px">
+    <a class="cta" id="download" href="https://github.com/kadirgl/KDDownloadManager/releases/latest" style="color:#fff;background:#1d1d1f;box-shadow:0 14px 30px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10"/><path d="M7.5 10L12 14.5 16.5 10"/><path d="M5 19h14"/></svg><span data-t="dl">macOS için indir</span><small id="version"></small></a>
+    <a class="cta glass" href="https://github.com/kadirgl/KDDownloadManager/releases" style="font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg><span data-t="all">Tüm sürümler</span></a>
+  </div>
+  <p class="mut" style="margin:0;font-size:13px;line-height:1.7"><span data-t="req1">macOS 14 Sonoma ve üstü · Apple Silicon (M1 ve sonrası)</span><br><span data-t="req2">Ücretsiz · Apple onaylı · Kendini güncel tutar</span></p>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px" aria-hidden="true">
+    <span class="pill" style="animation-delay:0s" data-t="p1">Video</span>
+    <span class="pill" style="animation-delay:6s" data-t="p2">8 bağlantı</span>
+    <span class="pill" style="animation-delay:12s" data-t="p3">Torrent</span>
+    <span class="pill" style="animation-delay:18s" data-t="p4">Hız sınırı</span>
+    <span class="pill" style="animation-delay:24s" data-t="p5">Menü çubuğu</span>
+  </div>
+</div>
+
+<!-- SAĞ: uygulamanın gerçek ekranlarıyla animasyon -->
+<div class="stagewrap">
+<div class="stage ui" role="img" data-t-label="stageAlt" aria-label="Özellikleri sırayla gösteren animasyon: video indirme, 8 bağlantı, torrent, hız sınırı, menü çubuğu">
+
+<!-- 1 · VİDEO: eklentinin İndir butonu ve kalite menüsü -->
+<div class="scene s1" style="animation-delay:0s">
+  <div class="vid" style="position:absolute;left:32px;top:24px;width:496px;height:279px;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(20,10,40,0.25)">
+    <div class="vid" aria-hidden="true" style="position:absolute;inset:-24px;animation:kb 5s linear infinite"></div>
+    <div style="position:absolute;left:0;right:0;top:0;height:70px;background:linear-gradient(180deg,rgba(0,0,0,0.45),rgba(0,0,0,0))"></div>
+    <span style="position:absolute;left:16px;top:16px;font-size:13px;font-weight:600;color:#fff" data-t="vTitle">Konferans 2026 – Açılış konuşması</span>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:70px;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,0.5))"></div>
+    <div style="position:absolute;left:16px;right:16px;bottom:40px;height:4px;border-radius:2px;background:rgba(255,255,255,0.3)"><div style="height:4px;border-radius:2px;background:#fff;animation:play 5s linear infinite"></div></div>
+    <div style="position:absolute;left:16px;bottom:12px;display:flex;align-items:center;gap:12px;color:#fff;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>4:12 / 12:48</div>
+  </div>
+  <div class="xg">
+    <span class="xd"><svg><use href="#i-close"/></svg></span>
+    <span class="xb"><svg><use href="#i-dl"/></svg><span data-t="dlShort">İndir</span><svg class="ch"><use href="#i-chev"/></svg></span>
+  </div>
+  <div class="xm">
+    <div class="xo">
+      <div class="xhd"><span class="t"><svg><use href="#i-play"/></svg></span><div style="min-width:0"><b data-t="vTitle">Konferans 2026 – Açılış konuşması</b><small><span>12:48 · </span><span data-t="pick">Kalite seç</span></small></div></div>
+      <div class="xl">
+        <div class="xhov"></div>
+        <div class="xop sel"><span class="mk"><svg><use href="#i-check"/></svg></span><span class="nm"><strong data-t="auto">Otomatik</strong> <span data-t="rec">(önerilen)</span></span><span class="sz">~118 MB</span></div>
+        <div class="xop"><span class="mk"></span><span class="nm">1080p<span class="tg">HD</span></span><span class="sz">~118 MB</span></div>
+        <div class="xop"><span class="mk"></span><span class="nm">720p</span><span class="sz">~63 MB</span></div>
+        <div class="xop"><span class="mk"></span><span class="nm">480p</span><span class="sz">~38 MB</span></div>
+        <div class="xdiv"></div>
+        <div class="xop au"><span class="mk"><svg><use href="#i-note"/></svg></span><span class="nm"><span data-t="audio">Sadece ses</span><span class="tg">MP3</span></span><span class="sz">~12 MB</span></div>
+      </div>
+      <div class="xft"><svg><use href="#i-arrow"/></svg><span data-t="sendTo">KD Download Manager'a gönderilir</span></div>
+    </div>
+    <div class="xok" data-t="sent">KD Download Manager'a gönderildi.</div>
+  </div>
+  <div class="rip" style="left:471px;top:53px;animation-name:s1RipA;animation-timing-function:ease-out"></div>
+  <div class="rip dark" style="left:335px;top:176px;animation-name:s1RipB;animation-timing-function:ease-out"></div>
+  <svg class="cur" style="animation-name:s1Cur;animation-timing-function:cubic-bezier(.45,0,.2,1)"><use href="#i-cur"/></svg>
+
+  <div class="krow" style="position:absolute;left:32px;right:32px;top:319px;background:rgba(255,255,255,0.85);box-shadow:0 12px 30px rgba(40,30,80,0.12),inset 0 0 0 1px rgba(0,0,0,0.05);opacity:0;animation-name:s1Row;animation-timing-function:cubic-bezier(.2,1.3,.4,1)">
+    <span class="ktile c-video"><svg><use href="#i-play"/></svg></span>
+    <div class="kmid">
+      <div class="ktop"><span class="knm" data-t="vFile">Konferans_2026_1080p.mp4</span><span class="kpct"><span class="pp">%</span><span class="tk r" style="--h:15px"><span style="animation-name:s1Pct;animation-timing-function:steps(11)"><b>0</b><b>9</b><b>18</b><b>27</b><b>36</b><b>45</b><b>55</b><b>64</b><b>73</b><b>82</b><b>91</b><b>100</b></span></span><span class="ps"></span></span></div>
+      <div class="ktr"><div class="kbar" style="width:0;animation-name:s1Bar;animation-timing-function:linear"></div></div>
+      <div class="kst swap">
+        <span style="display:flex;gap:8px;animation-name:s1Live"><b class="num"><span class="tk"><span style="animation:jit4 2s steps(4) infinite"><b>9,2</b><b>11,4</b><b>10,1</b><b>12,6</b><b>9,2</b></span></span> MB/sn · <span class="tk"><span style="animation-name:s1Eta;animation-timing-function:steps(5)"><b>~12 sn</b><b>~10 sn</b><b>~8 sn</b><b>~6 sn</b><b>~4 sn</b><b>~2 sn</b></span></span></b><span class="s num">118 MB</span></span>
+        <span style="display:flex;gap:8px;opacity:0;animation-name:s1Merge"><span class="s" data-t="merging">Birleştiriliyor…</span><span class="s num">118 MB</span></span>
+      </div>
+    </div>
+    <span class="kbtn"><svg><use href="#i-pause"/></svg></span>
+  </div>
+  <div class="cap"><b data-t="c1">Videoyu tek tıkla indir</b><span data-t="c1s">Eklentinin İndir butonundan kaliteyi seç, gerisini uygulama halleder.</span></div>
+</div>
+
+<!-- 2 · 8 BAĞLANTI -->
+<div class="scene" style="animation-delay:6s">
+  <div class="kp" style="left:50px;top:34px;height:254px">
+    <div class="kh"><b>KD Download Manager</b><span class="cbs"><span class="cb"><svg><use href="#i-link"/></svg></span><span class="cb"><svg><use href="#i-gear"/></svg></span></span></div>
+    <div class="ktabs" style="margin-top:16px"><span class="on"><span data-t="tAll">Tümü</span> <i>1</i></span><span><span data-t="tApp">Uygulama</span> <i>1</i></span></div>
+    <div class="ksum" style="margin:12px 0 10px"><span data-t="sum1">1 iniyor</span><span class="pa"><svg><use href="#i-pause"/></svg><span data-t="pauseAll">Tümünü duraklat</span></span></div>
+    <div class="krows">
+      <div class="krow">
+        <span class="ktile c-app"><svg><use href="#i-grid"/></svg></span>
+        <div class="kmid">
+          <div class="ktop"><span class="knm">macOS_Tahoe_26.1.dmg</span><span class="kpct"><span class="pp">%</span><span class="tk r"><span style="animation-name:s2Pct;animation-timing-function:steps(11)"><b>12</b><b>18</b><b>24</b><b>30</b><b>36</b><b>42</b><b>48</b><b>54</b><b>60</b><b>66</b><b>72</b><b>78</b></span></span><span class="ps"></span></span></div>
+          <div class="ktr"><div class="kbar" style="animation-name:s2Bar;animation-timing-function:linear"></div></div>
+          <div class="kst"><b class="num"><span class="tk"><span style="animation-name:s2Spd;animation-timing-function:steps(3)"><b>12,4 MB/sn · ~14 dk</b><b>24,8 MB/sn · ~6 dk</b><b>36,1 MB/sn · ~4 dk</b><b>48,2 MB/sn · ~2 dk</b></span></span></b><span class="s num">13 GB</span></div>
+        </div>
+        <span class="kbtn"><svg><use href="#i-pause"/></svg></span>
+      </div>
+    </div>
+  </div>
+  <div class="lens">
+    <div class="hd"><span data-t="conns">Bağlantılar</span>
+      <i style="animation-delay:0s"></i><i style="animation-delay:.08s"></i><i style="animation-delay:.16s"></i><i style="animation-delay:.24s"></i><i style="animation-delay:.32s"></i><i style="animation-delay:.4s"></i><i style="animation-delay:.48s"></i><i style="animation-delay:.56s"></i>
+      <span style="margin-left:auto">8/8</span></div>
+    <div class="segs">
+      <div><i style="animation-name:segB;animation-timing-function:ease-out"></i></div>
+      <div><i style="animation-name:segD;animation-timing-function:ease-in-out"></i></div>
+      <div><i style="animation-name:segA;animation-timing-function:ease-out"></i></div>
+      <div><i style="animation-name:segC;animation-timing-function:linear"></i></div>
+      <div><i style="animation-name:segB;animation-timing-function:ease-in"></i></div>
+      <div><i style="animation-name:segA;animation-timing-function:ease-in-out"></i></div>
+      <div><i style="animation-name:segD;animation-timing-function:ease-out"></i></div>
+      <div><i style="animation-name:segC;animation-timing-function:ease-out"></i></div>
+    </div>
+    <div class="nums"><span>#1</span><span>#2</span><span>#3</span><span>#4</span><span>#5</span><span>#6</span><span>#7</span><span>#8</span></div>
+  </div>
+  <div class="cap"><b data-t="c2">8 bağlantı, tek dosya</b><span data-t="c2s">Dosya 8 parçaya bölünür, hepsi aynı anda iner.</span></div>
+</div>
+
+<!-- 3 · TORRENT: sürükle, panele bırak -->
+<div class="scene" style="animation-delay:12s">
+  <div class="fw">
+    <div class="tb"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i><b data-t="dlFolder">İndirilenler</b></div>
+    <div class="src"><svg width="48" height="58" viewBox="0 0 48 58"><use href="#i-torrent"/></svg><span>ubuntu-26.04.torrent</span></div>
+  </div>
+  <div class="kp k3">
+    <div class="kh"><b>KD Download Manager</b><span class="cbs"><span class="cb"><svg><use href="#i-link"/></svg></span><span class="cb"><svg><use href="#i-gear"/></svg></span></span></div>
+    <div class="ksum" style="margin:16px 0 12px"><span class="swap"><span style="animation-name:tOld" data-t="sum3a">1 iniyor · 1 duraklatıldı</span><span style="opacity:0;animation-name:tNow" data-t="sum3b">2 iniyor · 1 duraklatıldı</span></span><span class="pa"><svg><use href="#i-pause"/></svg><span data-t="pauseAll">Tümünü duraklat</span></span></div>
+    <div class="krows">
+      <div class="tnew"><div class="krow" style="box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 55%,transparent),0 4px 14px rgba(40,30,80,0.05)">
+        <span class="ktile c-app"><svg><use href="#i-grid"/></svg></span>
+        <div class="kmid">
+          <div class="ktop"><span class="knm">ubuntu-26.04-desktop-amd64.iso</span><span class="kpct"><span class="pp">%</span><span class="tk r"><span style="animation-name:tPct;animation-timing-function:steps(5)"><b>0</b><b>4</b><b>9</b><b>13</b><b>18</b><b>22</b></span></span><span class="ps"></span></span></div>
+          <div class="ktr"><div class="kbar" style="width:0;animation-name:tBar;animation-timing-function:linear"></div></div>
+          <div class="kst swap">
+            <span style="display:flex;gap:8px;animation-name:tConn"><span class="s" data-t="connecting">Bağlanıyor…</span><span class="s num">6,2 GB</span></span>
+            <span style="display:flex;gap:8px;opacity:0;animation-name:tLive"><b class="num"><span class="tk"><span style="animation:jit3 1.6s steps(3) infinite"><b>6,1</b><b>7,4</b><b>6,8</b><b>6,1</b></span></span> MB/sn · ~14 dk</b><span class="s num">6,2 GB</span></span>
+          </div>
+        </div>
+        <span class="kbtn"><svg><use href="#i-pause"/></svg></span>
+      </div></div>
+      <div class="krow">
+        <span class="ktile c-app"><svg><use href="#i-grid"/></svg></span>
+        <div class="kmid">
+          <div class="ktop"><span class="knm">macOS_Tahoe_26.1.dmg</span><span class="kpct"><span class="pp">%</span>64<span class="ps"></span></span></div>
+          <div class="ktr"><div class="kbar" style="width:64%"></div></div>
+          <div class="kst"><b class="num">8,9 MB/sn · ~9 dk</b><span class="s num">13 GB</span></div>
+        </div>
+        <span class="kbtn"><svg><use href="#i-pause"/></svg></span>
+      </div>
+      <div class="krow">
+        <span class="ktile c-music"><svg><use href="#i-music"/></svg></span>
+        <div class="kmid">
+          <div class="ktop"><span class="knm">Lofi_Study_Mix.mp3</span><span class="kpct"><span class="pp">%</span>37<span class="ps"></span></span></div>
+          <div class="ktr"><div class="kbar paused" style="width:37%"></div></div>
+          <div class="kst"><span class="s" data-t="paused">Duraklatıldı</span><b class="num">52 MB / 142 MB</b></div>
+        </div>
+        <span class="kbtn"><svg><use href="#i-play"/></svg></span>
+      </div>
+    </div>
+    <div class="kbb"><div class="kseg"><span class="on"><svg><use href="#i-play"/></svg><span data-t="active">Devam Eden</span><i class="swap"><span style="animation-name:tOld">2</span><span style="opacity:0;animation-name:tNow">3</span></i></span><span><svg><use href="#i-tick"/></svg><span data-t="done">Tamamlanan</span><i>5</i></span></div><div class="kspd"><span class="v num"><svg><use href="#i-down"/></svg>15 MB/sn</span><svg><use href="#i-gauge"/></svg></div></div>
+  </div>
+  <div style="position:absolute;left:0;top:0;z-index:9;animation-name:tGrp;animation-timing-function:cubic-bezier(.45,0,.25,1)">
+    <div style="position:absolute;left:-26px;top:-34px;width:52px;height:62px;animation-name:tGhost;filter:drop-shadow(0 14px 18px rgba(40,30,80,0.3))"><svg width="52" height="62" viewBox="0 0 48 58"><use href="#i-torrent"/></svg></div>
+    <span style="position:absolute;left:14px;top:16px;width:18px;height:18px;border-radius:9px;background:#34C759;color:#fff;font-size:14px;font-weight:800;line-height:18px;text-align:center;box-shadow:0 2px 4px rgba(0,0,0,0.25);opacity:0;animation-name:tBadge">+</span>
+    <svg class="cur" style="left:0;top:0;animation-name:tPress"><use href="#i-cur"/></svg>
+  </div>
+  <div class="cap"><b data-t="c3">Torrent'i sürükle, bırak</b><span data-t="c3s">Magnet linkleri de tek tıkla açılır.</span></div>
+</div>
+
+<!-- 4 · HIZ SINIRI: alttaki hız göstergesinden -->
+<div class="scene" style="animation-delay:18s">
+  <div class="kp k4">
+    <div class="kh"><b>KD Download Manager</b><span class="cbs"><span class="cb"><svg><use href="#i-link"/></svg></span><span class="cb"><svg><use href="#i-gear"/></svg></span></span></div>
+    <div class="krows" style="margin-top:16px">
+      <div class="krow">
+        <span class="ktile c-app"><svg><use href="#i-grid"/></svg></span>
+        <div class="kmid">
+          <div class="ktop"><span class="knm">macOS_Tahoe_26.1.dmg</span><span class="kpct"><span class="pp">%</span>64<span class="ps"></span></span></div>
+          <div class="ktr"><div class="kbar" style="width:64%"></div></div>
+          <div class="kst swap">
+            <span class="fast" style="display:flex;gap:8px"><b class="num"><span class="tk"><span style="animation:jit3 1.6s steps(3) infinite"><b>48,2</b><b>47,6</b><b>48,9</b><b>48,2</b></span></span> MB/sn · ~4 dk</b><span class="s num">13 GB</span></span>
+            <span class="slow" style="display:flex;gap:8px"><b class="num">3,4 MB/sn · ~52 dk</b><span class="s num">13 GB</span></span>
+          </div>
+        </div>
+        <span class="kbtn"><svg><use href="#i-pause"/></svg></span>
+      </div>
+      <div class="krow">
+        <span class="ktile c-video"><svg><use href="#i-play"/></svg></span>
+        <div class="kmid">
+          <div class="ktop"><span class="knm">Keynote_Recording_4K.mp4</span><span class="kpct"><span class="pp">%</span>23<span class="ps"></span></span></div>
+          <div class="ktr"><div class="kbar" style="width:23%"></div></div>
+          <div class="kst swap">
+            <span class="fast" style="display:flex;gap:8px"><b class="num"><span class="tk"><span style="animation:jit3 1.3s steps(3) infinite"><b>22,2</b><b>21,7</b><b>22,9</b><b>22,2</b></span></span> MB/sn · ~2 dk</b><span class="s num">3,1 GB</span></span>
+            <span class="slow" style="display:flex;gap:8px"><b class="num">1,6 MB/sn · ~26 dk</b><span class="s num">3,1 GB</span></span>
+          </div>
+        </div>
+        <span class="kbtn"><svg><use href="#i-pause"/></svg></span>
+      </div>
+    </div>
+    <div class="kbb"><div class="kseg"><span class="on"><svg><use href="#i-play"/></svg><span data-t="active">Devam Eden</span><i>2</i></span><span><svg><use href="#i-tick"/></svg><span data-t="done">Tamamlanan</span><i>5</i></span></div>
+      <div class="kspd"><div class="sbox">
+        <div class="fast"><span class="v num"><svg><use href="#i-down"/></svg><span class="tk"><span style="animation:jit3 1.6s steps(3) infinite"><b>70,4</b><b>69,3</b><b>71,8</b><b>70,4</b></span></span> MB/sn</span></div>
+        <div class="slow"><span class="v num"><svg><use href="#i-down"/></svg>5,0 MB/sn</span><span class="lim"><span data-t="limit">Sınır</span> 5 <span data-t="mbs">MB/sn</span></span></div>
+      </div><svg><use href="#i-gauge"/></svg></div>
+    </div>
+  </div>
+  <div class="pop">
+    <div class="hd" data-t="totalLimit">Toplam hız sınırı</div>
+    <div class="ls">
+      <div class="sel"></div><div class="hov"></div>
+      <div class="op"><b data-t="unl" style="font-weight:600">Sınırsız</b><svg class="ca"><use href="#i-check"/></svg></div>
+      <div class="op num">1 MB/sn</div>
+      <div class="op num">2 MB/sn</div>
+      <div class="op"><span class="num">5 MB/sn</span><svg class="cb5"><use href="#i-check"/></svg></div>
+      <div class="op num">10 MB/sn</div>
+      <div class="op num">25 MB/sn</div>
+      <div class="op num">50 MB/sn</div>
+    </div>
+  </div>
+  <div class="rip dark" style="left:432px;top:379px;animation-name:s4RipA;animation-timing-function:ease-out"></div>
+  <div class="rip dark" style="left:366px;top:219px;animation-name:s4RipB;animation-timing-function:ease-out"></div>
+  <svg class="cur" style="animation-name:s4Cur;animation-timing-function:cubic-bezier(.45,0,.2,1)"><use href="#i-cur"/></svg>
+  <div class="cap"><b data-t="c4">Hızı sen belirle</b><span data-t="c4s">Hız göstergesine tıkla, toplam sınırı seç. İstersen her indirmeye ayrı.</span></div>
+</div>
+
+<!-- 5 · MENÜ ÇUBUĞU: ilerleme halkası, panel, bildirim -->
+<div class="scene" style="animation-delay:24s">
+  <div class="desk">
+    <div class="mb">
+      <span class="l"><b>Finder</b><span data-t="mFile">Dosya</span><span data-t="mEdit">Düzen</span><span data-t="mView">Görüntü</span><span data-t="mGo">Git</span></span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" stroke-width="2" aria-hidden="true" style="position:absolute;right:136px;top:6px"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1" fill="#1d1d1f"/></svg>
+      <span class="si">
+        <!-- StatusItemController: inerken ok ve çevresinde toplam ilerleme halkası, bitince onay işareti -->
+        <svg viewBox="0 0 18 18" style="animation-name:ringOut5"><circle cx="9" cy="9" r="7.2" fill="none" stroke="rgba(0,0,0,0.3)" stroke-width="1.6"/><circle cx="9" cy="9" r="7.2" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-dasharray="45.2" transform="rotate(-90 9 9)" style="animation:ring5 var(--beat) linear infinite"/><path d="M9 5.4v7M6.2 9.6 9 12.4l2.8-2.8" fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg viewBox="0 0 18 18" style="opacity:0;animation-name:check5;animation-timing-function:cubic-bezier(.2,1.4,.4,1)"><circle cx="9" cy="9" r="7" fill="none" stroke="#000" stroke-width="1.7"/><path d="M5.8 9.2l2.2 2.2 4.2-4.4" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span style="position:absolute;right:16px;top:6px;font-weight:600" data-t="clock">Pzt 9:41</span>
+    </div>
+    <div class="kp k5">
+      <div class="kh"><b>KD Download Manager</b><span class="cbs"><span class="cb"><svg><use href="#i-link"/></svg></span><span class="cb"><svg><use href="#i-gear"/></svg></span></span></div>
+      <div class="krows" style="margin-top:16px">
+        <div class="krow">
+          <span class="ktile c-app"><svg><use href="#i-grid"/></svg></span>
+          <div class="kmid">
+            <div class="ktop"><span class="knm">macOS_Tahoe_26.1.dmg</span><span class="kpct"><span class="pp">%</span><span class="tk r"><span style="animation-name:p5Pct;animation-timing-function:steps(8)"><b>72</b><b>76</b><b>79</b><b>83</b><b>86</b><b>90</b><b>93</b><b>97</b><b>100</b></span></span><span class="ps"></span></span></div>
+            <div class="ktr"><div class="kbar" style="animation-name:p5Bar;animation-timing-function:linear"></div></div>
+            <div class="kst"><b class="num">18,4 MB/sn · ~1 dk</b><span class="s num">13 GB</span></div>
+          </div>
+          <span class="kbtn"><svg><use href="#i-pause"/></svg></span>
+        </div>
+        <div class="krow">
+          <span class="ktile c-music"><svg><use href="#i-music"/></svg></span>
+          <div class="kmid">
+            <div class="ktop"><span class="knm">Lofi_Study_Mix.mp3</span><span class="kpct"><span class="pp">%</span>44<span class="ps"></span></span></div>
+            <div class="ktr"><div class="kbar" style="width:44%"></div></div>
+            <div class="kst"><b class="num">2,1 MB/sn · ~1 dk</b><span class="s num">142 MB</span></div>
+          </div>
+          <span class="kbtn"><svg><use href="#i-pause"/></svg></span>
+        </div>
+      </div>
+      <div class="kbb"><div class="kseg"><span class="on"><svg><use href="#i-play"/></svg><span data-t="active">Devam Eden</span><i>2</i></span><span><svg><use href="#i-tick"/></svg><span data-t="done">Tamamlanan</span><i>5</i></span></div><div class="kspd"><span class="v num"><svg><use href="#i-down"/></svg>20,5 MB/sn</span><svg><use href="#i-gauge"/></svg></div></div>
+    </div>
+    <div class="note5"><img src="app-icon.png" alt=""><div class="tx"><b data-t="doneTitle">İndirme tamamlandı</b><span>macOS_Tahoe_26.1.dmg</span></div><small data-t="now">şimdi</small></div>
+    <div class="rip dark" style="left:390px;top:14px;animation-name:rD;animation-timing-function:ease-out"></div>
+    <svg class="cur" style="animation-name:mCur;animation-timing-function:cubic-bezier(.45,0,.2,1)"><use href="#i-cur"/></svg>
+  </div>
+  <div class="cap"><b data-t="c5">Menü çubuğundan takip et</b><span data-t="c5s">Simgedeki halka ilerlemeyi gösterir, bitince haber verir.</span></div>
+</div>
+
+</div>
+</div>
+</main>
+</div>
+
+<script>
+// TR / EN metinleri. Uygulamanın kendisi Türkçe; EN sayfada arayüz yazıları da İngilizce gösterilir.
+const T = {
+  tr: {
+    title: 'KD Download Manager – Mac için indirme yöneticisi',
+    h1: 'İndirmenin en şık yolu.',
+    sub: 'Mac için indirme yöneticisi. Video, torrent ve büyük dosyalar; tek tıkla, tam hızda.',
+    dl: 'macOS için indir', all: 'Tüm sürümler',
+    req1: 'macOS 14 Sonoma ve üstü · Apple Silicon (M1 ve sonrası)',
+    req2: 'Ücretsiz · Apple onaylı · Kendini güncel tutar',
+    p1: 'Video', p2: '8 bağlantı', p3: 'Torrent', p4: 'Hız sınırı', p5: 'Menü çubuğu',
+    stageAlt: 'Özellikleri sırayla gösteren animasyon: video indirme, 8 bağlantı, torrent, hız sınırı, menü çubuğu',
+    vTitle: 'Konferans 2026 – Açılış konuşması', vFile: 'Konferans_2026_1080p.mp4',
+    dlShort: 'İndir', pick: 'Kalite seç', auto: 'Otomatik', rec: '(önerilen)', audio: 'Sadece ses',
+    sendTo: "KD Download Manager'a gönderilir", sent: "KD Download Manager'a gönderildi.", merging: 'Birleştiriliyor…',
+    c1: 'Videoyu tek tıkla indir', c1s: 'Eklentinin İndir butonundan kaliteyi seç, gerisini uygulama halleder.',
+    tAll: 'Tümü', tApp: 'Uygulama', sum1: '1 iniyor', pauseAll: 'Tümünü duraklat', conns: 'Bağlantılar',
+    c2: '8 bağlantı, tek dosya', c2s: 'Dosya 8 parçaya bölünür, hepsi aynı anda iner.',
+    dlFolder: 'İndirilenler', sum3a: '1 iniyor · 1 duraklatıldı', sum3b: '2 iniyor · 1 duraklatıldı',
+    connecting: 'Bağlanıyor…', paused: 'Duraklatıldı', active: 'Devam Eden', done: 'Tamamlanan',
+    c3: "Torrent'i sürükle, bırak", c3s: 'Magnet linkleri de tek tıkla açılır.',
+    totalLimit: 'Toplam hız sınırı', unl: 'Sınırsız', limit: 'Sınır', mbs: 'MB/sn',
+    c4: 'Hızı sen belirle', c4s: 'Hız göstergesine tıkla, toplam sınırı seç. İstersen her indirmeye ayrı.',
+    mFile: 'Dosya', mEdit: 'Düzen', mView: 'Görüntü', mGo: 'Git', clock: 'Pzt 9:41',
+    doneTitle: 'İndirme tamamlandı', now: 'şimdi',
+    c5: 'Menü çubuğundan takip et', c5s: 'Simgedeki halka ilerlemeyi gösterir, bitince haber verir.'
+  },
+  en: {
+    title: 'KD Download Manager – a download manager for Mac',
+    h1: 'The most beautiful way to download.',
+    sub: 'A download manager for Mac. Videos, torrents and big files; one click, full speed.',
+    dl: 'Download for macOS', all: 'All releases',
+    req1: 'macOS 14 Sonoma or later · Apple Silicon (M1 or later)',
+    req2: 'Free · Notarized by Apple · Keeps itself up to date',
+    p1: 'Video', p2: '8 connections', p3: 'Torrent', p4: 'Speed limit', p5: 'Menu bar',
+    stageAlt: 'Animation showing the features in turn: video download, 8 connections, torrent, speed limit, menu bar',
+    vTitle: 'Conference 2026 – Opening keynote', vFile: 'Conference_2026_1080p.mp4',
+    dlShort: 'Download', pick: 'Choose quality', auto: 'Automatic', rec: '(recommended)', audio: 'Audio only',
+    sendTo: 'Sent to KD Download Manager', sent: 'Sent to KD Download Manager.', merging: 'Merging…',
+    c1: 'Grab any video in one click', c1s: 'Pick a quality from the extension’s Download button. The app does the rest.',
+    tAll: 'All', tApp: 'Apps', sum1: '1 downloading', pauseAll: 'Pause all', conns: 'Connections',
+    c2: '8 connections, one file', c2s: 'Files split into 8 parts that download at once.',
+    dlFolder: 'Downloads', sum3a: '1 downloading · 1 paused', sum3b: '2 downloading · 1 paused',
+    connecting: 'Connecting…', paused: 'Paused', active: 'Active', done: 'Completed',
+    c3: 'Drop a torrent. Done.', c3s: 'Magnet links open in one click too.',
+    totalLimit: 'Total speed limit', unl: 'Unlimited', limit: 'Limit', mbs: 'MB/s',
+    c4: 'You set the speed', c4s: 'Click the speed meter to cap the total, or limit each download.',
+    mFile: 'File', mEdit: 'Edit', mView: 'View', mGo: 'Go', clock: 'Mon 9:41',
+    doneTitle: 'Download complete', now: 'now',
+    c5: 'Track it from the menu bar', c5s: 'The ring on the icon shows progress and you get a heads-up when it’s done.'
+  }
+};
+
+const numbers = [...document.querySelectorAll('.num')].map((el) => [el, el.innerHTML]);
+function localiseNumbers(html, lang) {
+  if (lang === 'tr') return html;
+  return html.replace(/(\d),(\d)/g, '$1.$2').replace(/MB\/sn/g, 'MB/s').replace(/ dk\b/g, ' min').replace(/ sn\b/g, ' s');
+}
+
+function setLang(lang) {
+  const t = T[lang];
+  document.documentElement.lang = lang;
+  document.title = t.title;
+  document.querySelectorAll('[data-t]').forEach((el) => { if (t[el.dataset.t] != null) el.textContent = t[el.dataset.t]; });
+  document.querySelectorAll('[data-t-label]').forEach((el) => el.setAttribute('aria-label', t[el.dataset.tLabel]));
+  // Uygulama yüzdeyi Türkçe yazımla önde gösterir (%64); İngilizcede sonda (64%).
+  document.querySelectorAll('.pp').forEach((el) => { el.textContent = lang === 'tr' ? '%' : ''; });
+  document.querySelectorAll('.ps').forEach((el) => { el.textContent = lang === 'tr' ? '' : '%'; });
+  numbers.forEach(([el, html]) => { el.innerHTML = localiseNumbers(html, lang); });
+  document.querySelectorAll('.lang').forEach((b) => {
+    const on = b.dataset.lang === lang;
+    b.setAttribute('aria-pressed', on);
+    b.style.background = on ? '#1d1d1f' : 'transparent';
+    b.style.color = on ? '#fff' : 'rgba(0,0,0,0.7)';
+  });
+  try { localStorage.setItem('lang', lang); } catch (e) {}
+}
+
+let saved = null;
+try { saved = localStorage.getItem('lang'); } catch (e) {}
+setLang(saved || ((navigator.language || 'tr').toLowerCase().startsWith('tr') ? 'tr' : 'en'));
+document.querySelectorAll('.lang').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
+
+const stageWrap = document.querySelector('.stagewrap');
+const fitStage = () => document.querySelector('.stage').style.setProperty('--s', Math.min(1, stageWrap.clientWidth / 560));
+new ResizeObserver(fitStage).observe(stageWrap);
+fitStage();
+
+// İndir butonu son sürümün zip'ine gitsin; GitHub'a ulaşılamazsa sürümler sayfasında kalır.
+fetch('https://api.github.com/repos/kadirgl/KDDownloadManager/releases/latest')
+  .then((r) => (r.ok ? r.json() : null))
+  .then((release) => {
+    const zip = release?.assets?.find((a) => a.name.endsWith('.zip'));
+    if (!zip) return;
+    document.getElementById('download').href = zip.browser_download_url;
+    document.getElementById('version').textContent = release.tag_name;
+  })
+  .catch(() => {});
+</script>
+</body>
+</html>
