@@ -1,5 +1,7 @@
 # KD Download Manager
 
+*[English](README.en.md)*
+
 macOS menü çubuğunda yaşayan, hızlı ve sade bir indirme yöneticisi. Dosyaları parçalı indirir (aria2),
 YouTube ve ~1.800 sitedeki videoları istenen kalitede indirir (yt-dlp + ffmpeg), torrent ve magnet
 linklerini açar. Chromium tabanlı tarayıcılar (Chrome, Edge, Brave, Arc, Vivaldi, Opera) için eklentisiyle
@@ -10,6 +12,7 @@ tarayıcıdaki indirmeleri ve videoları doğrudan uygulamaya gönderir.
 - Torrent ve magnet linkleri
 - Genel ve indirmeye özel hız sınırı, aynı anda en fazla indirme sayısı
 - Kategoriler, arama, bildirimler, açık/koyu tema ve vurgu rengi
+- Türkçe ve İngilizce arayüz (sistem dilini izler; **Ayarlar › Görünüm › Dil** ile değiştirilebilir)
 - Uygulama içinden otomatik güncelleme
 
 ## Kurulum
@@ -39,6 +42,26 @@ scripts/package-app.sh --install # ayrıca /Applications'a kurup açar
 ```
 
 Tarayıcı eklentisi [ChromeExtension](ChromeExtension) klasöründe ([ayrıntılar](ChromeExtension/README.md)).
+
+### Arayüz dili
+
+Koddaki metinler Türkçe ve aynı zamanda çeviri anahtarı; İngilizceleri
+`Sources/KDDownloadManager/Resources/Localizable.xcstrings`'te (Xcode'un String Catalog düzenleyicisiyle de
+açılır). Metin ekleyip değiştirdikten sonra:
+
+```bash
+scripts/strings.sh sync    # yeni metinleri kataloğa ekler, İngilizcesi eksik olanları listeler
+```
+
+`package-app.sh` kataloğu `en.lproj`/`tr.lproj` olarak pakete koyar; yayımlanan sürümde eksik çeviri varsa
+durur. Sistem dili Türkçe değilse uygulama İngilizce açılır. Geliştirme sürümünü İngilizce denemek için:
+
+```bash
+swift build && scripts/strings.sh compile .build/debug
+.build/debug/KDDownloadManager -AppleLanguages '(en)'
+```
+
+Eklentinin metinleri `ChromeExtension/_locales/{tr,en}/messages.json`'da; tarayıcının dilini izler.
 
 ## Sürüm yayımlama
 

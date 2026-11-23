@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="tr">
+<html>
 <head>
   <meta charset="utf-8">
   <title>KD Download Manager</title>
@@ -12,23 +12,23 @@
       <h1>KD Download Manager</h1>
       <p id="status" class="status" data-state="checking">
         <span class="dot"></span>
-        <span id="status-text">Uygulama aranıyor…</span>
+        <span id="status-text" data-i18n="statusChecking"></span>
       </p>
     </div>
   </header>
 
   <label class="card toggle">
     <span class="toggle-text">
-      <strong>İndirmeleri ve magnet linklerini yakala</strong>
-      <small>Kapalıysa ya da uygulama çalışmıyorsa tarayıcı kendisi indirir/açar.</small>
+      <strong data-i18n="interceptTitle"></strong>
+      <small data-i18n="interceptNote"></small>
     </span>
     <input id="intercept" type="checkbox" role="switch">
   </label>
 
   <label id="site-card" class="card toggle" hidden>
     <span class="toggle-text">
-      <strong>Videolarda İndir butonu</strong>
-      <small id="site-note">Bu sitede fare videonun üstüne gelince görünür.</small>
+      <strong data-i18n="siteButtonTitle"></strong>
+      <small id="site-note" data-i18n="siteButtonNoteDefault"></small>
     </span>
     <input id="site-button" type="checkbox" role="switch">
   </label>
@@ -37,19 +37,19 @@
     <div class="video-header">
       <span class="tile" id="video-tile"></span>
       <span class="video-text">
-        <span id="video-title" class="video-title">Video aranıyor…</span>
-        <span id="video-subtitle" class="video-subtitle">Kalite seç</span>
+        <span id="video-title" class="video-title" data-i18n="searchingVideo"></span>
+        <span id="video-subtitle" class="video-subtitle" data-i18n="chooseQuality"></span>
       </span>
     </div>
     <div id="qualities" class="options"></div>
   </section>
 
   <section id="streams" class="card list" hidden>
-    <p class="heading">Sayfada bulunan videolar</p>
+    <p class="heading" data-i18n="foundVideos"></p>
     <div id="stream-list" class="options"></div>
   </section>
 
-  <button id="send-page" class="primary" hidden>Bu sayfayı indir</button>
+  <button id="send-page" class="primary" hidden><span data-i18n="downloadThisPage"></span></button>
   <p id="message" class="message" role="status"></p>
 
   <script type="module" src="popup.js"></script>

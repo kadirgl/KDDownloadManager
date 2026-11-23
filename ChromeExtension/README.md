@@ -45,6 +45,10 @@ sayesinde sabit). Uygulama yalnızca bu kimlikten gelen istekleri kabul eder.
 - **Sağ tık menüsü:** Linklerde "KD Download Manager ile indir"; sayfalarda, videolarda ve video
   linklerinde kalite seçerek indirme.
 
+Arayüz Türkçe ve İngilizce: metinler `_locales/tr` ve `_locales/en` altındaki `messages.json`
+dosyalarında, `chrome.i18n` ile okunuyor. Tarayıcının dili Türkçe değilse İngilizce görünür
+(`default_locale`). Yeni metin eklerken iki dosyaya da aynı anahtarı ekleyin.
+
 Giriş gerektiren indirmeler için linkle birlikte o sitenin çerezleri, referrer ve tarayıcı kimliği de
 gönderilir. Uygulama bunları yalnızca indirme sırasında kullanır; çerezler diske yazılmaz.
 

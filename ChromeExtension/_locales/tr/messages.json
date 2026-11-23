@@ -1,0 +1,147 @@
+{
+  "extName": {
+    "message": "KD Download Manager"
+  },
+  "extDescription": {
+    "message": "İndirmeleri, magnet linklerini ve videoları KD Download Manager'a gönderir."
+  },
+  "menuDownloadLink": {
+    "message": "KD Download Manager ile indir",
+    "description": "Sağ tık menüsü (link, resim) ve sayfadaki İndir butonunun ipucu"
+  },
+  "menuDownloadMedia": {
+    "message": "Bu medyayı KD Download Manager ile indir"
+  },
+  "menuDownloadPageVideo": {
+    "message": "Bu sayfadaki videoyu KD Download Manager ile indir"
+  },
+  "menuVideoLinkQuality": {
+    "message": "Videoyu kalite seçerek indir"
+  },
+  "qualityAutoRecommended": {
+    "message": "Otomatik (önerilen)"
+  },
+  "qualityAudioMp3": {
+    "message": "Sadece ses (MP3)"
+  },
+  "qualityAuto": {
+    "message": "Otomatik"
+  },
+  "qualityRecommended": {
+    "message": "(önerilen)"
+  },
+  "qualityAudio": {
+    "message": "Sadece ses"
+  },
+  "chooseQuality": {
+    "message": "Kalite seç"
+  },
+  "download": {
+    "message": "İndir",
+    "description": "Videoların üstündeki buton"
+  },
+  "hideOnVideo": {
+    "message": "Bu videoda gizle"
+  },
+  "hideButtonOnVideo": {
+    "message": "Bu videoda İndir butonunu gizle"
+  },
+  "hiddenOnVideo": {
+    "message": "Bu videoda gizlendi"
+  },
+  "undo": {
+    "message": "Geri al"
+  },
+  "turnOffOnSite": {
+    "message": "Bu sitede kapat"
+  },
+  "turnedOffOnSite": {
+    "message": "$SITE$ için kapatıldı. Eklenti penceresinden açabilirsiniz.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "example.com"
+      }
+    }
+  },
+  "loadingQualities": {
+    "message": "Kaliteler alınıyor…"
+  },
+  "appNotRunning": {
+    "message": "KD Download Manager çalışmıyor. Uygulamayı açıp tekrar deneyin."
+  },
+  "videoUrlNotFound": {
+    "message": "Bu videonun adresi bulunamadı. Videoyu birkaç saniye oynatıp tekrar deneyin."
+  },
+  "foundVideos": {
+    "message": "Sayfada bulunan videolar"
+  },
+  "sentToApp": {
+    "message": "KD Download Manager'a gönderildi."
+  },
+  "appUnreachable": {
+    "message": "Uygulamaya ulaşılamadı."
+  },
+  "sendsToApp": {
+    "message": "KD Download Manager'a gönderilir"
+  },
+  "streamHls": {
+    "message": "HLS akışı"
+  },
+  "streamDash": {
+    "message": "DASH akışı"
+  },
+  "streamFile": {
+    "message": "Video dosyası"
+  },
+  "streamFallbackName": {
+    "message": "akış",
+    "description": "Adresinden ad çıkmayan akış"
+  },
+  "videoFallbackTitle": {
+    "message": "Video"
+  },
+  "imageFallbackName": {
+    "message": "Resim",
+    "description": "Adı olmayan resmin dosya adı"
+  },
+  "statusChecking": {
+    "message": "Uygulama aranıyor…"
+  },
+  "statusConnected": {
+    "message": "Uygulamaya bağlı"
+  },
+  "statusOffline": {
+    "message": "Uygulama çalışmıyor"
+  },
+  "openAppHint": {
+    "message": "KD Download Manager'ı açın. Açılana kadar indirmeleri tarayıcı yapar."
+  },
+  "interceptTitle": {
+    "message": "İndirmeleri ve magnet linklerini yakala"
+  },
+  "interceptNote": {
+    "message": "Kapalıysa ya da uygulama çalışmıyorsa tarayıcı kendisi indirir/açar."
+  },
+  "siteButtonTitle": {
+    "message": "Videolarda İndir butonu"
+  },
+  "siteButtonNoteDefault": {
+    "message": "Bu sitede fare videonun üstüne gelince görünür."
+  },
+  "siteButtonNote": {
+    "message": "$SITE$ sitesinde fare videonun üstüne gelince görünür.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "example.com"
+      }
+    }
+  },
+  "searchingVideo": {
+    "message": "Video aranıyor…"
+  },
+  "downloadThisPage": {
+    "message": "Bu sayfayı indir"
+  }
+}

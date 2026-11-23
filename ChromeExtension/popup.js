@@ -1,6 +1,6 @@
 import {
   QUALITIES, accentColor, describe, fetchFormats, isAppRunning, isDownloadable, isVideoPage, sendStream,
-  sendToApp, streamLabel,
+  sendToApp, streamLabel, t,
 } from "./app.js";
 
 const status = document.getElementById("status");
@@ -58,7 +58,8 @@ function showMessage(text, kind) {
 function formatSize(bytes) {
   if (!bytes) return "";
   const mb = bytes / 1048576;
-  return mb >= 1024 ? `~${(mb / 1024).toFixed(1).replace(".", ",")} GB` : `~${Math.round(mb)} MB`;
+  const gb = (mb / 1024).toLocaleString(chrome.i18n.getUILanguage(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return mb >= 1024 ? `~${gb} GB` : `~${Math.round(mb)} MB`;
 }
 
 function formatDuration(seconds) {
@@ -86,7 +87,7 @@ function applyAccent(hex) {
 // video: adres bilinen bir video sitesi olmasa da yt-dlp ile video olarak indirilsin.
 async function send(url, quality, video) {
   const ok = await sendToApp([await describe(url, { referrer: url, quality, video })]);
-  showMessage(ok ? "KD Download Manager'a gönderildi." : "Uygulamaya ulaşılamadı.", ok ? "ok" : "error");
+  showMessage(ok ? t("sentToApp") : t("appUnreachable"), ok ? "ok" : "error");
   return ok;
 }
 
@@ -127,27 +128,27 @@ function renderQualities(url, options, video) {
     const size = formatSize(choice.size);
     if (choice.quality === "audio") {
       rows.push(element("div", "divider"));
-      rows.push(optionRow({ name: "Sadece ses", tag: "MP3", size, audio: true }, action));
+      rows.push(optionRow({ name: t("qualityAudio"), tag: "MP3", size, audio: true }, action));
     } else if (choice.quality === "auto") {
-      rows.push(optionRow({ strong: "Otomatik", name: "(önerilen)", size, selected: true }, action));
+      rows.push(optionRow({ strong: t("qualityAuto"), name: t("qualityRecommended"), size, selected: true }, action));
     } else {
       rows.push(optionRow({ name: `${choice.quality}p`, tag: TAGS[choice.quality], size }, action));
     }
   }
   const footer = element("div", "footer");
-  footer.append(icon("arrow"), element("span", "", "KD Download Manager'a gönderilir"));
+  footer.append(icon("arrow"), element("span", "", t("sendsToApp")));
   qualities.replaceChildren(...rows, footer);
 }
 
 function showHeader(title, duration) {
   videoTitle.textContent = title;
-  videoSubtitle.textContent = [formatDuration(duration), "Kalite seç"].filter(Boolean).join(" · ");
+  videoSubtitle.textContent = [formatDuration(duration), t("chooseQuality")].filter(Boolean).join(" · ");
 }
 
 // Video sitesi: kaliteler gelene kadar iskelet; uygulama listeyi veremezse sabit liste.
 async function showVideo(url, formatsRequest, title) {
   video.hidden = false;
-  showHeader(title || "Video", null);
+  showHeader(title || t("videoFallbackTitle"), null);
   qualities.replaceChildren(...skeleton(6));
   const formats = await formatsRequest;
   if (formats?.options?.length) {
@@ -162,7 +163,7 @@ async function showVideo(url, formatsRequest, title) {
 // "Bu sayfayı indir" düğmesi. Sayfa oynatırken yakalanan akışlar ayrıca listelenir.
 async function showAnyPage(tab, formatsRequest) {
   video.hidden = false;
-  showHeader("Video aranıyor…", null);
+  showHeader(t("searchingVideo"), null);
   qualities.replaceChildren(...skeleton(3));
   const [formats] = await Promise.all([formatsRequest, showStreams(tab)]);
   if (formats?.options?.length) {
@@ -190,7 +191,7 @@ async function showStreams(tab) {
     const row = optionRow({ name: label.kind, detail: label.name, size: label.size.replace(" · ", "~"), glyph: "stream" },
       async () => {
         const ok = await sendStream(stream, { pageUrl: tab.url, pageTitle: tab.title });
-        showMessage(ok ? "KD Download Manager'a gönderildi." : "Uygulamaya ulaşılamadı.", ok ? "ok" : "error");
+        showMessage(ok ? t("sentToApp") : t("appUnreachable"), ok ? "ok" : "error");
         return ok;
       });
     row.title = stream.url;
@@ -211,7 +212,7 @@ async function showSiteSwitch(url) {
   }
   const { hiddenSites = [] } = await chrome.storage.local.get("hiddenSites");
   siteButton.checked = !hiddenSites.includes(site);
-  siteNote.textContent = `${site} sitesinde fare videonun üstüne gelince görünür.`;
+  siteNote.textContent = t("siteButtonNote", site);
   siteCard.hidden = false;
   siteButton.addEventListener("change", async () => {
     const { hiddenSites: current = [] } = await chrome.storage.local.get("hiddenSites");
@@ -221,7 +222,14 @@ async function showSiteSwitch(url) {
   });
 }
 
+// popup.html'deki sabit metinler: data-i18n="anahtar".
+function localize() {
+  document.documentElement.lang = chrome.i18n.getMessage("@@ui_locale").split("_")[0] === "tr" ? "tr" : "en";
+  for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
+}
+
 async function init() {
+  localize();
   videoTile.append(icon("play"));
   applyAccent(await accentColor());
   const stored = await chrome.storage.local.get("intercept");
@@ -240,9 +248,9 @@ async function init() {
   const running = await isAppRunning();
   applyAccent(await accentColor());
   status.dataset.state = running ? "connected" : "offline";
-  statusText.textContent = running ? "Uygulamaya bağlı" : "Uygulama çalışmıyor";
+  statusText.textContent = running ? t("statusConnected") : t("statusOffline");
   if (!running) {
-    showMessage("KD Download Manager'ı açın. Açılana kadar indirmeleri tarayıcı yapar.");
+    showMessage(t("openAppHint"));
     return;
   }
   if (!page) return;

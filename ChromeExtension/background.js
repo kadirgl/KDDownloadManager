@@ -1,6 +1,6 @@
 import {
   QUALITIES, VIDEO_HOSTS, accentColor, classifyStream, describe, fetchFormats, flashBadge, isAppRunning,
-  isDownloadable, isVideoPage, sayHello, sendStream, sendToApp, streamSaveAs,
+  isDownloadable, isVideoPage, sayHello, sendStream, sendToApp, streamSaveAs, t,
 } from "./app.js";
 
 const MENU_LINK = "kd-link";
@@ -51,12 +51,12 @@ async function buildMenus() {
   // değil resmin kendisi indirilir.
   addMenu({
     id: MENU_LINK,
-    title: "KD Download Manager ile indir",
+    title: t("menuDownloadLink"),
     contexts: ["link", "image"],
   });
   addMenu({
     id: MENU_MEDIA,
-    title: "Bu medyayı KD Download Manager ile indir",
+    title: t("menuDownloadMedia"),
     contexts: ["video", "audio"],
   });
 
@@ -64,13 +64,13 @@ async function buildMenus() {
   // sitelerindeki video linkleri (örn. küçük resimler).
   addMenu({
     id: MENU_PAGE,
-    title: "Bu sayfadaki videoyu KD Download Manager ile indir",
+    title: t("menuDownloadPageVideo"),
     contexts: ["page"],
     documentUrlPatterns: ["http://*/*", "https://*/*"],
   });
   addMenu({
     id: MENU_VIDEO_LINK,
-    title: "Videoyu kalite seçerek indir",
+    title: t("menuVideoLinkQuality"),
     contexts: ["link"],
     targetUrlPatterns: VIDEO_PATTERNS,
   });
@@ -166,7 +166,7 @@ async function downloadImage(src, { pageUrl, pageTitle }) {
 
 function imageBaseName(pageTitle) {
   const title = (pageTitle || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
-  return title || "Resim";
+  return title || t("imageFallbackName");
 }
 
 async function imageExtension(src) {

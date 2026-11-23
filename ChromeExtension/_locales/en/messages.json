@@ -1,0 +1,147 @@
+{
+  "extName": {
+    "message": "KD Download Manager"
+  },
+  "extDescription": {
+    "message": "Sends downloads, magnet links and videos to KD Download Manager."
+  },
+  "menuDownloadLink": {
+    "message": "Download with KD Download Manager",
+    "description": "Sağ tık menüsü (link, resim) ve sayfadaki İndir butonunun ipucu"
+  },
+  "menuDownloadMedia": {
+    "message": "Download this media with KD Download Manager"
+  },
+  "menuDownloadPageVideo": {
+    "message": "Download the video on this page with KD Download Manager"
+  },
+  "menuVideoLinkQuality": {
+    "message": "Download video in a chosen quality"
+  },
+  "qualityAutoRecommended": {
+    "message": "Auto (recommended)"
+  },
+  "qualityAudioMp3": {
+    "message": "Audio only (MP3)"
+  },
+  "qualityAuto": {
+    "message": "Auto"
+  },
+  "qualityRecommended": {
+    "message": "(recommended)"
+  },
+  "qualityAudio": {
+    "message": "Audio only"
+  },
+  "chooseQuality": {
+    "message": "Choose quality"
+  },
+  "download": {
+    "message": "Download",
+    "description": "Videoların üstündeki buton"
+  },
+  "hideOnVideo": {
+    "message": "Hide on this video"
+  },
+  "hideButtonOnVideo": {
+    "message": "Hide the Download button on this video"
+  },
+  "hiddenOnVideo": {
+    "message": "Hidden on this video"
+  },
+  "undo": {
+    "message": "Undo"
+  },
+  "turnOffOnSite": {
+    "message": "Turn off on this site"
+  },
+  "turnedOffOnSite": {
+    "message": "Turned off for $SITE$. You can turn it back on in the extension popup.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "example.com"
+      }
+    }
+  },
+  "loadingQualities": {
+    "message": "Getting qualities…"
+  },
+  "appNotRunning": {
+    "message": "KD Download Manager isn't running. Open the app and try again."
+  },
+  "videoUrlNotFound": {
+    "message": "Couldn't find this video's address. Play it for a few seconds and try again."
+  },
+  "foundVideos": {
+    "message": "Videos found on this page"
+  },
+  "sentToApp": {
+    "message": "Sent to KD Download Manager."
+  },
+  "appUnreachable": {
+    "message": "Couldn't reach the app."
+  },
+  "sendsToApp": {
+    "message": "Goes to KD Download Manager"
+  },
+  "streamHls": {
+    "message": "HLS stream"
+  },
+  "streamDash": {
+    "message": "DASH stream"
+  },
+  "streamFile": {
+    "message": "Video file"
+  },
+  "streamFallbackName": {
+    "message": "stream",
+    "description": "Adresinden ad çıkmayan akış"
+  },
+  "videoFallbackTitle": {
+    "message": "Video"
+  },
+  "imageFallbackName": {
+    "message": "Image",
+    "description": "Adı olmayan resmin dosya adı"
+  },
+  "statusChecking": {
+    "message": "Looking for the app…"
+  },
+  "statusConnected": {
+    "message": "Connected to the app"
+  },
+  "statusOffline": {
+    "message": "App isn't running"
+  },
+  "openAppHint": {
+    "message": "Open KD Download Manager. Until then, the browser handles downloads."
+  },
+  "interceptTitle": {
+    "message": "Catch downloads and magnet links"
+  },
+  "interceptNote": {
+    "message": "When off, or when the app isn't running, the browser downloads or opens them itself."
+  },
+  "siteButtonTitle": {
+    "message": "Download button on videos"
+  },
+  "siteButtonNoteDefault": {
+    "message": "Shows on this site when you hover over a video."
+  },
+  "siteButtonNote": {
+    "message": "Shows on $SITE$ when you hover over a video.",
+    "placeholders": {
+      "site": {
+        "content": "$1",
+        "example": "example.com"
+      }
+    }
+  },
+  "searchingVideo": {
+    "message": "Looking for a video…"
+  },
+  "downloadThisPage": {
+    "message": "Download this page"
+  }
+}

@@ -3,6 +3,11 @@
 
 export const APP_URL = "http://127.0.0.1:47615";
 
+// Arayüz metni (_locales/tr ve _locales/en; tarayıcının dili Türkçe değilse İngilizce).
+export function t(key, ...substitutions) {
+  return chrome.i18n.getMessage(key, substitutions) || key;
+}
+
 // Uygulamanın video motoruna (yt-dlp) giden siteler; uygulamadaki DownloadSource ile aynı liste.
 export const VIDEO_HOSTS = [
   "youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "twitch.tv",
@@ -11,14 +16,14 @@ export const VIDEO_HOSTS = [
 
 // Video kalite seçenekleri; uygulamadaki VideoQuality ile aynı değerler.
 export const QUALITIES = [
-  { id: "auto", title: "Otomatik (önerilen)" },
+  { id: "auto", title: t("qualityAutoRecommended") },
   { id: "2160", title: "2160p (4K)" },
   { id: "1440", title: "1440p" },
   { id: "1080", title: "1080p" },
   { id: "720", title: "720p" },
   { id: "480", title: "480p" },
   { id: "360", title: "360p" },
-  { id: "audio", title: "Sadece ses (MP3)" },
+  { id: "audio", title: t("qualityAudioMp3") },
 ];
 
 export function isVideoPage(url) {
@@ -59,7 +64,9 @@ export async function accentColor() {
   return accent ?? DEFAULT_ACCENT;
 }
 
-// Uygulamanın Ayarlar ekranında görünen ad (Google Chrome, Microsoft Edge, Brave…).
+// Uygulamanın Ayarlar ekranında görünen ad (Google Chrome, Microsoft Edge, Brave…). Markasını bildirmeyen
+// tarayıcılar için sabit ad uygulamada kimlik olarak da kullanılıyor (BrowserExtension.unnamedBrowser);
+// bu yüzden çevrilmiyor.
 export function browserName() {
   if (navigator.brave) return "Brave";
   const brand = (navigator.userAgentData?.brands ?? [])
@@ -223,7 +230,7 @@ export function classifyStream(url, headers = []) {
 
 // Yakalanan akışın kaydedileceği ad: sayfanın başlığı (akış adresleri "index.m3u8" gibi anlamsız).
 export function streamSaveAs(stream, pageTitle) {
-  const title = (pageTitle || "Video").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  const title = (pageTitle || t("videoFallbackTitle")).replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
   return stream.kind === "file" ? `${title}.${stream.extension}` : title;
 }
 
@@ -239,8 +246,8 @@ export async function sendStream(stream, { pageUrl, pageTitle, quality } = {}) {
 }
 
 export function streamLabel(stream) {
-  const name = decodeURIComponent(new URL(stream.url).pathname.split("/").pop() || "akış");
-  const kind = { hls: "HLS akışı", dash: "DASH akışı", file: "Video dosyası" }[stream.kind];
+  const name = decodeURIComponent(new URL(stream.url).pathname.split("/").pop() || t("streamFallbackName"));
+  const kind = { hls: t("streamHls"), dash: t("streamDash"), file: t("streamFile") }[stream.kind];
   const size = stream.size ? ` · ${(stream.size / 1048576).toFixed(0)} MB` : "";
   return { kind, name: name.length > 40 ? `${name.slice(0, 37)}…` : name, size };
 }

@@ -19,7 +19,7 @@
   const BUTTON_HEIGHT = 34;
   const GAP = 8;
 
-  const { create, send, note, loading, header, option, qualityRows, footer, element, formatSize } = globalThis.KDMenu;
+  const { create, send, note, loading, header, option, qualityRows, footer, element, formatSize, t } = globalThis.KDMenu;
 
   // Bu sürelerden sık olmamak üzere butonun yerinin boş olup olmadığına yeniden bakılır.
   const ROOM_CHECK_INTERVAL = 800;
@@ -75,19 +75,19 @@
     const video = target;
     if (!video) return;
     dismissed.add(video);
-    menu.toast("Bu videoda gizlendi", [
+    menu.toast(t("hiddenOnVideo"), [
       {
-        label: "Geri al",
+        label: t("undo"),
         run: () => {
           dismissed.delete(video);
           show(video);
         },
       },
       {
-        label: "Bu sitede kapat",
+        label: t("turnOffOnSite"),
         run: () => {
           hideOnSite();
-          menu.toast(`${site} için kapatıldı. Eklenti penceresinden açabilirsiniz.`, [], { duration: 3500, onEnd: hide });
+          menu.toast(t("turnedOffOnSite", site), [], { duration: 3500, onEnd: hide });
         },
       },
     ], { onEnd: hide });
@@ -133,7 +133,7 @@
     } catch {
       name = "";
     }
-    const kind = { hls: "HLS akışı", dash: "DASH akışı", file: "Video dosyası" }[stream.kind];
+    const kind = { hls: t("streamHls"), dash: t("streamDash"), file: t("streamFile") }[stream.kind];
     return name ? `${kind} · ${name}` : kind;
   }
 
@@ -147,7 +147,7 @@
     // Hepsi aynı anda başlar: kalite listesi (çoğu zaman buton belirdiğinde başlamış olur), uygulamanın
     // durumu ve yakalanan akışlar. Menü beklemeden iskeletiyle açılır.
     const formatsRequest = loadFormats(pageUrl, { retry: true });
-    const searching = loading("Kaliteler alınıyor…");
+    const searching = loading(t("loadingQualities"));
     menu.show();
     menu.panel.replaceChildren(header(document.title), searching);
 
@@ -155,7 +155,7 @@
     if (!menuOpen()) return;
     if (status?.accent) menu.accent(status.accent);
     if (!status?.running) {
-      menu.panel.replaceChildren(note("KD Download Manager çalışmıyor. Uygulamayı açıp tekrar deneyin.", "error"));
+      menu.panel.replaceChildren(note(t("appNotRunning"), "error"));
       return;
     }
 
@@ -166,7 +166,7 @@
 
     const streamSection = [];
     if (streams.length > 0) {
-      streamSection.push(element("div", "heading", "Sayfada bulunan videolar"));
+      streamSection.push(element("div", "heading", t("foundVideos")));
       for (const stream of streams.slice(0, 6)) {
         streamSection.push(option(menu, { name: streamName(stream), size: formatSize(stream.size), glyph: "stream" },
           { type: "stream-download", stream }));
@@ -179,7 +179,7 @@
     const formats = await formatsRequest;
     if (!menuOpen() || !searching.isConnected) return; // Menü kapandı ya da bir seçenek seçildi.
     if (!formats?.options?.length && streamSection.length === 0) {
-      menu.panel.replaceChildren(note("Bu videonun adresi bulunamadı. Videoyu birkaç saniye oynatıp tekrar deneyin."));
+      menu.panel.replaceChildren(note(t("videoUrlNotFound")));
       return;
     }
     if (formats?.options?.length) {

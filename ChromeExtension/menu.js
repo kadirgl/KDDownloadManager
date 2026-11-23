@@ -5,6 +5,11 @@
 globalThis.KDMenu = (() => {
   const SVG = "http://www.w3.org/2000/svg";
 
+  // Arayüz metni (_locales/tr ve _locales/en; tarayıcının dili Türkçe değilse İngilizce).
+  function t(key, ...substitutions) {
+    return chrome.i18n.getMessage(key, substitutions) || key;
+  }
+
   const STYLE = `
     :host { all: initial; z-index: 2147483000; color-scheme: light dark; }
     :host([hidden]) { display: none; }
@@ -184,7 +189,8 @@ globalThis.KDMenu = (() => {
   function formatSize(bytes) {
     if (!bytes) return "";
     const mb = bytes / 1048576;
-    return mb >= 1024 ? `~${(mb / 1024).toFixed(1).replace(".", ",")} GB` : `~${Math.round(mb)} MB`;
+    const gb = (mb / 1024).toLocaleString(chrome.i18n.getUILanguage(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    return mb >= 1024 ? `~${gb} GB` : `~${Math.round(mb)} MB`;
   }
 
   function formatDuration(seconds) {
@@ -229,12 +235,12 @@ globalThis.KDMenu = (() => {
     button.type = "button";
     button.setAttribute("aria-haspopup", "menu");
     button.setAttribute("aria-expanded", "false");
-    button.title = "KD Download Manager ile indir";
+    button.title = t("menuDownloadLink");
     if (compact) {
-      button.setAttribute("aria-label", "İndir");
+      button.setAttribute("aria-label", t("download"));
       button.append(icon("download"));
     } else {
-      button.append(icon("download"), element("span", "", "İndir"), icon("chevron", "chevron"));
+      button.append(icon("download"), element("span", "", t("download")), icon("chevron", "chevron"));
     }
 
     const panel = element("div", "menu");
@@ -244,13 +250,13 @@ globalThis.KDMenu = (() => {
     let face;
     if (compact) {
       face = element("div", "compact");
-      face.append(button, element("span", "caption", "İndir"));
+      face.append(button, element("span", "caption", t("download")));
     } else if (onDismiss) {
       face = element("div", "group");
       const dismiss = element("button", "dismiss");
       dismiss.type = "button";
-      dismiss.title = "Bu videoda gizle";
-      dismiss.setAttribute("aria-label", "Bu videoda İndir butonunu gizle");
+      dismiss.title = t("hideOnVideo");
+      dismiss.setAttribute("aria-label", t("hideButtonOnVideo"));
       dismiss.append(icon("close"));
       dismiss.addEventListener("click", () => onDismiss());
       face.append(button, dismiss);
@@ -364,8 +370,8 @@ globalThis.KDMenu = (() => {
     tile.append(icon("play"));
     const text = element("div", "header-text");
     text.append(
-      element("div", "title", title || "Video"),
-      element("div", "subtitle", [formatDuration(duration), "Kalite seç"].filter(Boolean).join(" · ")),
+      element("div", "title", title || t("videoFallbackTitle")),
+      element("div", "subtitle", [formatDuration(duration), t("chooseQuality")].filter(Boolean).join(" · ")),
     );
     row.append(tile, text);
     return row;
@@ -389,7 +395,7 @@ globalThis.KDMenu = (() => {
       menu.panel.querySelectorAll(".option").forEach((b) => { b.disabled = true; });
       const ok = await send(message);
       menu.panel.replaceChildren(
-        ok ? note("KD Download Manager'a gönderildi.", "ok") : note("Uygulamaya ulaşılamadı.", "error"),
+        ok ? note(t("sentToApp"), "ok") : note(t("appUnreachable"), "error"),
       );
       if (ok) setTimeout(() => menu.close(), 1500);
     });
@@ -414,9 +420,9 @@ globalThis.KDMenu = (() => {
       const message = { type: "video-download", url, quality: choice.quality };
       if (choice.quality === "audio") {
         rows.push(element("div", "divider"));
-        rows.push(option(menu, { name: "Sadece ses", tag: "MP3", size: formatSize(choice.size), audio: true }, message));
+        rows.push(option(menu, { name: t("qualityAudio"), tag: "MP3", size: formatSize(choice.size), audio: true }, message));
       } else if (choice.quality === "auto") {
-        rows.push(option(menu, { strong: "Otomatik", name: "(önerilen)", size: formatSize(choice.size), selected: true }, message));
+        rows.push(option(menu, { strong: t("qualityAuto"), name: t("qualityRecommended"), size: formatSize(choice.size), selected: true }, message));
       } else {
         rows.push(option(menu, { name: `${choice.quality}p`, tag: TAGS[choice.quality], size: formatSize(choice.size) }, message));
       }
@@ -426,9 +432,9 @@ globalThis.KDMenu = (() => {
 
   function footer() {
     const row = element("div", "footer");
-    row.append(icon("arrow"), element("span", "", "KD Download Manager'a gönderilir"));
+    row.append(icon("arrow"), element("span", "", t("sendsToApp")));
     return row;
   }
 
-  return { create, send, note, loading, header, option, qualityRows, footer, element, formatSize };
+  return { create, send, note, loading, header, option, qualityRows, footer, element, formatSize, t };
 })();
