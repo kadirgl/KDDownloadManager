@@ -187,7 +187,7 @@ public sealed class SettingsPage : UserControl
                 BorderBrush = selected ? Theme.PrimaryText : null,
                 Child = swatch,
             };
-            var button = new Button { Content = ring, Padding = new Thickness(0), Background = null, BorderThickness = new Thickness(0), MinWidth = 0 };
+            var button = Ui.Paint(new Button { Content = ring, Padding = new Thickness(0), MinWidth = 0, CornerRadius = new CornerRadius(15) }, Ui.Look.Clear);
             ToolTipService.SetToolTip(button, choice.Title());
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, choice.Title());
             var captured = choice;
@@ -203,15 +203,8 @@ public sealed class SettingsPage : UserControl
 
     static void ShowColorPicker(FrameworkElement anchor)
     {
-        var picker = new ColorPicker
-        {
-            Color = Theme.ColorOf(AccentChoice.Custom),
-            IsAlphaEnabled = false,
-            IsMoreButtonVisible = false,
-            IsColorSliderVisible = true,
-            IsHexInputVisible = true,
-        };
-        var apply = Ui.Pill(L.T("Uygula"), () => { });
+        var picker = new ColorChooser(Theme.ColorOf(AccentChoice.Custom));
+        var apply = Ui.AccentButton(L.T("Uygula"), null, () => { }, 32);
         var flyout = new Flyout { Content = Ui.Column(8, picker, apply) };
         apply.Click += (_, _) =>
         {

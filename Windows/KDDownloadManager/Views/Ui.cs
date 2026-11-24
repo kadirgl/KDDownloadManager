@@ -127,6 +127,46 @@ public static class Ui
         return panel;
     }
 
+    public enum Look { Plain, Clear, Accent }
+
+    /// <summary>
+    /// Rest, hover and press colors from the app's palette for a Button or ToggleButton (unchecked state). Without this
+    /// the Fluent defaults apply on hover, and those are partly transparent.
+    /// </summary>
+    public static T Paint<T>(T button, Look look) where T : Control
+    {
+        var (rest, hover, pressed) = look switch
+        {
+            Look.Accent => ((Brush)Theme.AccentBrush(), (Brush)Theme.AccentShade(0.12), (Brush)Theme.AccentShade(0.22)),
+            Look.Clear => (Theme.Clear, Theme.ClearHover, Theme.ClearPressed),
+            _ => (Theme.ControlFill, Theme.ControlFillHover, Theme.ControlFillPressed),
+        };
+        var border = look == Look.Plain ? Theme.CardStroke : Theme.Clear;
+        button.Background = rest;
+        button.BorderBrush = border;
+        if (look != Look.Plain) button.BorderThickness = new Thickness(0);
+        var prefix = button is ToggleButton ? "ToggleButton" : "Button";
+        button.Resources[prefix + "BackgroundPointerOver"] = hover;
+        button.Resources[prefix + "BackgroundPressed"] = pressed;
+        button.Resources[prefix + "BorderBrushPointerOver"] = border;
+        button.Resources[prefix + "BorderBrushPressed"] = border;
+        if (look == Look.Accent)
+        {
+            var foreground = Theme.Brush(Theme.OnAccent);
+            button.Foreground = foreground;
+            button.Resources[prefix + "ForegroundPointerOver"] = foreground;
+            button.Resources[prefix + "ForegroundPressed"] = foreground;
+            button.Resources[prefix + "BackgroundDisabled"] = Theme.AccentBrush(0.4);
+        }
+        else
+        {
+            button.Foreground = Theme.PrimaryText;
+            button.Resources[prefix + "ForegroundPointerOver"] = Theme.PrimaryText;
+            button.Resources[prefix + "ForegroundPressed"] = Theme.SecondaryText;
+        }
+        return button;
+    }
+
     /// <summary>Round icon button with a tooltip (glass button on macOS).</summary>
     public static Button IconButton(string glyph, string tip, Action action, double size = 34, Brush? tint = null)
     {
@@ -138,6 +178,7 @@ public static class Ui
             Padding = new Thickness(0),
             CornerRadius = new CornerRadius(size / 2),
         };
+        Paint(button, Look.Plain);
         ToolTipService.SetToolTip(button, tip);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, tip);
         button.Click += (_, _) => action();
@@ -148,12 +189,12 @@ public static class Ui
     /// A button showing its value and a chevron that opens a menu (set <c>Flyout</c>). DropDownButton is not used:
     /// its animated chevron (AnimatedIcon) failed natively in the test VM, like ProgressRing.
     /// </summary>
-    public static Button MenuButton(string text) => new()
+    public static Button MenuButton(string text) => Paint(new Button
     {
         Content = Row(6, Text(text, 13, FontWeights.SemiBold), Icon("\uE70D", 10)),
         CornerRadius = new CornerRadius(8),
         Padding = new Thickness(10, 4, 8, 4),
-    };
+    }, Look.Plain);
 
     public static Button Pill(string text, Action action, string? glyph = null, double height = 30, double fontSize = 12.5)
     {
@@ -166,6 +207,7 @@ public static class Ui
             CornerRadius = new CornerRadius(height / 2),
             VerticalAlignment = VerticalAlignment.Center,
         };
+        Paint(button, Look.Plain);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, text);
         button.Click += (_, _) => action();
         return button;
@@ -183,17 +225,10 @@ public static class Ui
             Height = height,
             Padding = new Thickness(18, 0, 18, 0),
             CornerRadius = new CornerRadius(height / 2),
-            Background = Theme.AccentBrush(),
-            BorderThickness = new Thickness(0),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Center,
         };
-        // Keep the accent on hover/press too (the default style switches to grey).
-        foreach (var key in new[] { "ButtonBackgroundPointerOver", "ButtonBackgroundPressed" })
-            button.Resources[key] = Theme.AccentBrush(key.EndsWith("Pressed") ? 0.8 : 0.9);
-        foreach (var key in new[] { "ButtonForegroundPointerOver", "ButtonForegroundPressed" })
-            button.Resources[key] = foreground;
-        button.Resources["ButtonBackgroundDisabled"] = Theme.AccentBrush(0.4);
+        Paint(button, Look.Accent);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, text);
         button.Click += (_, _) => action();
         return button;
@@ -263,8 +298,8 @@ public static class Ui
     public static void Accentize(ToggleSwitch toggle)
     {
         toggle.Resources["ToggleSwitchFillOn"] = Theme.AccentBrush();
-        toggle.Resources["ToggleSwitchFillOnPointerOver"] = Theme.AccentBrush(0.9);
-        toggle.Resources["ToggleSwitchFillOnPressed"] = Theme.AccentBrush(0.8);
+        toggle.Resources["ToggleSwitchFillOnPointerOver"] = Theme.AccentShade(0.12);
+        toggle.Resources["ToggleSwitchFillOnPressed"] = Theme.AccentShade(0.22);
         toggle.Resources["ToggleSwitchStrokeOn"] = Theme.AccentBrush();
         toggle.Resources["ToggleSwitchKnobFillOn"] = Theme.Brush(Theme.OnAccent);
         toggle.Resources["ToggleSwitchKnobFillOnPointerOver"] = Theme.Brush(Theme.OnAccent);
@@ -286,9 +321,13 @@ public static class Ui
                 Padding = new Thickness(10, 0, 10, 0),
                 CornerRadius = new CornerRadius(14),
             };
+            Paint(button, Look.Clear);
             button.Resources["ToggleButtonBackgroundChecked"] = Theme.AccentBrush();
-            button.Resources["ToggleButtonBackgroundCheckedPointerOver"] = Theme.AccentBrush(0.9);
-            button.Resources["ToggleButtonBackgroundCheckedPressed"] = Theme.AccentBrush(0.8);
+            button.Resources["ToggleButtonBackgroundCheckedPointerOver"] = Theme.AccentShade(0.12);
+            button.Resources["ToggleButtonBackgroundCheckedPressed"] = Theme.AccentShade(0.22);
+            button.Resources["ToggleButtonBorderBrushChecked"] = Theme.Clear;
+            button.Resources["ToggleButtonBorderBrushCheckedPointerOver"] = Theme.Clear;
+            button.Resources["ToggleButtonBorderBrushCheckedPressed"] = Theme.Clear;
             button.Resources["ToggleButtonForegroundChecked"] = Theme.Brush(Theme.OnAccent);
             button.Resources["ToggleButtonForegroundCheckedPointerOver"] = Theme.Brush(Theme.OnAccent);
             button.Resources["ToggleButtonForegroundCheckedPressed"] = Theme.Brush(Theme.OnAccent);

@@ -299,15 +299,9 @@ public sealed class ListPage : UserControl
                 Height = 30,
                 Padding = new Thickness(12, 0, 12, 0),
                 CornerRadius = new CornerRadius(15),
-                BorderThickness = new Thickness(0),
-                Background = selected ? Theme.AccentBrush() : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
                 Opacity = count == 0 && !selected ? 0.45 : 1,
             };
-            if (selected)
-            {
-                chip.Resources["ButtonBackgroundPointerOver"] = Theme.AccentBrush(0.9);
-                chip.Resources["ButtonBackgroundPressed"] = Theme.AccentBrush(0.8);
-            }
+            Ui.Paint(chip, selected ? Ui.Look.Accent : Ui.Look.Clear);
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(chip, L.F("%@, %lld dosya", category.Title(), count));
             var captured = category;
             chip.Click += (_, _) => store.Category = captured;
@@ -495,14 +489,8 @@ public sealed class ListPage : UserControl
                 Height = 38,
                 Padding = new Thickness(12, 0, 12, 0),
                 CornerRadius = new CornerRadius(19),
-                BorderThickness = new Thickness(0),
-                Background = selected ? Theme.AccentBrush() : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
             };
-            if (selected)
-            {
-                button.Resources["ButtonBackgroundPointerOver"] = Theme.AccentBrush(0.9);
-                button.Resources["ButtonBackgroundPressed"] = Theme.AccentBrush(0.8);
-            }
+            Ui.Paint(button, selected ? Ui.Look.Accent : Ui.Look.Clear);
             ToolTipService.SetToolTip(button, tab == ListTab.Active ? L.T("Devam Eden (Ctrl+1)") : L.T("Tamamlanan (Ctrl+2)"));
             var captured = tab;
             button.Click += (_, _) => store.Tab = captured;

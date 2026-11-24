@@ -141,6 +141,22 @@ public static class Theme
     public static Brush CardStroke => Pick(0x000000, 0.07, 0xFFFFFF, 0.09);
     public static Brush SubtleFill => Pick(0x000000, 0.07, 0xFFFFFF, 0.18);
     public static Brush ControlFill => Pick(0xFFFFFF, 0.75, 0xFFFFFF, 0.12);
+    // Hover gets more solid, not lighter: Fluent's own hover fills are more transparent than the rest state, which on
+    // the acrylic panel made buttons look like they faded out.
+    public static Brush ControlFillHover => Pick(0xFFFFFF, 0.95, 0xFFFFFF, 0.18);
+    public static Brush ControlFillPressed => Pick(0xEDEDF0, 0.95, 0xFFFFFF, 0.08);
+    public static Brush ClearHover => Pick(0x000000, 0.06, 0xFFFFFF, 0.10);
+    public static Brush ClearPressed => Pick(0x000000, 0.10, 0xFFFFFF, 0.06);
+    public static Brush Clear => new SolidColorBrush(Colors.Transparent);
+
+    /// <summary>The accent mixed toward white (dark panel) or black (light panel); opaque, for hover and press.</summary>
+    public static SolidColorBrush AccentShade(double amount)
+    {
+        var c = AccentColor;
+        var target = IsDark ? 255 : 0;
+        byte Mix(byte v) => (byte)Math.Round(v + (target - v) * amount);
+        return new SolidColorBrush(Color.FromArgb(255, Mix(c.R), Mix(c.G), Mix(c.B)));
+    }
     public static Brush Divider => Pick(0x000000, 0.08, 0xFFFFFF, 0.08);
     public static Brush ToastBackground => Pick(0xF6F6F8, 0.96, 0x2C2A33, 0.96);
 }

@@ -289,8 +289,8 @@ public sealed class AddLinkPage : UserControl
                 Width = 92,
                 Height = 42,
                 CornerRadius = new CornerRadius(10),
-                Background = selected ? Theme.AccentBrush() : null,
             };
+            Ui.Paint(button, selected ? Ui.Look.Accent : Ui.Look.Plain);
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, q == VideoQuality.Audio ? L.T("Ses (MP3)") : q.Title());
             var captured = q;
             button.Click += (_, _) => { quality = captured; Render(); };
