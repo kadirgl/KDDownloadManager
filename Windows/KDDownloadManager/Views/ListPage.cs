@@ -19,7 +19,9 @@ public sealed class ListPage : UserControl
     readonly StackPanel banners = new() { Spacing = 8 };
     readonly Grid searchHost = new();
     readonly StackPanel rail = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
-    readonly ScrollViewer railScroll;
+    readonly SideScroller railScroll;
+    string railSignature = "";
+    DownloadCategory? railCategory;
     readonly Border railCard;
     readonly Grid summary = new();
     readonly StackPanel rows = new() { Spacing = 8 };
@@ -60,14 +62,7 @@ public sealed class ListPage : UserControl
         searchHost.Margin = new Thickness(Theme.Margin, 0, Theme.Margin, 10);
         Place(layout, searchHost, 2);
 
-        railScroll = new ScrollViewer
-        {
-            Content = rail,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
-            HorizontalScrollMode = ScrollMode.Enabled,
-            VerticalScrollMode = ScrollMode.Disabled,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-        };
+        railScroll = new SideScroller(rail);
         railCard = new Border
         {
             Child = railScroll,
@@ -283,11 +278,24 @@ public sealed class ListPage : UserControl
     void RefreshRail(bool tabHasItems)
     {
         railCard.Visibility = tabHasItems ? Visibility.Visible : Visibility.Collapsed;
-        rail.Children.Clear();
-        if (!tabHasItems) return;
+        if (!tabHasItems)
+        {
+            rail.Children.Clear();
+            railSignature = "";
+            return;
+        }
         var counts = store.Items.Where(i => store.Tab.Includes(i.Status)).GroupBy(i => i.Category).ToDictionary(g => g.Key, g => g.Count());
         var total = counts.Values.Sum();
-        foreach (var category in DownloadCategories.All.Where(c => c == DownloadCategory.All || counts.ContainsKey(c) || c == store.Category))
+        var shown = DownloadCategories.All.Where(c => c == DownloadCategory.All || counts.ContainsKey(c) || c == store.Category).ToList();
+        // Rebuilt only when something on it changed: the list refreshes on every progress tick, and rebuilding then
+        // would get in the way of scrolling or clicking the row.
+        var signature = $"{store.Category}|{Theme.AccentHex}|{Theme.IsDark}|" + string.Join(",", shown.Select(c => $"{c}:{(c == DownloadCategory.All ? total : counts.GetValueOrDefault(c))}"));
+        if (signature == railSignature) return;
+        railSignature = signature;
+        var categoryChanged = railCategory != store.Category;
+        railCategory = store.Category;
+        rail.Children.Clear();
+        foreach (var category in shown)
         {
             var count = category == DownloadCategory.All ? total : counts.GetValueOrDefault(category);
             var selected = store.Category == category;
@@ -306,6 +314,8 @@ public sealed class ListPage : UserControl
             var captured = category;
             chip.Click += (_, _) => store.Category = captured;
             rail.Children.Add(chip);
+            // Keep the selected category visible (for example after it was chosen with the keyboard or the list changed).
+            if (selected && categoryChanged) chip.Loaded += (_, _) => railScroll.Reveal(chip);
         }
     }
 
