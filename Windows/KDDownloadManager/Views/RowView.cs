@@ -4,6 +4,7 @@ using KDDownloadManager.Store;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
 
@@ -60,14 +61,21 @@ public sealed class RowView : UserControl
 
         PointerEntered += (_, _) => { hovering = true; RefreshActions(); };
         PointerExited += (_, _) => { hovering = false; RefreshActions(); };
-        Tapped += (_, _) => store.Selection = item.Id;
-        DoubleTapped += (_, _) => { if (item.IsCompleted && !Shell.Open(item.Destination)) Shell.Beep(); };
-        RightTapped += (_, e) =>
+        Tapped += (_, _) =>
         {
             store.Selection = item.Id;
-            ContextMenu().ShowAt(this, e.GetPosition(this));
+            Ui.FocusList(this);
         };
-        CanDrag = true;
+        DoubleTapped += (_, _) => { if (item.IsCompleted && !Shell.Open(item.Destination)) Shell.Beep(); };
+        // XAML's own context menu (right click, Shift+F10, press and hold); filled when it opens.
+        var menu = new MenuFlyout();
+        menu.Opening += (_, _) =>
+        {
+            store.Selection = item.Id;
+            FillContextMenu(menu);
+        };
+        TrackMenu(menu);
+        ContextFlyout = menu;
         DragStarting += OnDragStarting;
         Loaded += (_, _) => item.PropertyChanged += OnItemChanged;
         Unloaded += (_, _) => item.PropertyChanged -= OnItemChanged;
@@ -102,6 +110,8 @@ public sealed class RowView : UserControl
 
     void Refresh()
     {
+        // Only finished files can be dragged out; on other rows a drag would also swallow the right click.
+        CanDrag = Item.IsCompleted;
         tile.Child = Ui.CategoryIcon(Item.Category, 40);
         RefreshChrome();
         RefreshText();
@@ -186,8 +196,21 @@ public sealed class RowView : UserControl
         }
     }
 
+    /// <summary>
+    /// A menu of this row is open: the buttons are not rebuilt meanwhile. Moving the pointer into the menu leaves
+    /// the row, and rebuilding would remove the button the menu belongs to and close it.
+    /// </summary>
+    bool menuOpen;
+
+    void TrackMenu(FlyoutBase flyout)
+    {
+        flyout.Opened += (_, _) => menuOpen = true;
+        flyout.Closed += (_, _) => { menuOpen = false; RefreshActions(); };
+    }
+
     void RefreshActions()
     {
+        if (menuOpen) return;
         actions.Children.Clear();
         var showSecondary = hovering || selected;
         if (Item.IsCompleted)
@@ -202,7 +225,9 @@ public sealed class RowView : UserControl
             Microsoft.UI.Xaml.Controls.Button? limit = null;
             limit = Ui.IconButton("", Item.SpeedLimit is { } l ? L.F("Hız sınırı: %@", ByteFormat.Speed(l)) : L.T("Hız sınırı"), () =>
             {
-                Ui.SpeedLimitMenu(L.T("Bu indirme için hız sınırı"), Item.SpeedLimit, value => store.SetSpeedLimit(value, Item)).ShowAt(limit!);
+                var limits = Ui.SpeedLimitMenu(L.T("Bu indirme için hız sınırı"), Item.SpeedLimit, value => store.SetSpeedLimit(value, Item));
+                TrackMenu(limits);
+                limits.ShowAt(limit!);
             }, tint: Item.SpeedLimit == null ? null : Theme.AccentBrush());
             actions.Children.Add(limit);
         }
@@ -216,9 +241,9 @@ public sealed class RowView : UserControl
         actions.Children.Add(Ui.IconButton(glyph, help, () => store.TogglePause(Item)));
     }
 
-    MenuFlyout ContextMenu()
+    void FillContextMenu(MenuFlyout menu)
     {
-        var menu = new MenuFlyout();
+        menu.Items.Clear();
         void Item_(string text, Action action, string? glyph = null)
         {
             var entry = new MenuFlyoutItem { Text = text };
@@ -253,7 +278,6 @@ public sealed class RowView : UserControl
             Item_(L.T("Geri Dönüşüm Kutusuna taşı"), () => store.Delete(Item), "");
         }
         else Item_(L.T("İndirmeyi sil"), () => store.Delete(Item), "");
-        return menu;
     }
 
     /// <summary>A completed file can be dragged to File Explorer or another app.</summary>

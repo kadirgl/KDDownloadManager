@@ -189,6 +189,7 @@ public sealed class SettingsPage : UserControl
             };
             var button = new Button { Content = ring, Padding = new Thickness(0), Background = null, BorderThickness = new Thickness(0), MinWidth = 0 };
             ToolTipService.SetToolTip(button, choice.Title());
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, choice.Title());
             var captured = choice;
             button.Click += (_, _) =>
             {

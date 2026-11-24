@@ -30,6 +30,9 @@ public sealed class ListPage : UserControl
     readonly Button speedButton = new();
     readonly Grid toastHost = new();
     readonly Dictionary<Guid, RowView> views = new();
+    readonly TextBlock completedHint = Ui.Text(L.T("Çift tıkla: aç · Sürükle: Gezgin'e taşı"), 11, brush: Theme.TertiaryText);
+    /// <summary>The "…" menu is open: the summary row is not rebuilt meanwhile (that would close it).</summary>
+    bool summaryMenuOpen;
     TextBox? search;
     readonly DispatcherQueueTimer refreshTimer;
     readonly DispatcherQueueTimer slowTimer;
@@ -82,6 +85,8 @@ public sealed class ListPage : UserControl
         Place(layout, summary, 4);
 
         rows.Margin = new Thickness(Theme.Margin, 2, Theme.Margin, 12);
+        completedHint.HorizontalAlignment = HorizontalAlignment.Center;
+        completedHint.Margin = new Thickness(0, 4, 0, 0);
         scroll = new ScrollViewer { Content = rows, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         content.Children.Add(scroll);
         content.Children.Add(emptyHost);
@@ -312,6 +317,7 @@ public sealed class ListPage : UserControl
 
     void RefreshSummary(bool tabHasItems)
     {
+        if (summaryMenuOpen) return;
         summary.Children.Clear();
         summary.Visibility = tabHasItems ? Visibility.Visible : Visibility.Collapsed;
         if (!tabHasItems) return;
@@ -362,6 +368,8 @@ public sealed class ListPage : UserControl
             var clear = new MenuFlyoutItem { Text = L.T("Listeyi temizle (dosyalar diskte kalır)"), Icon = new FontIcon { Glyph = "", FontFamily = Ui.Icons } };
             clear.Click += (_, _) => store.ClearCompleted();
             menu.Items.Add(clear);
+            menu.Opened += (_, _) => summaryMenuOpen = true;
+            menu.Closed += (_, _) => { summaryMenuOpen = false; ScheduleRefresh(); };
             more.Flyout = menu;
             action = more;
         }
@@ -381,17 +389,10 @@ public sealed class ListPage : UserControl
         scroll.Visibility = visible.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
         foreach (var gone in views.Keys.Where(id => !visible.Any(i => i.Id == id)).ToList()) views.Remove(gone);
-        var wanted = visible.Select(item => views.TryGetValue(item.Id, out var view) ? view : views[item.Id] = new RowView(store, item)).ToList();
-        if (store.Tab == ListTab.Completed && wanted.Count > 0)
-        {
-            var hint = Ui.Text(L.T("Çift tıkla: aç · Sürükle: Gezgin'e taşı"), 11, brush: Theme.TertiaryText);
-            hint.HorizontalAlignment = HorizontalAlignment.Center;
-            hint.Margin = new Thickness(0, 4, 0, 0);
-            rows.Children.Clear();
-            foreach (var view in wanted) rows.Children.Add(view);
-            rows.Children.Add(hint);
-        }
-        else if (!rows.Children.SequenceEqual(wanted))
+        var wanted = visible.Select(item => (UIElement)(views.TryGetValue(item.Id, out var view) ? view : views[item.Id] = new RowView(store, item))).ToList();
+        if (store.Tab == ListTab.Completed && wanted.Count > 0) wanted.Add(completedHint);
+        // Rebuilt only when the order changes: taking a row out of the tree closes its open menu.
+        if (!rows.Children.SequenceEqual(wanted))
         {
             rows.Children.Clear();
             foreach (var view in wanted) rows.Children.Add(view);

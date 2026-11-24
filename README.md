@@ -84,7 +84,8 @@ Swift kaynakları örnek alındı; davranışı aynı:
 
 - Bildirim alanında ikon (inerken ilerleme halkası, hatada kırmızı nokta, bitince onay); tıklayınca ikonun yanında
   açılan akrilik panel. Panel açıkken ikona tıklamak paneli kapatır.
-- Devam Eden / Tamamlanan listeleri, kategoriler, arama, Link ekle (bağlantı denetimiyle), Ayarlar, Windows bildirimleri.
+- Devam Eden / Tamamlanan listeleri, kategoriler, arama, Link ekle (bağlantı denetimiyle), Ayarlar, Windows bildirimleri
+  (Windows App SDK bildirimleri kullanılamıyorsa bildirim alanı ikonunun bildirimleriyle).
 - aria2c ile parçalı indirme ve torrent/magnet, yt-dlp + ffmpeg ile video; uygulamanın içinde gelir.
 - Tarayıcı eklentisi köprüsü: aynı port (47615), aynı uç noktalar ve aynı `Origin` denetimi; [ChromeExtension](ChromeExtension)
   hiç değişmeden çalışır. Uygulama eklentiyi `%LOCALAPPDATA%\KDDownloadManager\BrowserExtension`'a kopyalar.

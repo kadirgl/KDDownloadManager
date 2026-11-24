@@ -24,6 +24,9 @@ public static class Program
         if (!instance.IsCurrent)
         {
             var activation = AppInstance.GetCurrent().GetActivatedEventArgs();
+            // This launch came from the user (Start menu, a link), so it may bring a window to the front; hand that
+            // right to the running copy, otherwise its panel cannot take the focus and closes again at once.
+            AllowSetForegroundWindow((int)instance.ProcessId);
             // Redirecting must not block this STA thread.
             Task.Run(() => instance.RedirectActivationToAsync(activation).AsTask().Wait()).Wait(TimeSpan.FromSeconds(5));
             return 0;
@@ -58,6 +61,7 @@ public static class Program
         finally { LocalFree(argv); }
     }
 
+    [DllImport("user32.dll")] static extern bool AllowSetForegroundWindow(int processId);
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)] static extern IntPtr CommandLineToArgvW(string commandLine, out int count);
     [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr memory);
 

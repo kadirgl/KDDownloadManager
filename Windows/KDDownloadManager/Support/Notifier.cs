@@ -11,19 +11,33 @@ namespace KDDownloadManager;
 public static class Notifier
 {
     public static bool IsAvailable { get; private set; }
+
+    /// <summary>
+    /// Used when Windows App SDK notifications are unsupported, which is the case when the app runs elevated:
+    /// the tray icon's balloon (title, text, silent, file to show when clicked).
+    /// </summary>
+    public static Action<string, string, bool, string?>? Fallback { get; set; }
     public static event Action? OpenPanelRequested;
 
     public static void SetUp()
     {
         try
         {
+            // Unsupported (seen for this self-contained, unpackaged app on Windows 11 26300 arm64): do not register at
+            // all. Registering gives the process an app ID of its own, and the tray balloons used instead were then
+            // attributed to that ID and never shown.
+            if (!AppNotificationManager.IsSupported())
+            {
+                App.Log("Windows App SDK notifications unsupported; using tray balloons");
+                return;
+            }
             AppNotificationManager.Default.NotificationInvoked += (_, args) => Handle(args.Arguments);
             AppNotificationManager.Default.Register();
             IsAvailable = true;
         }
         catch (Exception error)
         {
-            System.Diagnostics.Debug.WriteLine("Notifications unavailable: " + error.Message);
+            App.Log("Notifications unavailable: " + error);
         }
     }
 
@@ -69,7 +83,11 @@ public static class Notifier
     static void Post(string title, string body, string? file, bool silent)
     {
         System.Diagnostics.Debug.WriteLine($"[notification] {title}: {body}");
-        if (!IsAvailable) return;
+        if (!IsAvailable || !AppNotificationManager.IsSupported())
+        {
+            Fallback?.Invoke(title, body, silent, file);
+            return;
+        }
         try
         {
             var builder = new AppNotificationBuilder()
@@ -77,8 +95,10 @@ public static class Notifier
                 .AddText(title)
                 .AddText(body);
             if (silent) builder.MuteAudio();
-            AppNotificationManager.Default.Show(builder.BuildNotification());
+            var notification = builder.BuildNotification();
+            AppNotificationManager.Default.Show(notification);
+            if (notification.Id == 0) Fallback?.Invoke(title, body, silent, file);
         }
-        catch { }
+        catch (Exception error) { App.Log("Notification failed: " + error); }
     }
 }

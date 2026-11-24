@@ -64,6 +64,7 @@ public sealed class AddLinkPage : UserControl
         layout.Children.Add(footer);
         Content = layout;
 
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(editor, L.T("Bağlantı"));
         editor.TextChanged += (_, _) => { filledFromClipboard = false; OnTextChanged(); };
         // Preview: the multi-line box would otherwise turn Ctrl+Enter into a new line.
         editor.PreviewKeyDown += (_, e) =>
@@ -290,6 +291,7 @@ public sealed class AddLinkPage : UserControl
                 CornerRadius = new CornerRadius(10),
                 Background = selected ? Theme.AccentBrush() : null,
             };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, q == VideoQuality.Audio ? L.T("Ses (MP3)") : q.Title());
             var captured = q;
             button.Click += (_, _) => { quality = captured; Render(); };
             wrap.Children.Add(button);

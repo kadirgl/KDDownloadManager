@@ -25,6 +25,8 @@
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <Version>1.9.2</Version>
     <Product>KD Download Manager</Product>
+    <!-- File description: the name Windows shows on notifications and in Task Manager. -->
+    <AssemblyTitle>KD Download Manager</AssemblyTitle>
     <Company>KD</Company>
     <NoWarn>$(NoWarn);CA1416;CS8618</NoWarn>
     <!-- GitHub repository the in-app updater reads releases from (package.ps1 can override it). -->

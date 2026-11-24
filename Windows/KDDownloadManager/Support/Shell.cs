@@ -100,22 +100,40 @@ public static class Shell
     }
 }
 
-/// <summary>Moves completed files to the Recycle Bin (macOS: trashItem).</summary>
+/// <summary>
+/// Moves completed files to the Recycle Bin (macOS: trashItem), silently: no progress window or confirmation, so
+/// the panel keeps the focus.
+/// </summary>
 public static class RecycleBin
 {
-    public static void Send(string path)
+    public static bool Send(string path)
     {
-        try
+        if (!File.Exists(path) && !Directory.Exists(path)) return false;
+        var operation = new SHFILEOPSTRUCT
         {
-            if (File.Exists(path))
-                Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(path, Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
-                    Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
-            else if (Directory.Exists(path))
-                Microsoft.VisualBasic.FileIO.FileSystem.DeleteDirectory(path, Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
-                    Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
-        }
-        catch { }
+            wFunc = 3, // FO_DELETE
+            pFrom = Path.GetFullPath(path) + "\0\0",
+            // FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI
+            fFlags = 0x0040 | 0x0010 | 0x0004 | 0x0400,
+        };
+        return SHFileOperation(ref operation) == 0 && !operation.fAnyOperationsAborted;
     }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct SHFILEOPSTRUCT
+    {
+        public IntPtr hwnd;
+        public uint wFunc;
+        public string pFrom;
+        public string? pTo;
+        public ushort fFlags;
+        [MarshalAs(UnmanagedType.Bool)] public bool fAnyOperationsAborted;
+        public IntPtr hNameMappings;
+        public string? lpszProgressTitle;
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    static extern int SHFileOperation(ref SHFILEOPSTRUCT operation);
 }
 
 /// <summary>"Start when I sign in": HKCU\...\Run (macOS: SMAppService).</summary>

@@ -80,6 +80,13 @@ public static class Ui
         return icon;
     }
 
+    /// <summary>Gives keyboard focus to the list page that contains <paramref name="element"/>.</summary>
+    public static void FocusList(DependencyObject element)
+    {
+        for (var node = element; node != null; node = VisualTreeHelper.GetParent(node))
+            if (node is ListPage page) { page.Focus(FocusState.Programmatic); return; }
+    }
+
     public static readonly FontFamily Icons = new("Segoe Fluent Icons, Segoe MDL2 Assets");
 
     public static TextBlock Text(string text, double size = 13, FontWeight? weight = null, Brush? brush = null, bool wrap = false, bool trim = true)
@@ -159,6 +166,7 @@ public static class Ui
             CornerRadius = new CornerRadius(height / 2),
             VerticalAlignment = VerticalAlignment.Center,
         };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, text);
         button.Click += (_, _) => action();
         return button;
     }
@@ -186,6 +194,7 @@ public static class Ui
         foreach (var key in new[] { "ButtonForegroundPointerOver", "ButtonForegroundPressed" })
             button.Resources[key] = foreground;
         button.Resources["ButtonBackgroundDisabled"] = Theme.AccentBrush(0.4);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, text);
         button.Click += (_, _) => action();
         return button;
     }
@@ -216,7 +225,13 @@ public static class Ui
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var label = Text(title, 13.5, wrap: true);
         grid.Children.Add(label);
-        if (control is FrameworkElement element) element.VerticalAlignment = VerticalAlignment.Center;
+        if (control is FrameworkElement element)
+        {
+            element.VerticalAlignment = VerticalAlignment.Center;
+            // Screen readers (and UI tests) know the switch or field by its row's title.
+            if (Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(element) is null or "")
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(element, title);
+        }
         Grid.SetColumn((FrameworkElement)control, 1);
         grid.Children.Add(control);
         if (note == null) return grid;
@@ -225,7 +240,20 @@ public static class Ui
 
     public static ToggleSwitch Toggle(bool isOn, Action<bool> changed)
     {
-        var toggle = new ToggleSwitch { IsOn = isOn, OnContent = "", OffContent = "", MinWidth = 0, Margin = new Thickness(0, -4, -12, -4) };
+        // Only the track (40 px plus its border): the template keeps room for On/Off text on the right even when it is empty, which
+        // pushed the switch to the middle of the card.
+        var toggle = new ToggleSwitch
+        {
+            IsOn = isOn,
+            OnContent = null,
+            OffContent = null,
+            MinWidth = 0,
+            Width = 44,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, -4, 0, -4),
+        };
+        toggle.Resources["ToggleSwitchPreContentMargin"] = 0.0;
+        toggle.Resources["ToggleSwitchPostContentMargin"] = 0.0;
         Accentize(toggle);
         toggle.Toggled += (_, _) => changed(toggle.IsOn);
         return toggle;

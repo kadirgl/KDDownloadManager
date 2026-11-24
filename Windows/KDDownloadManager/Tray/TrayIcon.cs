@@ -16,6 +16,8 @@ public sealed class TrayIcon : IDisposable
     public event Action<int, int>? ContextMenuRequested;
     /// <summary>Taskbar theme or DPI changed: the owner should redraw the current state.</summary>
     public event Action? NeedsRedraw;
+    /// <summary>The user clicked a balloon shown with <see cref="ShowBalloon"/>.</summary>
+    public event Action? BalloonClicked;
 
     readonly WndProc proc;
     readonly IntPtr hwnd;
@@ -123,6 +125,9 @@ public sealed class TrayIcon : IDisposable
                     var y = (short)((w.ToInt64() >> 16) & 0xFFFF);
                     ContextMenuRequested?.Invoke(x, y);
                     break;
+                case 0x0405: // NIN_BALLOONUSERCLICK
+                    BalloonClicked?.Invoke();
+                    break;
                 case 0x0400: // NIN_SELECT via keyboard (Enter / Space)
                 case 0x0401: // NIN_KEYSELECT
                     break;
@@ -144,6 +149,18 @@ public sealed class TrayIcon : IDisposable
     }
 
     /// <summary>A Win32 popup menu at the cursor; returns the chosen command (0 if none).</summary>
+    /// <summary>A notification from the tray icon (Windows shows it like a toast).</summary>
+    public void ShowBalloon(string title, string text, bool silent)
+    {
+        var data = Data();
+        data.uFlags = 0x10; // NIF_INFO
+        data.szInfoTitle = title.Length > 63 ? title[..63] : title;
+        data.szInfo = text.Length > 255 ? text[..255] : text;
+        data.dwInfoFlags = 0x1 | (silent ? 0x10u : 0); // NIIF_INFO | NIIF_NOSOUND (as WinForms' NotifyIcon)
+        data.uVersion = 10_000; // uTimeout: the same union field
+        if (!Shell_NotifyIcon(1 /* NIM_MODIFY */, ref data)) App.Log($"Balloon failed: {Marshal.GetLastWin32Error()} added={added}");
+    }
+
     public int ShowMenu(int x, int y, IEnumerable<(int id, string title, bool separatorBefore)> items)
     {
         var menu = CreatePopupMenu();
@@ -219,7 +236,7 @@ public sealed class TrayIcon : IDisposable
     [DllImport("user32.dll")] static extern bool DestroyWindow(IntPtr hwnd);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern uint RegisterWindowMessage(string name);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern IntPtr GetModuleHandle(string? name);
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)] static extern bool Shell_NotifyIcon(uint message, ref NOTIFYICONDATA data);
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool Shell_NotifyIcon(uint message, ref NOTIFYICONDATA data);
     [DllImport("shell32.dll")] static extern int Shell_NotifyIconGetRect(ref NOTIFYICONIDENTIFIER id, out RECT rect);
     [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
     [DllImport("user32.dll")] static extern uint GetDpiForWindow(IntPtr hwnd);

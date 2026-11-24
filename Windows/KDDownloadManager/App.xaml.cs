@@ -80,6 +80,17 @@ public partial class App : Application
         tray.Clicked += () => Views.Ui.Guard(TogglePanel);
         tray.ContextMenuRequested += (x, y) => Views.Ui.Guard(() => ShowTrayMenu(x, y));
         tray.NeedsRedraw += () => { iconState = null; Views.Ui.Guard(UpdateIcon); };
+        string? balloonFile = null;
+        Notifier.Fallback = (title, body, silent, file) =>
+        {
+            balloonFile = file;
+            tray.ShowBalloon(title, body, silent);
+        };
+        tray.BalloonClicked += () => Views.Ui.Guard(() =>
+        {
+            if (balloonFile != null && File.Exists(balloonFile)) Shell.Reveal(balloonFile, Path.GetDirectoryName(balloonFile)!);
+            else OpenPanel();
+        });
         store.ItemsChanged += UpdateIcon;
         store.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(DownloadStore.DisplaySpeed)) UpdateIcon(); };
         Settings.Changed += key => { if (key == Settings.ShowSpeedInTray) UpdateIcon(); };
@@ -104,7 +115,7 @@ public partial class App : Application
         }
         else
         {
-            var links = arguments.Where(a => !a.StartsWith("--")).ToList();
+            var links = arguments.Where(IsOpenable).ToList();
             if (links.Count > 0) store.Open(links);
             // Started by hand (not at sign-in, not for a link): show the panel so the user sees the app is running.
             else if (!arguments.Contains("--background")) OpenPanel();
@@ -122,7 +133,8 @@ public partial class App : Application
                     Notifier.Handle(toast.Arguments);
                     break;
                 case ExtendedActivationKind.Launch when activation.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launch:
-                    var links = Program.SplitCommandLine(launch.Arguments).Where(a => !a.StartsWith("--")).ToList();
+                    // The command line of an unpackaged app starts with the exe's own path: keep only links and .torrent files.
+                    var links = Program.SplitCommandLine(launch.Arguments).Where(IsOpenable).ToList();
                     if (links.Count > 0) store.Open(links);
                     else OpenPanel();
                     break;
@@ -132,6 +144,9 @@ public partial class App : Application
             }
         }));
     }
+
+    static bool IsOpenable(string argument) =>
+        DownloadSources.LooksLikeLink(argument) || argument.EndsWith(".torrent", StringComparison.OrdinalIgnoreCase);
 
     // MARK: Panel
 
