@@ -1,0 +1,63 @@
+{
+  " · henüz denetlenmedi": " · not checked yet",
+  " · son denetim %@": " · last checked %@",
+  "%@ boş": "%@ free",
+  "%@ silindi": "%@ deleted",
+  "%@'da %@": "In %@: %@",
+  "%lld dakika önce": {
+    "one": "%lld min ago",
+    "other": "%lld min ago"
+  },
+  "%lld gün önce": {
+    "one": "%lld day ago",
+    "other": "%lld days ago"
+  },
+  "%lld indirme": {
+    "one": "%lld download",
+    "other": "%lld downloads"
+  },
+  "%lld indirme devam ediyor.": {
+    "one": "%lld download in progress.",
+    "other": "%lld downloads in progress."
+  },
+  "%lld indirme tamamlanamadı": "%lld downloads couldn't finish",
+  "%lld saat önce": {
+    "one": "%lld hour ago",
+    "other": "%lld hours ago"
+  },
+  "Artır": "Increase",
+  "Ayarlar (Ctrl+,)": "Settings (Ctrl+,)",
+  "Azalt": "Decrease",
+  "Bildirim alanı": "Notification area",
+  "Desteklenen bir tarayıcı bulunamadı (Chrome, Edge, Brave, Vivaldi, Opera).": "No supported browser found (Chrome, Edge, Brave, Vivaldi, Opera).",
+  "Devam Eden (Ctrl+1)": "Active (Ctrl+1)",
+  "Geliştirici modu açılınca çıkar": "Appears once developer mode is on",
+  "Geri (Esc)": "Back (Esc)",
+  "Geri Dönüşüm Kutusuna taşı": "Move to Recycle Bin",
+  "Geri al (Ctrl+Z)": "Undo (Ctrl+Z)",
+  "Gezgin'de göster": "Show in Explorer",
+  "KD Download Manager": "KD Download Manager",
+  "Kısayol: Gezgin'deki klasörü sürükleyip eklentiler sayfasına bırakabilirsin.": "Shortcut: you can drag the folder from File Explorer onto the extensions page.",
+  "Klasörde göster": "Show in folder",
+  "Link ekle (Ctrl+N)": "Add link (Ctrl+N)",
+  "Listede var": "Already listed",
+  "Paneli aç": "Open panel",
+  "Parçalı indirme: %lld bağlantı": "Segmented download: %lld connections",
+  "Sayfadaki \"Geliştirici modu\" anahtarı": "The \"Developer mode\" switch on the page",
+  "Tamamlanan (Ctrl+2)": "Completed (Ctrl+2)",
+  "Torrent": "Torrent",
+  "Uygula": "Apply",
+  "Video": "Video",
+  "Video indirilemedi (kod %lld)": "Couldn't download the video (code %lld)",
+  "aria2c bulunamadı": "aria2c not found",
+  "az önce": "just now",
+  "ve %lld link daha": "and %lld more links",
+  "ya da linki kopyalayıp Ctrl+V yap": "or copy a link and press Ctrl+V",
+  "yt-dlp bulunamadı": "yt-dlp not found",
+  "Çift tıkla: aç · Sürükle: Gezgin'e taşı": "Double-click: open · Drag: move to Explorer",
+  "İkonun üzerine gelince araç ipucunda görünür.": "Shown in the tooltip when you point at the icon.",
+  "İndir (Ctrl+Enter)": "Download (Ctrl+Enter)",
+  "İndirilen yt-dlp doğrulanamadı": "Couldn't verify the downloaded yt-dlp",
+  "İndirme motoru (aria2c) başlatılamadı": "Couldn't start the download engine (aria2c)",
+  "Şimdi denetle": "Check now"
+}

@@ -2,6 +2,7 @@
 //
 //   swift scripts/render-icon.swift app <klasör.iconset>   → macOS uygulama ikonu (iconutil için)
 //   swift scripts/render-icon.swift extension <klasör>      → Chrome eklentisi ikonları (16/32/48/128)
+//   swift scripts/render-icon.swift windows <klasör>        → Windows .ico katmanları (Windows/scripts/make-ico.py)
 //
 // macOS ikonlarında şekil, Apple'ın ızgarasına göre kenarlardan boşluk bırakıp gölgeyle çizilir;
 // eklenti ikonlarında tüm alanı kaplar.
@@ -59,8 +60,8 @@ func render(pixels: Int, macStyle: Bool, to url: URL) throws {
 }
 
 let arguments = CommandLine.arguments
-guard arguments.count == 3, ["app", "extension"].contains(arguments[1]) else {
-    FileHandle.standardError.write(Data("kullanım: render-icon.swift app|extension <klasör>\n".utf8))
+guard arguments.count == 3, ["app", "extension", "windows"].contains(arguments[1]) else {
+    FileHandle.standardError.write(Data("kullanım: render-icon.swift app|extension|windows <klasör>\n".utf8))
     exit(1)
 }
 let folder = URL(fileURLWithPath: arguments[2], isDirectory: true)
@@ -71,6 +72,10 @@ if arguments[1] == "app" {
     for points in [16, 32, 128, 256, 512] {
         try render(pixels: points, macStyle: true, to: folder.appendingPathComponent("icon_\(points)x\(points).png"))
         try render(pixels: points * 2, macStyle: true, to: folder.appendingPathComponent("icon_\(points)x\(points)@2x.png"))
+    }
+} else if arguments[1] == "windows" {
+    for pixels in [16, 20, 24, 32, 40, 48, 64, 256] {
+        try render(pixels: pixels, macStyle: false, to: folder.appendingPathComponent("icon\(pixels).png"))
     }
 } else {
     for pixels in [16, 32, 48, 128] {

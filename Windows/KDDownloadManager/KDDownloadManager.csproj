@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    KD Download Manager for Windows: WinUI 3 (Windows App SDK) + .NET, unpackaged and self-contained
+    (neither .NET nor the Windows App SDK runtime has to be installed). Built by Windows/scripts/package.ps1.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>KDDownloadManager</RootNamespace>
+    <AssemblyName>KDDownloadManager</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- Program.cs has its own Main (single instance, activation redirect). -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <Version>1.9.2</Version>
+    <Product>KD Download Manager</Product>
+    <Company>KD</Company>
+    <NoWarn>$(NoWarn);CA1416;CS8618</NoWarn>
+    <!-- GitHub repository the in-app updater reads releases from (package.ps1 can override it). -->
+    <UpdateRepository Condition="'$(UpdateRepository)' == ''">kadirgl/KDDownloadManager</UpdateRepository>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="UpdateRepository" Value="$(UpdateRepository)" />
+    <!-- Same Ed25519 public key as the macOS app; the private key never leaves the developer's Keychain. -->
+    <EmbeddedResource Include="..\..\scripts\update-public-key.txt" LogicalName="update-public-key.txt" />
+    <Using Include="Microsoft.UI.Dispatching" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="1.8.260803003" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" Version="1.8.260803002" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.9457" />
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Strings\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
