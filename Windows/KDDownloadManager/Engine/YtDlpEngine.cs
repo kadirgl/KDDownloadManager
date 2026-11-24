@@ -253,6 +253,9 @@ public sealed partial class YtDlpEngine : IDownloadEngine
         var arguments = new List<string>
         {
             "--no-playlist", "--newline", "--progress", "--progress-delta", "0.5", "--no-simulate",
+            // Without it yt-dlp writes to the pipe in the ANSI code page: Turkish letters in titles and paths came
+            // back as "?" and the finished file could not be found ("Maç Özeti" → "Ma? ?zeti").
+            "--encoding", "utf-8",
             // Windows: no characters that are invalid in file names, and no over-long paths.
             "--windows-filenames",
             "-P", item.Folder,

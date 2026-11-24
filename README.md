@@ -75,3 +75,61 @@ scripts/release.sh 1.6.0 notlar.md     # notlar dosyadan
 ```
 
 Betik uygulamayı paketler, zip'i imzalar, `v1.6.0` etiketini gönderir ve GitHub sürümünü oluşturur.
+
+## Windows
+
+[Windows](Windows) klasöründe yerel bir Windows sürümü var: WinUI 3 (Windows App SDK 1.8) ve .NET 10, self-contained
+(.NET ya da Windows App SDK kurmak gerekmez). Windows 10 1809 ve sonrası, Windows 11; arm64 ve x64. macOS sürümünün
+Swift kaynakları örnek alındı; davranışı aynı:
+
+- Bildirim alanında ikon (inerken ilerleme halkası, hatada kırmızı nokta, bitince onay); tıklayınca ikonun yanında
+  açılan akrilik panel. Panel açıkken ikona tıklamak paneli kapatır.
+- Devam Eden / Tamamlanan listeleri, kategoriler, arama, Link ekle (bağlantı denetimiyle), Ayarlar, Windows bildirimleri.
+- aria2c ile parçalı indirme ve torrent/magnet, yt-dlp + ffmpeg ile video; uygulamanın içinde gelir.
+- Tarayıcı eklentisi köprüsü: aynı port (47615), aynı uç noktalar ve aynı `Origin` denetimi; [ChromeExtension](ChromeExtension)
+  hiç değişmeden çalışır. Uygulama eklentiyi `%LOCALAPPDATA%\KDDownloadManager\BrowserExtension`'a kopyalar.
+- Türkçe ve İngilizce arayüz (Ayarlar › Dil, yeniden başlatınca).
+- GitHub Releases'ten güncelleme; macOS ile aynı Ed25519 anahtarı ve imza biçimi.
+
+### Kurulum
+
+`KDDownloadManager-Windows-<arm64|x64>-<sürüm>.zip` dosyasını açıp `KDDownloadManager` klasörünü örneğin
+`%LOCALAPPDATA%\Programs` altına taşıyın ve `KDDownloadManager.exe`'yi çalıştırın. İlk açılışta Başlat menüsüne kısayol
+eklenir; Ayarlar › Başlangıç'tan oturum açınca başlatılabilir, Ayarlar › Torrent'ten magnet linkleri ve `.torrent`
+dosyaları bu uygulamayla açılır. Notlar:
+
+- Uygulama kod imzalı olmadığı için Windows SmartScreen ilk açılışta uyarabilir ("Ek bilgi › Yine de çalıştır").
+- İlk torrent'te Windows Güvenlik Duvarı aria2c için gelen bağlantı izni sorar. İzin vermeden de iner; izin verilirse
+  eşler size de bağlanabildiği için genelde daha hızlıdır.
+- Yeni ikonlar Windows 11'de taşma alanına (^) konur; görev çubuğu ayarlarından görünür yapılabilir.
+
+### Derleme ve paketleme (Windows'ta)
+
+Gerekenler: .NET 10 SDK (`dotnet` PATH'te ya da `C:\kd\dotnet`).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Windows\scripts\package.ps1                         # arm64 ve x64
+powershell -ExecutionPolicy Bypass -File Windows\scripts\package.ps1 -Arch arm64 -Version 1.9.3
+```
+
+Sonuç `Windows\dist\KDDownloadManager-Windows-<mimari>-<sürüm>.zip`. Yardımcı programları
+`Windows\scripts\bundle-tools.ps1` resmi sürümlerinden indirir ve doğrular (yt-dlp `SHA2-256SUMS`, ffmpeg
+BtbN `checksums.sha256`, aria2 ve QuickJS betiğe sabitlenmiş SHA-256). Arayüzün İngilizce metinleri macOS'un
+`Localizable.xcstrings` dosyasından ve yalnızca Windows'a özgü metinler için [Windows/strings.en.json](Windows/strings.en.json)'dan
+üretilir; metin ekleyince `python3 Windows/scripts/strings.py` çalıştırın (çevirisi eksik olanları listeler).
+
+Mac'ten, UTM'deki bir Windows sanal makinesinde derlemek için `Windows/scripts/utm-sync.sh '<komut>'` kaynakları QEMU
+misafir ajanıyla `C:\kd\src`'ye kopyalayıp komutu orada çalıştırır (paylaşılan klasör ya da SSH gerekmez).
+
+### Windows sürümünü yayımlama
+
+macOS sürümü `scripts/release.sh` ile yayımlandıktan sonra:
+
+```bash
+scripts/release-windows.sh 1.9.3
+```
+
+Betik `Windows/dist`'teki zip'leri (yoksa UTM'deki Windows'ta üretip) Anahtar Zinciri'ndeki aynı gizli anahtarla imzalar,
+imzayı denetler ve `KDDownloadManager-Windows-<mimari>-<sürüm>.zip` + `.sig` dosyalarını aynı GitHub sürümüne ekler.
+macOS uygulaması yalnızca kendi zip'ine baktığı için bu dosyalar onu etkilemez. Paketin imzasını Windows'ta da
+denetlemek için: `KDDownloadManager.exe --verify-update <zip> <zip.sig>` (geçerliyse çıkış kodu 0).

@@ -36,7 +36,7 @@ public sealed record VideoFormats(string Title, double? Duration, List<VideoForm
         var work = Path.Combine(Path.GetTempPath(), "kd-formats-" + Guid.NewGuid().ToString("N"));
         try
         {
-            var arguments = new List<string> { "-J", "--no-playlist", "--playlist-items", "1", "--no-warnings",
+            var arguments = new List<string> { "-J", "--encoding", "utf-8", "--no-playlist", "--playlist-items", "1", "--no-warnings",
                 "--socket-timeout", "10", "--extractor-retries", "1" };
             if (cookies is { Count: > 0 })
             {

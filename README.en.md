@@ -45,3 +45,26 @@ The source strings are Turkish and double as translation keys; the English text 
 `Sources/KDDownloadManager/Resources/Localizable.xcstrings`. After adding or changing UI text, run
 `scripts/strings.sh sync` to update the catalog and list missing translations. The browser extension is in
 [ChromeExtension](ChromeExtension); its strings are in `ChromeExtension/_locales/{tr,en}/messages.json`.
+
+## Windows
+
+A native Windows version lives in [Windows](Windows): WinUI 3 (Windows App SDK 1.8) and .NET 10, self-contained,
+for Windows 10 1809+ and Windows 11 on arm64 and x64. It mirrors the macOS app: a notification-area icon with a
+compact acrylic panel (clicking the icon again closes it), Active/Completed lists, categories, search, Add link with
+link checking, Settings, Windows notifications, segmented downloads and torrents through aria2c, videos through
+yt-dlp and ffmpeg, Turkish and English UI, and in-app updates from GitHub Releases signed with the same Ed25519 key.
+The browser bridge uses the same port (47615), endpoints and `Origin` check, so the [extension](ChromeExtension)
+works unchanged.
+
+**Install:** unzip `KDDownloadManager-Windows-<arm64|x64>-<version>.zip`, move the `KDDownloadManager` folder to e.g.
+`%LOCALAPPDATA%\Programs` and run `KDDownloadManager.exe`. The app is not code-signed, so SmartScreen may warn on the
+first launch, and Windows Firewall asks about aria2c on the first torrent (downloads work either way).
+
+**Build (on Windows, .NET 10 SDK):** `powershell -ExecutionPolicy Bypass -File Windows\scripts\package.ps1 [-Arch arm64|x64] [-Version 1.9.3]`
+→ `Windows\dist\KDDownloadManager-Windows-<arch>-<version>.zip`. Helper programs are fetched from their official
+releases and checksum-verified by `Windows\scripts\bundle-tools.ps1`. English UI strings come from the macOS
+`Localizable.xcstrings` plus [Windows/strings.en.json](Windows/strings.en.json); run `python3 Windows/scripts/strings.py`
+after changing UI text. From a Mac, `Windows/scripts/utm-sync.sh '<command>'` builds inside a UTM Windows VM.
+
+**Release:** after `scripts/release.sh 1.9.3`, run `scripts/release-windows.sh 1.9.3`. It signs the Windows zips with
+the Keychain key and attaches them (and their `.sig` files) to the same GitHub release; the macOS app ignores them.

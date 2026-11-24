@@ -12,6 +12,9 @@ alır ve tarayıcının uzantılar sayfasını açar. Orada:
 1. Sağ üstten **Geliştirici modu**nu açın.
 2. **Paketlenmemiş öğe yükle**'ye tıklayın, ⌘⇧G ile yolu yapıştırıp **Seç**'e basın.
 
+Windows sürümünde klasör `%LOCALAPPDATA%\KDDownloadManager\BrowserExtension`; açılan pencerede yolu "Klasör"
+alanına yapıştırıp **Klasör Seç**'e basın. Eklenti iki uygulamayla da aynıdır.
+
 Eklenti bağlanınca Ayarlar'da "Bağlı" görünür. Uygulama güncellendiğinde o klasör de güncellenir;
 eklenti yeni sürümü en geç bir dakika içinde fark edip kendini yeniden yükler. Eklentinin sürümü her
 zaman uygulamanınkiyle aynıdır (paketlerken ve yayımlarken eşitlenir).
