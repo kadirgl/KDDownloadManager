@@ -85,17 +85,24 @@ scripts/chrome-store.sh set-id <KİMLİK>
 ```
 
 Bu komut kimliği macOS'ta `BrowserExtension.storeExtensionID`'ye, Windows'ta `BrowserExtension.StoreExtensionId`'ye
-yazar. Sonrasında:
+yazar. Bundan sonra uygulama mağaza kimliğinden gelen istekleri de kabul eder. Paketlenmemiş kopyanın kimliği de
+kabul edilmeye devam eder, yani şu anki kullanıcılar etkilenmez. Kurulum ekranları ise inceleme bitene kadar
+eskisi gibi geliştirici modundan yüklemeyi gösterir.
 
-- Uygulama mağaza kimliğinden gelen istekleri de kabul eder. Paketlenmemiş kopyanın kimliği de kabul edilmeye
-  devam eder, yani şu anki kullanıcılar etkilenmez.
+## 7. Onaylanınca mağazaya geçir
+
+Mağaza kaydı yayımlandığında şunu çalıştırıp yeni bir uygulama sürümü çıkar:
+
+```bash
+scripts/chrome-store.sh live
+```
+
+Bu komut iki uygulamada da `storeListingLive` anahtarını açar. Sonrasında:
+
 - Kurulum ekranı ve Ayarlar kullanıcıyı mağaza sayfasına götürür. Geliştirici modundan yükleme yalnızca yedek
   yol olarak kalır.
 - Paketlenmemiş kopyayı kullananlara Ayarlar'da "Mağazadan kur" önerisi çıkar. İki kopya birden kuruluysa
   eskisini kaldırmaları söylenir.
-
-Kimliği taslak aşamasında da gönderebilirsin, ama uygulamanın bu kimlikle yayımlanan sürümü mağaza kaydı
-**yayımlandıktan sonra** çıkmalı. Yoksa kurulum ekranındaki mağaza bağlantısı açılmaz.
 
 ## Sonraki sürümler
 

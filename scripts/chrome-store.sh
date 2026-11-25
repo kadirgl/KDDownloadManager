@@ -5,6 +5,7 @@
 #                                              SÜRÜM verilmezse ChromeExtension/manifest.json'daki (release.sh onu
 #                                              uygulamanın sürümüne eşitliyor).
 #   scripts/chrome-store.sh set-id KİMLİK     → mağazanın verdiği eklenti kimliğini macOS ve Windows uygulamasına yazar
+#   scripts/chrome-store.sh live              → mağaza kaydı yayımlandı: iki uygulamanın kurulum ekranı mağazaya yönlendirir
 #   scripts/chrome-store.sh credentials       → Chrome Web Store API bilgilerini Anahtar Zinciri'ne kaydeder (bir kez)
 #   scripts/chrome-store.sh upload ZIP        → paketi mağazadaki öğeye taslak olarak yükler (incelemeye göndermez)
 #   scripts/chrome-store.sh publish           → yüklenen taslağı incelemeye gönderir; onaylanınca yayımlanır
@@ -109,6 +110,18 @@ set_id() {
     echo "  Mağaza sayfası: https://chromewebstore.google.com/detail/$id"
 }
 
+# Mağaza kaydı incelemeden geçip yayımlanınca: kurulum ekranları geliştirici modu yerine mağaza sayfasını gösterir.
+live() {
+    [[ -n "$(store_id)" ]] || fail "Önce mağaza kimliğini yazın (scripts/chrome-store.sh set-id KİMLİK)"
+    sed -i '' -E 's/(static let storeListingLive = )false/\1true/' "$SWIFT_ID_FILE"
+    grep -q "storeListingLive = true" "$SWIFT_ID_FILE" || fail "$SWIFT_ID_FILE güncellenemedi"
+    if [[ -f "$CS_ID_FILE" ]]; then
+        sed -i '' -E 's/(const bool StoreListingLive = )false/\1true/' "$CS_ID_FILE"
+        grep -q "StoreListingLive = true" "$CS_ID_FILE" || fail "$CS_ID_FILE güncellenemedi"
+    fi
+    echo "✓ Kurulum ekranları artık mağaza sayfasını gösterecek; bir sonraki sürümle kullanıcılara ulaşır."
+}
+
 # --- Chrome Web Store API (v2) ----------------------------------------------------------------------
 
 secret() {
@@ -189,9 +202,10 @@ status() {
 case "${1:-}" in
 package) package "${2:-}" ;;
 set-id) set_id "${2:-}" ;;
+live) live ;;
 credentials) credentials ;;
 upload) upload "${2:-}" ;;
 publish) publish ;;
 status) status ;;
-*) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+*) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

@@ -32,7 +32,12 @@ public static class BrowserExtension
     public static readonly string[] ExtensionIds = new[] { StoreExtensionId, UnpackedExtensionId }.Where(id => id.Length > 0).ToArray();
 
     /// <summary>The extension's Chrome Web Store page; null until the store ID is filled in.</summary>
-    public static string? StoreUrl => StoreExtensionId.Length == 0 ? null : "https://chromewebstore.google.com/detail/" + StoreExtensionId;
+    // Mağaza kaydı incelemeden geçip yayımlandı mı? Yayımlanana kadar kurulum ekranları uygulamayla gelen kopyayı
+    // (geliştirici modu) gösterir; mağaza kimliği yine de kabul edilir. Onaydan sonra true yapılır
+    // (scripts/chrome-store.sh live macOS'takini de değiştirir).
+    public const bool StoreListingLive = false;
+
+    public static string? StoreUrl => !StoreListingLive || StoreExtensionId.Length == 0 ? null : "https://chromewebstore.google.com/detail/" + StoreExtensionId;
 
     /// <summary>Opens the store page in that browser (Edge and Opera can install from the Chrome Web Store too).</summary>
     public static bool OpenStorePage(Browser browser)

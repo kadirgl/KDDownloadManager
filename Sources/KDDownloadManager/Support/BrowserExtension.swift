@@ -35,9 +35,15 @@ enum BrowserExtension {
         [storeExtensionID, unpackedExtensionID].filter { !$0.isEmpty }
     }
 
-    /// Eklentinin Chrome Web Mağazası sayfası; mağaza kimliği yazılmadıysa nil.
+    /// Mağaza kaydı incelemeden geçip yayımlandı mı? Yayımlanana kadar kurulum ekranları uygulamayla gelen
+    /// kopyayı (geliştirici modu) gösterir; mağaza kimliği yine de kabul edilir. Onaydan sonra true yapılır
+    /// (`scripts/chrome-store.sh live` Windows'takini de değiştirir).
+    nonisolated static let storeListingLive = false
+
+    /// Eklentinin Chrome Web Mağazası sayfası; mağaza kaydı yayımlanmadıysa nil.
     static var storeURL: URL? {
-        storeExtensionID.isEmpty ? nil : URL(string: "https://chromewebstore.google.com/detail/\(storeExtensionID)")
+        guard storeListingLive, !storeExtensionID.isEmpty else { return nil }
+        return URL(string: "https://chromewebstore.google.com/detail/\(storeExtensionID)")
     }
 
     /// Mağaza sayfasını o tarayıcıda açar (Edge ve Opera da Chrome Web Mağazası'ndan eklenti kurabiliyor).
