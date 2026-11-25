@@ -1,56 +1,57 @@
 using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Animation;
 
 namespace KDDownloadManager.Views;
 
 /// <summary>
-/// A row that scrolls sideways (the category rail). Not a ScrollViewer: that one keeps the mouse wheel to itself and,
-/// with vertical scrolling off, did nothing with it, so a mouse could not reach the categories past the edge.
+/// A row that scrolls sideways (the category rail), on a ScrollViewer with its bar hidden. The ScrollViewer does the
+/// scrolling, its animation and touch/touchpad panning (snapping to item edges); on its own it ignored the ordinary
+/// mouse wheel, as it cannot scroll vertically, so this class turns the wheel into sideways scrolling:
 /// <list type="bullet">
-/// <item>A mouse wheel notch or an arrow button glides to the next item (an animation, not a jump), and every stop
-/// starts at an item's left edge, so no sliver of a cut-off item is left at the edge.</item>
-/// <item>Touchpad and touch scrolling follow the fingers, then settle on the nearest item.</item>
-/// <item>While the row overflows, both arrows keep their place (the one that cannot go further is dimmed), so the
-/// row never shifts sideways because an arrow came or went.</item>
+/// <item>A mouse wheel notch glides to the next item's left edge.</item>
+/// <item>Small, smooth wheel steps (a touchpad sending wheel input) follow the fingers, then settle on the nearest item.</item>
 /// <item>An item that gets keyboard focus is scrolled into view.</item>
 /// </list>
+/// Rest positions are item edges, so no sliver of a cut-off item is left at the left edge; the item cut off at the
+/// right edge shows that there is more. There are no arrow buttons.
 /// </summary>
 public sealed class SideScroller : Grid
 {
-    const double ArrowSize = 26;
     const int Notch = 120; // one mouse wheel step (WHEEL_DELTA)
 
-    readonly Grid viewport = new();
-    readonly Canvas host = new(); // measures the row at its full width
-    readonly TranslateTransform shift = new();
-    readonly Panel items;
-    readonly Button left, right;
+    readonly ScrollViewer scroll;
+    readonly StackPanel items;
     readonly DispatcherQueueTimer settle;
-    Storyboard? running;
-    double offset; // where the row is going (the animation may still be on its way)
+    double? target; // where a running animation is going
 
-    public SideScroller(Panel items)
+    public SideScroller(StackPanel items)
     {
         this.items = items;
-        items.RenderTransform = shift;
-        host.Children.Add(items);
-        viewport.Children.Add(host);
-        viewport.Background = Theme.Clear; // hit-testable everywhere, for the wheel
-        viewport.ManipulationMode = ManipulationModes.TranslateX | ManipulationModes.TranslateInertia;
-        viewport.ManipulationDelta += (_, e) => Follow(offset - e.Delta.Translation.X);
-        viewport.ManipulationCompleted += (_, _) => Glide(NearestStop(offset));
-        viewport.PointerWheelChanged += OnWheel;
-        SizeChanged += (_, _) => Update();
-        viewport.SizeChanged += (_, _) => Update();
-        items.SizeChanged += (_, _) =>
+        scroll = new ScrollViewer
         {
-            host.Height = items.ActualHeight;
-            Update();
+            Content = items,
+            HorizontalScrollMode = ScrollMode.Enabled,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
+            VerticalScrollMode = ScrollMode.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            ZoomMode = ZoomMode.Disabled,
+            IsHorizontalRailEnabled = true,
+            // Touch and touchpad panning come to rest on an item's left edge (StackPanel provides the snap points).
+            HorizontalSnapPointsType = SnapPointsType.Mandatory,
+            HorizontalSnapPointsAlignment = SnapPointsAlignment.Near,
         };
+        Children.Add(scroll);
+        scroll.AddHandler(PointerWheelChangedEvent, new PointerEventHandler(OnWheel), true);
+        scroll.ViewChanged += (_, e) =>
+        {
+            if (!e.IsIntermediate) target = null;
+        };
+        // Room after the last item so that the farthest position also starts on an item's edge.
+        scroll.SizeChanged += (_, _) => FitEnd();
+        items.SizeChanged += (_, _) => FitEnd();
         items.GettingFocus += (_, e) =>
         {
             if (e.NewFocusedElement is FrameworkElement element) DispatcherQueue.TryEnqueue(() => Reveal(element));
@@ -60,199 +61,96 @@ public sealed class SideScroller : Grid
         settle = DispatcherQueue.CreateTimer();
         settle.Interval = TimeSpan.FromMilliseconds(160);
         settle.IsRepeating = false;
-        settle.Tick += (_, _) => Ui.Guard(() => Glide(NearestStop(offset)));
-
-        ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        SetColumn(viewport, 1);
-        Children.Add(viewport);
-        left = Arrow("", L.T("Sola kaydır"), -1);
-        right = Arrow("", L.T("Sağa kaydır"), 1);
-        left.Margin = new Thickness(0, 0, 2, 0);
-        right.Margin = new Thickness(2, 0, 0, 0);
-        SetColumn(right, 2);
-        Children.Add(left);
-        Children.Add(right);
+        settle.Tick += (_, _) => Ui.Guard(() => Glide(Nearest(scroll.HorizontalOffset)));
     }
 
-    bool Overflows => items.ActualWidth > ActualWidth + 0.5;
+    double Max => scroll.ScrollableWidth;
 
-    /// <summary>The farthest the row scrolls: the last item's start that shows everything to its right.</summary>
-    double End
-    {
-        get
-        {
-            var max = Math.Max(0, items.ActualWidth - viewport.ActualWidth);
-            // Prefer stopping on an item's edge just past the plain maximum (a little empty space at the right end)
-            // over leaving part of an item at the left edge.
-            foreach (var start in Starts()) if (start >= max - 0.5) return start;
-            return max;
-        }
-    }
-
-    IEnumerable<double> Starts()
-    {
-        foreach (var child in items.Children)
-            if (child is FrameworkElement element && element.Visibility == Visibility.Visible)
-                yield return element.TransformToVisual(items).TransformPoint(default).X;
-    }
-
-    /// <summary>Item edges the row can rest on, from 0 to <see cref="End"/>.</summary>
+    /// <summary>Left edges of the items, in whole pixels.</summary>
     List<double> Stops()
     {
-        var end = End;
-        var stops = Starts().Where(s => s > 0.5 && s < end - 0.5).Prepend(0).Append(end).Distinct().ToList();
-        stops.Sort();
-        return stops;
+        var stops = new List<double> { 0 };
+        foreach (var child in items.Children)
+            if (child is FrameworkElement element && element.Visibility == Visibility.Visible)
+                stops.Add(Math.Round(element.TransformToVisual(items).TransformPoint(default).X));
+        return stops.Where(s => s <= Max + 0.5).Append(Max).Distinct().OrderBy(s => s).ToList();
     }
 
-    double NearestStop(double at) => Stops().OrderBy(s => Math.Abs(s - at)).First();
+    double Nearest(double at) => Stops().OrderBy(s => Math.Abs(s - at)).First();
 
-    /// <summary>The next stop past where the row is going, in <paramref name="direction"/> (+1 toward the end).</summary>
-    double NextStop(int direction)
+    void FitEnd()
     {
-        var stops = Stops();
-        return direction > 0
-            ? stops.FirstOrDefault(s => s > offset + 0.5, stops[^1])
-            : stops.LastOrDefault(s => s < offset - 0.5, 0);
-    }
-
-    Button Arrow(string glyph, string tip, int direction)
-    {
-        var button = Ui.IconButton(glyph, tip, () => Page(direction), ArrowSize);
-        button.VerticalAlignment = VerticalAlignment.Center;
-        Ui.Paint(button, Ui.Look.Clear);
-        button.Visibility = Visibility.Collapsed;
-        button.IsTabStop = false; // the categories themselves are reachable with Tab
-        return button;
-    }
-
-    /// <summary>Arrow: about most of a view further, ending on an item edge.</summary>
-    void Page(int direction)
-    {
-        var stops = Stops();
-        var goal = offset + direction * viewport.ActualWidth * 0.7;
-        var target = direction > 0
-            ? stops.LastOrDefault(s => s <= goal + 0.5 && s > offset + 0.5, NextStop(1))
-            : stops.FirstOrDefault(s => s >= goal - 0.5 && s < offset - 0.5, NextStop(-1));
-        Glide(target);
+        // The padding is extra room at the right end: without it the farthest position is wherever the content ends,
+        // usually in the middle of an item, which then shows as a sliver at the left edge.
+        var padding = items.Padding.Right;
+        var natural = items.ActualWidth - padding;
+        var view = scroll.ViewportWidth;
+        double needed = 0;
+        if (natural > view + 0.5)
+        {
+            var max = natural - view;
+            foreach (var child in items.Children)
+            {
+                if (child is not FrameworkElement element || element.Visibility != Visibility.Visible) continue;
+                var start = element.TransformToVisual(items).TransformPoint(default).X;
+                if (start >= max - 0.5)
+                {
+                    needed = Math.Ceiling(start - max);
+                    break;
+                }
+            }
+        }
+        if (Math.Abs(needed - padding) > 0.5) items.Padding = new Thickness(0, 0, needed, 0);
     }
 
     void OnWheel(object sender, PointerRoutedEventArgs e)
     {
-        if (!Overflows) return;
-        var properties = e.GetCurrentPoint(viewport).Properties;
-        // Same direction as the vertical lists: the wheel turn that scrolls a list down (negative) moves this row toward
-        // its end; a tilt right (positive) does too.
-        var delta = properties.IsHorizontalMouseWheel ? properties.MouseWheelDelta : -properties.MouseWheelDelta;
+        if (Max <= 0) return;
+        var properties = e.GetCurrentPoint(scroll).Properties;
+        if (properties.IsHorizontalMouseWheel) return; // the ScrollViewer scrolls sideways for that itself
+        // Same direction as the vertical lists: the wheel turn that scrolls a list down (negative) moves this row
+        // toward its end.
+        var delta = -properties.MouseWheelDelta;
         e.Handled = true;
         if (Math.Abs(delta) >= Notch && delta % Notch == 0)
         {
-            // A mouse: one item per notch, gliding.
+            // A mouse: one item per notch, gliding; quick notches add up.
             settle.Stop();
-            for (var i = 0; i < Math.Abs(delta) / Notch; i++) Glide(NextStop(Math.Sign(delta)));
+            var from = target ?? scroll.HorizontalOffset;
+            var stops = Stops();
+            for (var i = 0; i < Math.Abs(delta) / Notch; i++)
+                from = delta > 0
+                    ? stops.FirstOrDefault(s => s > from + 0.5, stops[^1])
+                    : stops.LastOrDefault(s => s < from - 0.5, 0);
+            Glide(from);
         }
         else
         {
             // A touchpad (small, smooth steps): follow it, settle on an item when it stops.
-            Follow(offset + delta);
+            target = null;
+            scroll.ChangeView(Math.Clamp(scroll.HorizontalOffset + delta, 0, Max), null, null, true);
             settle.Stop();
             settle.Start();
         }
     }
 
+    void Glide(double to)
+    {
+        to = Math.Clamp(to, 0, Max);
+        if (Math.Abs(to - scroll.HorizontalOffset) < 0.5 && target == null) return;
+        target = to;
+        scroll.ChangeView(to, null, null, false);
+    }
+
     /// <summary>Scrolls just enough for <paramref name="element"/> (inside the row) to be fully visible.</summary>
     public void Reveal(FrameworkElement element)
     {
-        if (!Overflows || element.XamlRoot == null) return;
+        if (Max <= 0 || element.XamlRoot == null) return;
         var start = element.TransformToVisual(items).TransformPoint(default).X;
         var end = start + element.ActualWidth;
-        if (start < offset) Glide(Stops().LastOrDefault(s => s <= start + 0.5, 0));
-        else if (end > offset + viewport.ActualWidth)
-            Glide(Stops().FirstOrDefault(s => s >= end - viewport.ActualWidth - 0.5, End));
-    }
-
-    /// <summary>Moves with the input, no animation (touch, touchpad).</summary>
-    void Follow(double target)
-    {
-        StopAnimation();
-        offset = Math.Clamp(target, 0, End);
-        shift.X = -offset;
-        UpdateArrows();
-    }
-
-    /// <summary>Animates to <paramref name="target"/>, starting from wherever the row is shown now.</summary>
-    void Glide(double target)
-    {
-        target = Math.Clamp(target, 0, End);
-        offset = target;
-        UpdateArrows();
-        var from = StopAnimation();
-        if (Math.Abs(from + target) < 0.5)
-        {
-            shift.X = -target;
-            return;
-        }
-        var animation = new DoubleAnimation
-        {
-            From = from,
-            To = -target,
-            Duration = new Duration(TimeSpan.FromMilliseconds(240)),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-        };
-        Storyboard.SetTarget(animation, shift);
-        Storyboard.SetTargetProperty(animation, "X");
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(animation);
-        storyboard.Completed += (_, _) =>
-        {
-            if (running != storyboard) return;
-            running = null;
-            storyboard.Stop();
-            shift.X = -offset; // the animation's end value becomes the plain value
-        };
-        running = storyboard;
-        storyboard.Begin();
-    }
-
-    /// <summary>Stops a running animation where it is (an animation's value would win over later assignments).</summary>
-    double StopAnimation()
-    {
-        var current = shift.X;
-        if (running != null)
-        {
-            var storyboard = running;
-            running = null;
-            storyboard.Pause();
-            current = shift.X;
-            storyboard.Stop();
-        }
-        shift.X = current;
-        return current;
-    }
-
-    void Update()
-    {
-        // Both arrows take their place as soon as the row overflows and keep it while scrolling.
-        var arrows = Overflows ? Visibility.Visible : Visibility.Collapsed;
-        left.Visibility = arrows;
-        right.Visibility = arrows;
-        viewport.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, viewport.ActualWidth, viewport.ActualHeight) };
-        if (!Overflows) Follow(0);
-        else if (offset > End + 0.5) Follow(End);
-        UpdateArrows();
-    }
-
-    void UpdateArrows()
-    {
-        Set(left, offset > 0.5);
-        Set(right, offset < End - 0.5);
-
-        static void Set(Button button, bool enabled)
-        {
-            button.IsEnabled = enabled;
-            button.Opacity = enabled ? 1 : 0.3;
-        }
+        var offset = scroll.HorizontalOffset;
+        if (start < offset - 0.5) Glide(Stops().LastOrDefault(s => s <= start + 0.5, 0));
+        else if (end > offset + scroll.ViewportWidth + 0.5)
+            Glide(Stops().FirstOrDefault(s => s >= end - scroll.ViewportWidth - 0.5, Max));
     }
 }
