@@ -16,8 +16,8 @@ UTMCTL=/Applications/UTM.app/Contents/MacOS/utmctl
 ARCHIVE="$(mktemp -t kd-src).tar"
 trap 'rm -f "$ARCHIVE"' EXIT
 
-# Derleme çıktıları ve yerel dosyalar gitmez.
-COPYFILE_DISABLE=1 tar -cf "$ARCHIVE" --exclude 'bin' --exclude 'obj' --exclude '.DS_Store' \
+# Derleme çıktıları, üretilmiş paketler (Windows/dist; yüzlerce MB, misafir ajanıyla aktarımı çok yavaş) ve yerel dosyalar gitmez.
+COPYFILE_DISABLE=1 tar -cf "$ARCHIVE" --exclude 'bin' --exclude 'obj' --exclude '.DS_Store' --exclude 'Windows/dist' \
     Windows ChromeExtension scripts/update-public-key.txt
 "$UTMCTL" file push "$VM" 'C:\kd\src.tar' < "$ARCHIVE"
 "$UTMCTL" exec "$VM" --cmd powershell.exe -NoProfile -Command \
