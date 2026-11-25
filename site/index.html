@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KD Download Manager</title>
-<meta name="description" content="Mac için indirme yöneticisi: video, torrent ve büyük dosyalar. Tek tıkla, tam hızda.">
+<meta name="description" content="Mac ve Windows için indirme yöneticisi: video, torrent ve büyük dosyalar. Tek tıkla, tam hızda.">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="app-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50,6 +50,7 @@ a{text-decoration:none;color:inherit}
 .cta{height:56px;padding:0 24px;border-radius:28px;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-size:16px;font-weight:700;transition:transform .2s ease}
 .cta:hover{transform:translateY(-1px)}
 .cta small{font-size:12px;font-weight:600;opacity:0.65}
+.others a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,0,0,0.25)}
 .pill{position:relative;overflow:hidden;height:32px;padding:0 14px;border-radius:16px;display:inline-flex;align-items:center;font-size:13px;font-weight:600;background:rgba(255,255,255,0.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);animation:pillOn var(--loop) linear infinite}
 .pill::after{content:'';position:absolute;left:0;bottom:0;height:2px;width:0;background:rgba(255,255,255,0.7);animation:pillBar var(--loop) linear infinite;animation-delay:inherit}
 @keyframes pillOn{0%,19.6%{background:#1d1d1f;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,0.18)}20%,100%{background:rgba(255,255,255,0.6);color:#1d1d1f;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06)}}
@@ -340,12 +341,13 @@ html[lang=tr] .kpct .tk>span{align-items:flex-start}
 <!-- SOL -->
 <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:24px;max-width:540px">
   <h1 class="h1" data-t="h1">İndirmenin en şık yolu.</h1>
-  <p class="sub mut" data-t="sub">Mac için indirme yöneticisi. Video, torrent ve büyük dosyalar; tek tıkla, tam hızda.</p>
+  <p class="sub mut" data-t="sub">Mac ve Windows için indirme yöneticisi. Video, torrent ve büyük dosyalar; tek tıkla, tam hızda.</p>
   <div class="ctas" style="display:flex;gap:12px;margin-top:8px">
-    <a class="cta" id="download" href="https://github.com/kadirgl/KDDownloadManager/releases/latest" style="color:#fff;background:#1d1d1f;box-shadow:0 14px 30px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10"/><path d="M7.5 10L12 14.5 16.5 10"/><path d="M5 19h14"/></svg><span data-t="dl">macOS için indir</span><small id="version"></small></a>
+    <a class="cta" id="download" href="https://github.com/kadirgl/KDDownloadManager/releases/latest" style="color:#fff;background:#1d1d1f;box-shadow:0 14px 30px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10"/><path d="M7.5 10L12 14.5 16.5 10"/><path d="M5 19h14"/></svg><span id="dl-label" data-t="dl">macOS için indir</span><small id="version"></small></a>
     <a class="cta glass" href="https://github.com/kadirgl/KDDownloadManager/releases" style="font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg><span data-t="all">Tüm sürümler</span></a>
   </div>
-  <p class="mut" style="margin:0;font-size:13px;line-height:1.7"><span data-t="req1">macOS 14 Sonoma ve üstü · Apple Silicon (M1 ve sonrası)</span><br><span data-t="req2">Ücretsiz · Apple onaylı · Kendini güncel tutar</span></p>
+  <p class="mut others" style="margin:-8px 0 0;font-size:13px"><span data-t="others">Diğer sistemler:</span> <a id="dl-mac" href="https://github.com/kadirgl/KDDownloadManager/releases/latest">macOS</a> · <a id="dl-win-x64" href="https://github.com/kadirgl/KDDownloadManager/releases/latest">Windows (x64)</a> · <a id="dl-win-arm64" href="https://github.com/kadirgl/KDDownloadManager/releases/latest">Windows (ARM64)</a></p>
+  <p class="mut" style="margin:0;font-size:13px;line-height:1.7"><span data-t="req1">macOS 14 Sonoma ve üstü · Apple Silicon (M1 ve sonrası)</span><br><span data-t="reqWin">Windows 10 (1809) ve 11 · x64 ve ARM64</span><br><span data-t="req2">Ücretsiz · Apple onaylı · Kendini güncel tutar</span></p>
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px" aria-hidden="true">
     <span class="pill" style="animation-delay:0s" data-t="p1">Video</span>
     <span class="pill" style="animation-delay:6s" data-t="p2">8 bağlantı</span>
@@ -605,12 +607,13 @@ html[lang=tr] .kpct .tk>span{align-items:flex-start}
 // TR / EN metinleri. Uygulamanın kendisi Türkçe; EN sayfada arayüz yazıları da İngilizce gösterilir.
 const T = {
   tr: {
-    title: 'KD Download Manager – Mac için indirme yöneticisi',
+    title: 'KD Download Manager – Mac ve Windows için indirme yöneticisi',
     h1: 'İndirmenin en şık yolu.',
-    sub: 'Mac için indirme yöneticisi. Video, torrent ve büyük dosyalar; tek tıkla, tam hızda.',
-    dl: 'macOS için indir', all: 'Tüm sürümler',
+    sub: 'Mac ve Windows için indirme yöneticisi. Video, torrent ve büyük dosyalar; tek tıkla, tam hızda.',
+    dl: 'macOS için indir', dlWin: 'Windows için indir', all: 'Tüm sürümler', others: 'Diğer sistemler:',
     req1: 'macOS 14 Sonoma ve üstü · Apple Silicon (M1 ve sonrası)',
-    req2: 'Ücretsiz · Apple onaylı · Kendini güncel tutar',
+    req2: 'Ücretsiz · Mac sürümü Apple onaylı · Kendini güncel tutar',
+    reqWin: 'Windows 10 (1809) ve 11 · x64 ve ARM64',
     p1: 'Video', p2: '8 bağlantı', p3: 'Torrent', p4: 'Hız sınırı', p5: 'Menü çubuğu',
     stageAlt: 'Özellikleri sırayla gösteren animasyon: video indirme, 8 bağlantı, torrent, hız sınırı, menü çubuğu',
     vTitle: 'Konferans 2026 – Açılış konuşması', vFile: 'Konferans_2026_1080p.mp4',
@@ -629,12 +632,13 @@ const T = {
     c5: 'Menü çubuğundan takip et', c5s: 'Simgedeki halka ilerlemeyi gösterir, bitince haber verir.'
   },
   en: {
-    title: 'KD Download Manager – a download manager for Mac',
+    title: 'KD Download Manager – a download manager for Mac and Windows',
     h1: 'The most beautiful way to download.',
-    sub: 'A download manager for Mac. Videos, torrents and big files; one click, full speed.',
-    dl: 'Download for macOS', all: 'All releases',
+    sub: 'A download manager for Mac and Windows. Videos, torrents and big files; one click, full speed.',
+    dl: 'Download for macOS', dlWin: 'Download for Windows', all: 'All releases', others: 'Other systems:',
     req1: 'macOS 14 Sonoma or later · Apple Silicon (M1 or later)',
-    req2: 'Free · Notarized by Apple · Keeps itself up to date',
+    req2: 'Free · Mac version notarized by Apple · Keeps itself up to date',
+    reqWin: 'Windows 10 (1809) and 11 · x64 and ARM64',
     p1: 'Video', p2: '8 connections', p3: 'Torrent', p4: 'Speed limit', p5: 'Menu bar',
     stageAlt: 'Animation showing the features in turn: video download, 8 connections, torrent, speed limit, menu bar',
     vTitle: 'Conference 2026 – Opening keynote', vFile: 'Conference_2026_1080p.mp4',
@@ -679,6 +683,11 @@ function setLang(lang) {
   try { localStorage.setItem('lang', lang); } catch (e) {}
 }
 
+// Ziyaretçi Windows'taysa ana buton Windows paketini indirir (ARM64 cihazlar Chromium'da tanınır, yoksa x64).
+const onWindows = /Windows/i.test(navigator.userAgentData?.platform || navigator.userAgent);
+let windowsArch = 'x64';
+if (onWindows) document.getElementById('dl-label').dataset.t = 'dlWin';
+
 let saved = null;
 try { saved = localStorage.getItem('lang'); } catch (e) {}
 setLang(saved || ((navigator.language || 'tr').toLowerCase().startsWith('tr') ? 'tr' : 'en'));
@@ -689,13 +698,28 @@ const fitStage = () => document.querySelector('.stage').style.setProperty('--s',
 new ResizeObserver(fitStage).observe(stageWrap);
 fitStage();
 
-// İndir butonu son sürümün zip'ine gitsin; GitHub'a ulaşılamazsa sürümler sayfasında kalır.
-fetch('https://api.github.com/repos/kadirgl/KDDownloadManager/releases/latest')
-  .then((r) => (r.ok ? r.json() : null))
-  .then((release) => {
-    const zip = release?.assets?.find((a) => a.name.endsWith('.zip'));
-    if (!zip) return;
-    document.getElementById('download').href = zip.browser_download_url;
+// Butonlar son sürümün paketlerine gitsin; GitHub'a ulaşılamazsa sürümler sayfasında kalırlar.
+// Paketler: KDDownloadManager-X.Y.Z.zip (macOS), KDDownloadManager-Windows-<x64|arm64>-X.Y.Z.zip.
+const architecture = onWindows && navigator.userAgentData?.getHighEntropyValues
+  ? navigator.userAgentData.getHighEntropyValues(['architecture']).then((v) => { if (v.architecture === 'arm') windowsArch = 'arm64'; }).catch(() => {})
+  : Promise.resolve();
+Promise.all([
+  fetch('https://api.github.com/repos/kadirgl/KDDownloadManager/releases/latest').then((r) => (r.ok ? r.json() : null)),
+  architecture,
+])
+  .then(([release]) => {
+    const asset = (pattern) => release?.assets?.find((a) => pattern.test(a.name))?.browser_download_url;
+    const urls = {
+      mac: asset(/^KDDownloadManager-\d[\d.]*\.zip$/),
+      x64: asset(/^KDDownloadManager-Windows-x64-[\d.]+\.zip$/),
+      arm64: asset(/^KDDownloadManager-Windows-arm64-[\d.]+\.zip$/),
+    };
+    if (urls.mac) document.getElementById('dl-mac').href = urls.mac;
+    if (urls.x64) document.getElementById('dl-win-x64').href = urls.x64;
+    if (urls.arm64) document.getElementById('dl-win-arm64').href = urls.arm64;
+    const main = onWindows ? urls[windowsArch] : urls.mac;
+    if (!main) return;
+    document.getElementById('download').href = main;
     document.getElementById('version').textContent = release.tag_name;
   })
   .catch(() => {});
