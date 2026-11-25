@@ -95,12 +95,18 @@ Swift kaynakları örnek alındı; davranışı aynı:
 
 ### Kurulum
 
-`KDDownloadManager-Windows-<arm64|x64>-<sürüm>.zip` dosyasını açıp `KDDownloadManager` klasörünü örneğin
-`%LOCALAPPDATA%\Programs` altına taşıyın ve `KDDownloadManager.exe`'yi çalıştırın. İlk açılışta Başlat menüsüne kısayol
-eklenir; Ayarlar › Başlangıç'tan oturum açınca başlatılabilir, Ayarlar › Torrent'ten magnet linkleri ve `.torrent`
-dosyaları bu uygulamayla açılır. Notlar:
+Son sürümden `KDDownloadManager-Windows-x64-<sürüm>-Setup.exe` (çoğu bilgisayar) ya da
+`KDDownloadManager-Windows-arm64-<sürüm>-Setup.exe` (ARM işlemcili bilgisayarlar) dosyasını indirip çalıştırın.
+Kurulum yönetici izni istemez; uygulamayı kullanıcıya özel olarak `%LOCALAPPDATA%\Programs\KD Download Manager`'a
+kurar, Başlat menüsüne (isteğe bağlı masaüstüne de) kısayol koyar ve Ayarlar › Uygulamalar'a kaldırma kaydı ekler.
+Türkçe ve İngilizce; açık olan uygulamayı kapatıp üzerine kurar. Ayarlar › Başlangıç'tan oturum açınca başlatılabilir,
+Ayarlar › Torrent'ten magnet linkleri ve `.torrent` dosyaları bu uygulamayla açılır. Notlar:
 
-- Uygulama kod imzalı olmadığı için Windows SmartScreen ilk açılışta uyarabilir ("Ek bilgi › Yine de çalıştır").
+- Kurulum kod imzalı olmadığı için Windows SmartScreen uyarabilir ("Windows bilgisayarınızı korudu"):
+  **Ek bilgi › Yine de çalıştır**.
+- Kurmadan kullanmak için aynı sürümün `KDDownloadManager-Windows-<arm64|x64>-<sürüm>.zip` dosyasını açıp
+  `KDDownloadManager.exe`'yi çalıştırın. Böyle bir kopya ilk uygulama içi güncellemede bulunduğu klasöre kurulur.
+- Kaldırırken ayarların ve indirme listesinin de silinip silinmeyeceği sorulur; indirilen dosyalara dokunulmaz.
 - İlk torrent'te Windows Güvenlik Duvarı aria2c için gelen bağlantı izni sorar. İzin vermeden de iner; izin verilirse
   eşler size de bağlanabildiği için genelde daha hızlıdır.
 - Yeni ikonlar Windows 11'de taşma alanına (^) konur; görev çubuğu ayarlarından görünür yapılabilir.
@@ -114,7 +120,9 @@ powershell -ExecutionPolicy Bypass -File Windows\scripts\package.ps1            
 powershell -ExecutionPolicy Bypass -File Windows\scripts\package.ps1 -Arch arm64 -Version 1.9.3
 ```
 
-Sonuç `Windows\dist\KDDownloadManager-Windows-<mimari>-<sürüm>.zip`. Yardımcı programları
+Gerekenler arasında Inno Setup 6 de var (`ISCC.exe` PATH'te, `C:\kd\inno`'da ya da olağan kurulum klasöründe; ya da
+`-Iscc <yol>`). Sonuç `Windows\dist\KDDownloadManager-Windows-<mimari>-<sürüm>-Setup.exe` (kurulum betiği:
+[Windows/installer/KDDownloadManager.iss](Windows/installer/KDDownloadManager.iss)) ve aynı adla `.zip`. Yardımcı programları
 `Windows\scripts\bundle-tools.ps1` resmi sürümlerinden indirir ve doğrular (yt-dlp `SHA2-256SUMS`, ffmpeg
 BtbN `checksums.sha256`, aria2 ve QuickJS betiğe sabitlenmiş SHA-256). Arayüzün İngilizce metinleri macOS'un
 `Localizable.xcstrings` dosyasından ve yalnızca Windows'a özgü metinler için [Windows/strings.en.json](Windows/strings.en.json)'dan
@@ -131,7 +139,10 @@ macOS sürümü `scripts/release.sh` ile yayımlandıktan sonra:
 scripts/release-windows.sh 1.9.3
 ```
 
-Betik `Windows/dist`'teki zip'leri (yoksa UTM'deki Windows'ta üretip) Anahtar Zinciri'ndeki aynı gizli anahtarla imzalar,
-imzayı denetler ve `KDDownloadManager-Windows-<mimari>-<sürüm>.zip` + `.sig` dosyalarını aynı GitHub sürümüne ekler.
+Betik `Windows/dist`'teki kurulumları ve zip'leri (yoksa UTM'deki Windows'ta üretip) Anahtar Zinciri'ndeki aynı gizli
+anahtarla imzalar, imzaları denetler ve `KDDownloadManager-Windows-<mimari>-<sürüm>-Setup.exe`,
+`KDDownloadManager-Windows-<mimari>-<sürüm>.zip` ve `.sig` dosyalarını aynı GitHub sürümüne ekler. Uygulama içi
+güncelleme kurulumu indirip imzasını denetler ve sessizce uygulamanın kendi klasörüne kurar; 1.9.3 ve öncesi yalnızca
+zip'i tanıdığı için zip'ler de yayımlanır.
 macOS uygulaması yalnızca kendi zip'ine baktığı için bu dosyalar onu etkilemez. Paketin imzasını Windows'ta da
 denetlemek için: `KDDownloadManager.exe --verify-update <zip> <zip.sig>` (geçerliyse çıkış kodu 0).

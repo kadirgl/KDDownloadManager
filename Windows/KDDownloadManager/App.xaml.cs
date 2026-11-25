@@ -106,6 +106,7 @@ public partial class App : Application
         if (Directory.Exists(BrowserExtension.Folder)) BrowserExtension.RefreshFolder();
         StartMenu.EnsureShortcut();
         LaunchAtLogin.Refresh();
+        ListenForQuitSignal();
 
         var activation = AppInstance.GetCurrent().GetActivatedEventArgs();
         if (activation.Kind == ExtendedActivationKind.AppNotification
@@ -264,6 +265,23 @@ public partial class App : Application
     void DoneTick(DispatcherQueueTimer sender, object args) => Views.Ui.Guard(UpdateIcon);
 
     // MARK: Quit and relaunch
+
+    static EventWaitHandle? quitSignal; // kept alive: the event exists as long as this handle is open
+
+    /// <summary>
+    /// The installer (Windows/installer/KDDownloadManager.iss) sets this event to close the app before it replaces or
+    /// removes its files; the app then quits as from the tray menu, saving its downloads. The event exists only while
+    /// the app runs, so the installer also sees when it has exited.
+    /// </summary>
+    static void ListenForQuitSignal()
+    {
+        try
+        {
+            quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\KDDownloadManager-Quit-" + Environment.UserName);
+            ThreadPool.RegisterWaitForSingleObject(quitSignal, (_, _) => Ui.TryEnqueue(() => Views.Ui.Guard(Quit)), null, Timeout.Infinite, true);
+        }
+        catch (Exception error) { Log("Quit signal: " + error.Message); }
+    }
 
     public static void Quit()
     {

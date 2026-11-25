@@ -78,8 +78,9 @@ fi
 cat >> "$NOTES" <<NOTES
 
 ---
-**Kurulum:** \`KDDownloadManager-$VERSION.zip\` dosyasını indirip açın, uygulamayı **Uygulamalar** klasörüne taşıyın.
-Kurulu uygulama yeni sürümleri kendisi bulur (Ayarlar › Uygulama güncellemesi). Apple Silicon (M1 ve sonrası), macOS 14+.
+**macOS:** \`KDDownloadManager-$VERSION.zip\` dosyasını indirip açın, uygulamayı **Uygulamalar** klasörüne taşıyın. Apple Silicon (M1 ve sonrası), macOS 14+.
+**Windows:** \`KDDownloadManager-Windows-x64-$VERSION-Setup.exe\` (çoğu bilgisayar) ya da \`KDDownloadManager-Windows-arm64-$VERSION-Setup.exe\` (ARM işlemcili bilgisayarlar) dosyasını indirip çalıştırın; yönetici izni istemez. Windows "bilgisayarınızı korudu" derse **Ek bilgi › Yine de çalıştır**'a tıklayın. Kurulum istemeyenler için aynı sürümün zip'i de var. Windows 10 (1809) ve 11.
+Kurulu uygulama yeni sürümleri kendisi bulur (Ayarlar › Uygulama güncellemesi).
 NOTES
 
 echo "→ $TAG gönderiliyor…"

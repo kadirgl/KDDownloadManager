@@ -9,14 +9,18 @@
     2. dotnet publish: Release, self-contained (.NET ve Windows App SDK kurulu olmasa da çalışır)
     3. tools\, BrowserExtension\ (ChromeExtension, sürümü uygulamanınkiyle eşit) ve Strings\ eklenir
     4. Windows\dist\KDDownloadManager-Windows-<mimari>-<sürüm>.zip (içinde tek klasör: KDDownloadManager\)
-  Zip'in imzası (uygulama içi güncelleme için) Mac'te scripts/release-windows.sh ile atılır; gizli anahtar
+    5. Windows\dist\KDDownloadManager-Windows-<mimari>-<sürüm>-Setup.exe (Inno Setup, Windows\installer\KDDownloadManager.iss)
+  Kullanıcılar kurulumu indirir; zip, 1.9.3 ve öncesinin uygulama içi güncellemesi (yalnızca zip'i tanır) ve kurulum
+  istemeyenler için. İmzalar (uygulama içi güncelleme için) Mac'te scripts/release-windows.sh ile atılır; gizli anahtar
   Mac'in Anahtar Zinciri'nden çıkmaz.
 
-  Gerekenler: .NET 10 SDK (dotnet PATH'te ya da C:\kd\dotnet), internet (ilk çalıştırmada araçlar ve NuGet paketleri).
+  Gerekenler: .NET 10 SDK (dotnet PATH'te ya da C:\kd\dotnet), Inno Setup 6 (ISCC.exe PATH'te, C:\kd\inno'da ya da
+  olağan kurulum klasöründe; -Iscc ile de verilebilir), internet (ilk çalıştırmada araçlar ve NuGet paketleri).
 #>
 param(
     [string[]]$Arch = @('arm64', 'x64'),
-    [string]$Version = ''
+    [string]$Version = '',
+    [string]$Iscc = ''
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -33,6 +37,18 @@ if (-not $Version) {
     $Version = ([xml](Get-Content $Project)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
 }
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Sürüm anlaşılamadı: '$Version' (örn. -Version 1.9.3)" }
+
+if (-not $Iscc) {
+    $Iscc = @(
+        (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source,
+        'C:\kd\inno\ISCC.exe',
+        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+        (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
+    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+}
+if (-not $Iscc -or -not (Test-Path $Iscc)) { throw 'Inno Setup 6 bulunamadı (ISCC.exe); https://jrsoftware.org/isdl.php ya da -Iscc <yol>' }
+$Installer = Join-Path $Windows 'installer\KDDownloadManager.iss'
 
 # Güncelleme imzasının açık anahtarı macOS uygulamasıyla aynı olmalı (derlemeye gömülüyor).
 $key = (Get-Content -Raw (Join-Path $Repo 'scripts\update-public-key.txt')).Trim()
@@ -71,4 +87,13 @@ foreach ($a in $Arch) {
     [IO.Compression.ZipFile]::CreateFromDirectory($stage, $zip, [IO.Compression.CompressionLevel]::Optimal, $false)
     $size = (Get-Item $zip).Length / 1MB
     Write-Host ("✓ {0} ({1:N0} MB)" -f $zip, $size)
+
+    $setup = Join-Path $Dist "KDDownloadManager-Windows-$a-$Version-Setup.exe"
+    if (Test-Path $setup) { Remove-Item -Force $setup }
+    & $Iscc /Q "/DVersion=$Version" "/DArch=$a" "/DAppDir=$app" "/DOutputDir=$Dist" $Installer
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $setup)) { throw "Inno Setup başarısız ($a)" }
+    $info = (Get-Item $setup).VersionInfo
+    if ("$($info.FileMajorPart).$($info.FileMinorPart).$($info.FileBuildPart)" -ne $Version) { throw "Kurulumun sürümü $($info.FileVersion), beklenen $Version" }
+    $size = (Get-Item $setup).Length / 1MB
+    Write-Host ("✓ {0} ({1:N0} MB)" -f $setup, $size)
 }

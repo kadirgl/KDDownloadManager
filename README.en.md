@@ -56,15 +56,23 @@ yt-dlp and ffmpeg, Turkish and English UI, and in-app updates from GitHub Releas
 The browser bridge uses the same port (47615), endpoints and `Origin` check, so the [extension](ChromeExtension)
 works unchanged.
 
-**Install:** unzip `KDDownloadManager-Windows-<arm64|x64>-<version>.zip`, move the `KDDownloadManager` folder to e.g.
-`%LOCALAPPDATA%\Programs` and run `KDDownloadManager.exe`. The app is not code-signed, so SmartScreen may warn on the
-first launch, and Windows Firewall asks about aria2c on the first torrent (downloads work either way).
+**Install:** download and run `KDDownloadManager-Windows-x64-<version>-Setup.exe` (most PCs) or
+`KDDownloadManager-Windows-arm64-<version>-Setup.exe` (ARM PCs) from the latest release. It needs no admin rights and
+installs for the current user into `%LOCALAPPDATA%\Programs\KD Download Manager`, with a Start menu shortcut (a
+desktop one is optional) and an entry in Settings › Apps to uninstall it. The setup is not code-signed, so SmartScreen
+may warn ("Windows protected your PC"): click **More info › Run anyway**. Windows Firewall asks about aria2c on the
+first torrent (downloads work either way). The same release also has a `.zip` for those who would rather not install;
+such a copy is installed in place by its first in-app update.
 
 **Build (on Windows, .NET 10 SDK):** `powershell -ExecutionPolicy Bypass -File Windows\scripts\package.ps1 [-Arch arm64|x64] [-Version 1.9.3]`
-→ `Windows\dist\KDDownloadManager-Windows-<arch>-<version>.zip`. Helper programs are fetched from their official
+→ `Windows\dist\KDDownloadManager-Windows-<arch>-<version>-Setup.exe` and `.zip` (the setup needs Inno Setup 6:
+`ISCC.exe` on PATH, in `C:\kd\inno` or its usual folder, or `-Iscc <path>`; script:
+[Windows/installer/KDDownloadManager.iss](Windows/installer/KDDownloadManager.iss)). Helper programs are fetched from their official
 releases and checksum-verified by `Windows\scripts\bundle-tools.ps1`. English UI strings come from the macOS
 `Localizable.xcstrings` plus [Windows/strings.en.json](Windows/strings.en.json); run `python3 Windows/scripts/strings.py`
 after changing UI text. From a Mac, `Windows/scripts/utm-sync.sh '<command>'` builds inside a UTM Windows VM.
 
-**Release:** after `scripts/release.sh 1.9.3`, run `scripts/release-windows.sh 1.9.3`. It signs the Windows zips with
-the Keychain key and attaches them (and their `.sig` files) to the same GitHub release; the macOS app ignores them.
+**Release:** after `scripts/release.sh 1.9.3`, run `scripts/release-windows.sh 1.9.3`. It signs the Windows setups and zips
+with the Keychain key and attaches them (and their `.sig` files) to the same GitHub release; the macOS app ignores them.
+The in-app update downloads the setup, checks its signature and runs it silently into the app's own folder; the zips
+stay for 1.9.3 and older, whose updater only knows the zip.

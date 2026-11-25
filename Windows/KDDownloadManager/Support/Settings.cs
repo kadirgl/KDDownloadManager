@@ -154,6 +154,9 @@ public static class AppFolders
     /// <summary>Folder of the running app (KDDownloadManager.exe).</summary>
     public static string AppDir => AppContext.BaseDirectory;
 
+    /// <summary>Installed by the setup (Windows/installer), not unpacked from a zip: its uninstaller sits next to the exe.</summary>
+    public static bool IsInstalled => File.Exists(Path.Combine(AppDir, "unins000.exe"));
+
     static string Created(string path)
     {
         Directory.CreateDirectory(path);

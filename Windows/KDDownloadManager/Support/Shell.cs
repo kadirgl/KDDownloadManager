@@ -229,13 +229,17 @@ public static class TorrentHandler
     static extern void SHChangeNotify(int eventId, uint flags, IntPtr item1, IntPtr item2);
 }
 
-/// <summary>A Start menu shortcut, created on first launch so the app can be found and pinned.</summary>
+/// <summary>
+/// A Start menu shortcut, created on first launch so the app can be found and pinned. Only for a copy unpacked from a
+/// zip: the installer makes (and on uninstall removes) its own shortcut at the same path.
+/// </summary>
 public static class StartMenu
 {
     public static string ShortcutPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "KD Download Manager.lnk");
 
     public static void EnsureShortcut()
     {
+        if (AppFolders.IsInstalled) return;
         try
         {
             var target = Environment.ProcessPath!;

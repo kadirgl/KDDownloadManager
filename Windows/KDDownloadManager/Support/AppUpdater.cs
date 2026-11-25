@@ -12,14 +12,18 @@ namespace KDDownloadManager;
 /// <summary>
 /// Updates the app from GitHub Releases with the same signature scheme as the macOS app (macOS: AppUpdater).
 ///
-/// Each release (tag v1.9.3) may carry, next to the macOS zip, one Windows zip per architecture
-/// (<c>KDDownloadManager-Windows-arm64-1.9.3.zip</c>, <c>…-x64-…</c>) and its Ed25519 signature (<c>….zip.sig</c>,
-/// base64). Only the developer's private key (macOS Keychain, scripts/release-windows.sh) can sign; the public key
-/// is scripts/update-public-key.txt, embedded at build time. A fake release cannot be installed even if the GitHub
-/// account or the download path is compromised. The unpacked app's version is checked too.
+/// Each release (tag v1.9.4) may carry, next to the macOS zip, per Windows architecture a setup
+/// (<c>KDDownloadManager-Windows-x64-1.9.4-Setup.exe</c>, <c>…-arm64-…</c>) and a zip
+/// (<c>KDDownloadManager-Windows-x64-1.9.4.zip</c>), each with its Ed25519 signature (<c>….sig</c>, base64). Only the
+/// developer's private key (macOS Keychain, scripts/release-windows.sh) can sign; the public key is
+/// scripts/update-public-key.txt, embedded at build time. A fake release cannot be installed even if the GitHub
+/// account or the download path is compromised. The version inside the download is checked too.
 ///
-/// Install: a hidden PowerShell script waits for the app to exit, swaps the app folder (rolling back on failure)
-/// and starts the new version. Running downloads were saved and resume on launch.
+/// Install, when the release has a setup: the app runs it silently into its own folder and quits; the setup closes
+/// what is left, installs and starts the new version (Windows/installer/KDDownloadManager.iss). A copy unpacked from
+/// a zip becomes an installed one in place (Start menu, Apps list). Without a setup (or for 1.9.3 and older, which only
+/// know the zip): a hidden PowerShell script waits for the app to exit, swaps the app folder (rolling back on failure)
+/// and starts the new version. Either way running downloads were saved and resume on launch.
 /// </summary>
 public sealed partial class AppUpdater
 {
@@ -34,7 +38,8 @@ public sealed partial class AppUpdater
         public sealed record Failed(string Message) : UpdateState;
     }
 
-    public sealed record Release(string Version, string Notes, Uri Archive, Uri Signature, long Size, Uri? Page);
+    /// <param name="IsSetup">The download is the setup (.exe), not the zip.</param>
+    public sealed record Release(string Version, string Notes, Uri Archive, Uri Signature, long Size, Uri? Page, bool IsSetup);
 
     public static readonly AppUpdater Shared = new();
     public event Action? Changed;
@@ -133,6 +138,8 @@ public sealed partial class AppUpdater
 
     public async void StartAutomaticChecks()
     {
+        // The setup of the last update, if any, is no longer needed.
+        try { if (Directory.Exists(WorkFolder)) Directory.Delete(WorkFolder, true); } catch { }
         if (!IsAvailable) return;
         while (true)
         {
@@ -187,6 +194,7 @@ public sealed partial class AppUpdater
     sealed class UpdateException(string message) : Exception(message);
 
     public static string AssetName(string version) => $"KDDownloadManager-Windows-{Architecture}-{version}.zip";
+    public static string SetupAssetName(string version) => $"KDDownloadManager-Windows-{Architecture}-{version}-Setup.exe";
 
     static async Task<Release?> LatestRelease(Uri api)
     {
@@ -208,11 +216,17 @@ public sealed partial class AppUpdater
             if (url.Scheme != "https" && !IsTesting) return null;
             return (url, found["size"]?.GetValue<long>() ?? 0);
         }
-        var asset = AssetName(version);
-        // A release without a signed Windows zip (e.g. macOS-only) is not an update for this app.
-        if (Asset(asset) is not { } archive || Asset(asset + ".sig") is not { } signature) return null;
+        // The signed setup if there is one, else the signed zip. A release with neither (e.g. macOS-only) is not an
+        // update for this app.
+        var isSetup = true;
+        if (Asset(SetupAssetName(version)) is not { } archive || Asset(SetupAssetName(version) + ".sig") is not { } signature)
+        {
+            isSetup = false;
+            if (Asset(AssetName(version)) is not { } zip || Asset(AssetName(version) + ".sig") is not { } zipSignature) return null;
+            (archive, signature) = (zip, zipSignature);
+        }
         return new Release(version, info?["body"]?.GetValue<string>()?.Trim() ?? "", archive.url, signature.url, archive.size,
-            info?["html_url"]?.GetValue<string>() is { } page ? new Uri(page) : null);
+            info?["html_url"]?.GetValue<string>() is { } page ? new Uri(page) : null, isSetup);
     }
 
     [GeneratedRegex(@"^\d+(\.\d+){0,3}$")]
@@ -239,7 +253,8 @@ public sealed partial class AppUpdater
         {
             var staged = await Download(release, cts.Token);
             State = new UpdateState.Installing(release);
-            ReplaceAndRelaunch(staged);
+            if (release.IsSetup) RunSetup(staged);
+            else ReplaceAndRelaunch(staged);
         }
         catch (OperationCanceledException) { State = new UpdateState.Available(release); }
         catch (Exception error) { State = new UpdateState.Failed(error.Message); }
@@ -278,7 +293,7 @@ public sealed partial class AppUpdater
 
         if (!Verify(archive, signature, key)) throw new UpdateException(L.T("Güncellemenin imzası doğrulanamadı; kurulmadı"));
         State = new UpdateState.Downloading(release, 1);
-        return await Task.Run(() => Unpack(archive, release.Version), token);
+        return await Task.Run(() => release.IsSetup ? SaveSetup(archive, release.Version) : Unpack(archive, release.Version), token);
     }
 
     /// <summary>Ed25519 (RFC 8032), as CryptoKit's Curve25519.Signing on macOS.</summary>
@@ -320,6 +335,31 @@ public sealed partial class AppUpdater
         var found = info == null ? null : $"{info.FileMajorPart}.{info.FileMinorPart}.{info.FileBuildPart}";
         if (found != version) throw new UpdateException(L.T("İndirilen paket beklenen sürüm değil; kurulmadı"));
         return app;
+    }
+
+    static string SaveSetup(byte[] setup, string version)
+    {
+        if (Directory.Exists(WorkFolder)) Directory.Delete(WorkFolder, true);
+        var folder = Path.Combine(WorkFolder, version);
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, SetupAssetName(version));
+        File.WriteAllBytes(path, setup);
+        var info = FileVersionInfo.GetVersionInfo(path);
+        if ($"{info.FileMajorPart}.{info.FileMinorPart}.{info.FileBuildPart}" != version)
+            throw new UpdateException(L.T("İndirilen paket beklenen sürüm değil; kurulmadı"));
+        return path;
+    }
+
+    /// <summary>
+    /// Runs the setup into this app's folder (a progress window, no questions) and quits; the setup waits for the app
+    /// to exit and starts the new version (also when the install fails, then the old one).
+    /// </summary>
+    static void RunSetup(string setup)
+    {
+        var arguments = $"/SILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL /SP- /DIR=\"{InstalledFolder}\" " +
+            $"/RELAUNCH={(RelaunchAfterInstall ? 1 : 0)} /LANG={L.Current}";
+        Process.Start(new ProcessStartInfo(setup, arguments) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(setup)! });
+        App.Quit();
     }
 
     static void ReplaceAndRelaunch(string staged)

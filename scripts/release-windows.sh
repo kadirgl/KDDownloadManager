@@ -2,13 +2,16 @@
 # Windows paketlerini (arm64, x64) imzalayıp mevcut bir GitHub sürümüne ekler; Windows uygulaması bunları
 # kendisi bulup kurar (Windows/KDDownloadManager/Support/AppUpdater.cs).
 #
-#   scripts/release-windows.sh 1.9.3            → Windows/dist'teki zip'ler, yoksa UTM'deki Windows VM'de üretilir
+#   scripts/release-windows.sh 1.9.4            → Windows/dist'teki paketler, yoksa UTM'deki Windows VM'de üretilir
+#
+# Her mimari için iki paket: kurulum (KDDownloadManager-Windows-<mimari>-<sürüm>-Setup.exe; site ve yeni sürümlerin
+# uygulama içi güncellemesi bunu kullanır) ve zip (KDDownloadManager-Windows-<mimari>-<sürüm>.zip; 1.9.3 ve öncesinin
+# güncelleyicisi yalnızca zip'i tanır, kurulum istemeyenler de kullanır). Her birinin yanında .sig (base64).
 #
 # Sıra: önce scripts/release.sh 1.9.3 (macOS sürümü ve v1.9.3 etiketi), sonra bu betik.
 # İmza macOS uygulamasınınkiyle aynı Ed25519 anahtarıyla atılır (Anahtar Zinciri; scripts/update-key.sh).
-# Zip'ler: KDDownloadManager-Windows-<mimari>-<sürüm>.zip ve .zip.sig (base64).
-# Gerekenler: gh (giriş yapılmış), Anahtar Zinciri'nde imza anahtarı; zip'ler yoksa UTM'de "Windows" adlı,
-# .NET 10 SDK'sı C:\kd\dotnet'te kurulu bir sanal makine (Windows/scripts/utm-sync.sh).
+# Gerekenler: gh (giriş yapılmış), Anahtar Zinciri'nde imza anahtarı; paketler yoksa UTM'de "Windows" adlı,
+# .NET 10 SDK'sı C:\kd\dotnet'te ve Inno Setup 6 C:\kd\inno'da kurulu bir sanal makine (Windows/scripts/utm-sync.sh).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -20,7 +23,7 @@ VM="${UTM_VM:-Windows}"
 
 fail() { echo "✗ $*" >&2; exit 1; }
 
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Kullanım: scripts/release-windows.sh 1.9.3"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Kullanım: scripts/release-windows.sh 1.9.4"
 command -v gh >/dev/null || fail "gh yok (brew install gh)"
 gh auth status >/dev/null 2>&1 || fail "gh'ye giriş yapılmamış (gh auth login)"
 gh release view "$TAG" >/dev/null 2>&1 || fail "$TAG sürümü GitHub'da yok; önce scripts/release.sh $VERSION"
@@ -34,19 +37,25 @@ PUBLIC_KEY="$(cat scripts/update-public-key.txt)"
 mkdir -p Windows/dist
 ASSETS=()
 for ARCH in arm64 x64; do
-    ZIP="Windows/dist/KDDownloadManager-Windows-$ARCH-$VERSION.zip"
-    if [[ ! -f "$ZIP" ]]; then
-        [[ -x "$UTMCTL" ]] || fail "$ZIP yok; Windows'ta Windows\\scripts\\package.ps1 -Version $VERSION çalıştırıp buraya kopyalayın"
-        echo "→ $ARCH paketi UTM'deki Windows'ta üretiliyor…"
+    ZIP="KDDownloadManager-Windows-$ARCH-$VERSION.zip"
+    SETUP="KDDownloadManager-Windows-$ARCH-$VERSION-Setup.exe"
+    if [[ ! -f "Windows/dist/$ZIP" || ! -f "Windows/dist/$SETUP" ]]; then
+        [[ -x "$UTMCTL" ]] || fail "Windows/dist/$SETUP ya da $ZIP yok; Windows'ta Windows\\scripts\\package.ps1 -Version $VERSION çalıştırıp buraya kopyalayın"
+        echo "→ $ARCH paketleri UTM'deki Windows'ta üretiliyor…"
         Windows/scripts/utm-sync.sh "powershell -NoProfile -ExecutionPolicy Bypass -File Windows\\scripts\\package.ps1 -Arch $ARCH -Version $VERSION"
-        "$UTMCTL" file pull "$VM" "C:\\kd\\src\\Windows\\dist\\KDDownloadManager-Windows-$ARCH-$VERSION.zip" > "$ZIP.part"
-        mv "$ZIP.part" "$ZIP"
+        for FILE in "$ZIP" "$SETUP"; do
+            "$UTMCTL" file pull "$VM" "C:\\kd\\src\\Windows\\dist\\$FILE" > "Windows/dist/$FILE.part"
+            mv "Windows/dist/$FILE.part" "Windows/dist/$FILE"
+        done
     fi
-    unzip -tq "$ZIP" >/dev/null || fail "$ZIP bozuk"
-    echo "→ $ZIP imzalanıyor…"
-    printf '%s' "$PRIVATE_KEY" | swift scripts/update-signing.swift sign "$ZIP" > "$ZIP.sig"
-    swift scripts/update-signing.swift verify "$ZIP" "$ZIP.sig" "$PUBLIC_KEY"
-    ASSETS+=("$ZIP" "$ZIP.sig")
+    unzip -tq "Windows/dist/$ZIP" >/dev/null || fail "$ZIP bozuk"
+    [[ "$(head -c 2 "Windows/dist/$SETUP")" == "MZ" ]] || fail "$SETUP bir Windows programı değil"
+    for FILE in "$SETUP" "$ZIP"; do
+        echo "→ $FILE imzalanıyor…"
+        printf '%s' "$PRIVATE_KEY" | swift scripts/update-signing.swift sign "Windows/dist/$FILE" > "Windows/dist/$FILE.sig"
+        swift scripts/update-signing.swift verify "Windows/dist/$FILE" "Windows/dist/$FILE.sig" "$PUBLIC_KEY"
+        ASSETS+=("Windows/dist/$FILE" "Windows/dist/$FILE.sig")
+    done
 done
 unset PRIVATE_KEY
 
