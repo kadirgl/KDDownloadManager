@@ -24,7 +24,7 @@ enum BrowserExtension {
     /// Chrome Web Mağazası'nın eklentiye verdiği kimlik (Geliştirici Panosu > öğe > Paket). Mağazada öğe
     /// oluşturulunca buraya yazılır (`scripts/chrome-store.sh set-id <kimlik>` Windows'takini de doldurur).
     /// Boşken kurulum ekranları geliştirici modundan yüklemeyi gösterir.
-    nonisolated static let storeExtensionID = ""
+    nonisolated static let storeExtensionID = "cfpaffdmeoohjngkkfabjdcjhlgjaedd"
 
     /// Uygulamayla gelen paketlenmemiş kopyanın kimliği; depodaki manifest'in "key" alanı sayesinde her
     /// tarayıcıda aynı. Bu kopyayı kullananlar mağazaya geçene kadar çalışmaya devam etsin diye kabul ediliyor.

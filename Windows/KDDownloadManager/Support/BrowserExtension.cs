@@ -23,7 +23,7 @@ public static class BrowserExtension
     /// item exists (<c>scripts/chrome-store.sh set-id &lt;id&gt;</c> fills in the macOS one too). While empty, the
     /// setup screens show the developer-mode install.
     /// </summary>
-    public const string StoreExtensionId = "";
+    public const string StoreExtensionId = "cfpaffdmeoohjngkkfabjdcjhlgjaedd";
 
     /// <summary>The bundled unpacked copy's ID, fixed in every browser by the repository manifest's "key".</summary>
     public const string UnpackedExtensionId = "necbfaijhfnnoikbppjdjcpfjekefdbk";
