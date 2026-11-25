@@ -25,7 +25,8 @@ public sealed class ExtensionBridge
         47615;
 
     /// <summary>The fixed ID that follows from the "key" in the extension's manifest.</summary>
-    public static readonly HashSet<string> AllowedOrigins = ["chrome-extension://necbfaijhfnnoikbppjdjcpfjekefdbk"];
+    /// <summary>The Chrome Web Store copy's ID and the bundled unpacked copy's (manifest "key"); both in BrowserExtension.</summary>
+    public static readonly HashSet<string> AllowedOrigins = BrowserExtension.ExtensionIds.Select(id => "chrome-extension://" + id).ToHashSet();
 
     const int MaxLinksPerRequest = 100;
     const int MaxHeaderSize = 16 * 1024;

@@ -44,10 +44,17 @@ struct ExtensionSettings: View {
 
     private func row(for browser: BrowserExtension.Browser, now: Date) -> some View {
         let status = store.extensionStatus(for: browser, now: now)
+        let install = BrowserExtension.installInfo(in: browser)
         return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(browser.name).fontWeight(.semibold)
                 statusLine(status)
+                if let note = migrationNote(install) {
+                    Text(note)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer()
             switch status {
@@ -63,13 +70,34 @@ struct ExtensionSettings: View {
                     .buttonStyle(AccentButtonStyle(height: 30, fontSize: 12))
                     .help("Uzantılar sayfasında KD Download Manager'ın anahtarını açın.")
             default:
-                Button("Yeniden kur") {
-                    installFailed = !BrowserExtension.beginInstall(in: browser)
-                    installing = installFailed ? nil : browser
+                if BrowserExtension.storeURL == nil {
+                    Button("Yeniden kur") {
+                        installFailed = !BrowserExtension.beginInstall(in: browser)
+                        installing = installFailed ? nil : browser
+                    }
+                    .buttonStyle(GlassCapsuleButtonStyle())
+                } else if install.unpacked && install.fromStore {
+                    // İki kopya birden: sayfalarda iki İndir butonu çıkar, indirmeler iki kez gönderilir.
+                    Button("Uzantılar") { openExtensionsPage(of: browser) }
+                        .buttonStyle(AccentButtonStyle(height: 30, fontSize: 12))
+                } else if install.unpacked {
+                    Button("Mağazadan kur") { _ = BrowserExtension.openStorePage(in: browser) }
+                        .buttonStyle(AccentButtonStyle(height: 30, fontSize: 12))
+                } else {
+                    Button("Mağaza sayfası") { _ = BrowserExtension.openStorePage(in: browser) }
+                        .buttonStyle(GlassCapsuleButtonStyle())
                 }
-                .buttonStyle(GlassCapsuleButtonStyle())
             }
         }
+    }
+
+    /// Geliştirici modundan yüklenen kopyayı kullananlara mağazaya geçiş önerisi.
+    private func migrationNote(_ install: BrowserExtension.InstallInfo) -> String? {
+        guard BrowserExtension.storeURL != nil, install.unpacked else { return nil }
+        if install.fromStore {
+            return String(localized: "Eklentinin iki kopyası kurulu. Uzantılar sayfasından geliştirici modundaki kopyayı kaldırın.")
+        }
+        return String(localized: "Geliştirici modundan yüklenen kopya kullanılıyor. Mağaza sürümünü kurup bunu kaldırın; mağaza sürümünü tarayıcı kendisi günceller.")
     }
 
     /// Kurulu tarayıcı listesinde olmayan ama son bir günde bağlanmış olanlar (örn. adını bildiremeyen

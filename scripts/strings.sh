@@ -37,7 +37,11 @@ sync)
     # Ayrı bir derleme klasörü: tüm dosyalar yeniden derlensin ki her dosyanın metinleri çıksın.
     swift build --scratch-path "$WORK/build" \
         -Xswiftc -emit-localized-strings -Xswiftc -emit-localized-strings-path -Xswiftc "$WORK/strings" >/dev/null
-    xcrun xcstringstool sync "$CATALOG" --stringsdata "$WORK"/strings/*.stringsdata
+    # Yeni derleme sistemi .stringsdata dosyalarını istenen klasöre değil ara çıktıların yanına yazıyor.
+    STRINGSDATA=()
+    while IFS= read -r file; do STRINGSDATA+=(--stringsdata "$file"); done < <(find "$WORK" -name '*.stringsdata')
+    [[ ${#STRINGSDATA[@]} -gt 0 ]] || { echo "✗ Metin çıktısı (.stringsdata) bulunamadı" >&2; exit 1; }
+    xcrun xcstringstool sync "$CATALOG" "${STRINGSDATA[@]}"
     # Xcode'un yazdığı biçimle aynı kalsın (sıralı anahtarlar, 2 boşluk girinti).
     python3 - "$CATALOG" <<'PY'
 import json, sys

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!-- Görseller için örnek video karesi: dağlarda gün doğumu (çizim). -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1D2B5C"/>
+      <stop offset="0.45" stop-color="#7C4D8C"/>
+      <stop offset="0.75" stop-color="#F08A5D"/>
+      <stop offset="1" stop-color="#FFC979"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFF4D6"/>
+      <stop offset="0.6" stop-color="#FFD27A"/>
+      <stop offset="1" stop-color="#FFD27A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#sky)"/>
+  <circle cx="760" cy="470" r="190" fill="url(#sun)"/>
+  <path d="M0 470 L170 330 L300 420 L470 250 L640 410 L780 300 L930 400 L1080 270 L1280 420 L1280 720 L0 720 Z" fill="#5B3B6E" opacity="0.85"/>
+  <path d="M0 540 L140 450 L290 520 L430 400 L600 520 L760 430 L900 510 L1060 410 L1280 520 L1280 720 L0 720 Z" fill="#3E2752"/>
+  <path d="M0 620 L180 540 L360 600 L520 530 L700 610 L880 550 L1060 610 L1280 560 L1280 720 L0 720 Z" fill="#24173A"/>
+  <path d="M470 250 L520 300 L500 298 L470 275 L445 300 L430 296 Z" fill="#F3E6F0" opacity="0.7"/>
+  <path d="M1080 270 L1125 310 L1104 309 L1080 290 L1058 310 L1040 306 Z" fill="#F3E6F0" opacity="0.7"/>
+</svg>

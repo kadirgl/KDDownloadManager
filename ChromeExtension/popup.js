@@ -238,7 +238,7 @@ async function init() {
     chrome.storage.local.set({ intercept: intercept.checked });
   });
 
-  // Açılır pencere açıldığında activeTab izniyle sekmenin adresi okunabiliyor. Kalite listesi uygulamanın
+  // Sekmenin adresi http/https site izniyle okunabiliyor (chrome:// gibi sayfalarda boş gelir). Kalite listesi uygulamanın
   // durumu beklenmeden istenir; uygulama kapalıysa istek zaten hemen düşer.
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const page = tab?.url && isDownloadable(tab.url) ? tab : null;

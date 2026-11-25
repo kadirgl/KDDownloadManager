@@ -21,7 +21,7 @@ public static class ExtensionStatus
     {
         var seen = LastSignal(store, browser);
         var recent = seen is { } s && DateTimeOffset.Now - s < ConnectedWindow;
-        var (state, written) = BrowserExtension.InstallInfo(browser);
+        var (state, written, _, _) = BrowserExtension.InstallInfo(browser);
         switch (state)
         {
             case BrowserExtension.InstallState.NotInstalled or BrowserExtension.InstallState.Disabled:

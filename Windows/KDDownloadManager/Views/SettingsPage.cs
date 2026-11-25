@@ -265,18 +265,32 @@ public sealed class SettingsPage : UserControl
             var grid = new Grid { ColumnSpacing = 10 };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.Children.Add(Ui.Column(2, Ui.Text(browser.Name, 13.5, FontWeights.SemiBold),
-                Ui.Row(5, new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), Background = Theme.Brush(color) }, Ui.Secondary(text, 12))));
-            if (kind != ExtensionStatus.Kind.Connected)
+            var install = BrowserExtension.InstallInfo(browser);
+            var texts = Ui.Column(2, Ui.Text(browser.Name, 13.5, FontWeights.SemiBold),
+                Ui.Row(5, new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), Background = Theme.Brush(color) }, Ui.Secondary(text, 12)));
+            grid.Children.Add(texts);
+            var captured = browser;
+            if (BrowserExtension.StoreUrl != null && install.Unpacked)
             {
-                var captured = browser;
-                var install = Ui.Pill(L.T("Kur"), () =>
+                // Moving from the developer-mode copy to the store copy; with both, pages get two Download buttons.
+                texts.Children.Add(Ui.Secondary(install.FromStore
+                    ? L.T("Eklentinin iki kopyası kurulu. Uzantılar sayfasından geliştirici modundaki kopyayı kaldırın.")
+                    : L.T("Geliştirici modundan yüklenen kopya kullanılıyor. Mağaza sürümünü kurup bunu kaldırın; mağaza sürümünü tarayıcı kendisi günceller."), 11, wrap: true));
+                var action = install.FromStore
+                    ? Ui.Pill(L.T("Uzantılar"), () => BrowserExtension.OpenExtensionsPage(captured), height: 28, fontSize: 12)
+                    : Ui.Pill(L.T("Mağazadan kur"), () => BrowserExtension.OpenStorePage(captured), height: 28, fontSize: 12);
+                Grid.SetColumn(action, 1);
+                grid.Children.Add(action);
+            }
+            else if (kind != ExtensionStatus.Kind.Connected)
+            {
+                var setup = Ui.Pill(L.T("Kur"), () =>
                 {
                     store.OnboardingBrowser = captured.Name;
                     store.Route = Route.Onboarding;
                 }, height: 28, fontSize: 12);
-                Grid.SetColumn(install, 1);
-                grid.Children.Add(install);
+                Grid.SetColumn(setup, 1);
+                grid.Children.Add(setup);
             }
             rows.Children.Add(grid);
         }
@@ -360,7 +374,9 @@ public sealed class SettingsPage : UserControl
         }
         rows.Children.Add(Ui.Divider());
         rows.Children.Add(Ui.SettingRow(L.T("Günde bir denetle"), Ui.Toggle(Settings.Get(Settings.AppAutoUpdateCheck, true), on => Settings.Set(Settings.AppAutoUpdateCheck, on))));
-        rows.Children.Add(Ui.Secondary(L.T("Yeni sürümler GitHub'dan indirilir ve kurulmadan önce imzası doğrulanır. Tarayıcı eklentisi de uygulamayla birlikte güncellenir."), 11.5, wrap: true));
+        rows.Children.Add(Ui.Secondary(BrowserExtension.StoreUrl != null
+            ? L.T("Yeni sürümler GitHub'dan indirilir ve kurulmadan önce imzası doğrulanır. Mağazadan kurulan tarayıcı eklentisini tarayıcı kendisi günceller.")
+            : L.T("Yeni sürümler GitHub'dan indirilir ve kurulmadan önce imzası doğrulanır. Tarayıcı eklentisi de uygulamayla birlikte güncellenir."), 11.5, wrap: true));
         return Section(L.T("Uygulama güncellemesi"), rows);
     }
 

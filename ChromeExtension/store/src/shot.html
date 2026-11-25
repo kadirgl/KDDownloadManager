@@ -1,0 +1,94 @@
+<!doctype html>
+<!-- Chrome Web Mağazası ekran görüntüleri (1280×800): ?shot=popup|inpage|app&lang=tr|en.
+     İçerik eklentinin gerçek açılır penceresi/sayfa betikleri ve uygulamanın anlık görüntüleri (/app/). -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 1280px; height: 800px; overflow: hidden; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1d1d1f;
+      background: radial-gradient(1200px 700px at 100% 0%, #FFE3C7 0%, #FFF6EE 55%, #FFFFFF 100%); }
+    .copy { position: absolute; left: 72px; top: 0; bottom: 0; width: 360px; display: flex; flex-direction: column; justify-content: center; }
+    .copy img { width: 64px; height: 64px; margin-bottom: 26px; }
+    h1 { font-size: 40px; line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 16px; }
+    p { font-size: 18px; line-height: 1.5; color: #55555b; margin: 0 0 22px; }
+    ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+    li { font-size: 16px; display: flex; gap: 10px; align-items: baseline; color: #2a2a2e; }
+    li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: #F08A2E; transform: translateY(-2px); }
+    .window { position: absolute; left: 468px; top: 64px; width: 760px; height: 672px; border-radius: 14px; overflow: hidden;
+      background: #fff; box-shadow: 0 30px 80px rgba(120, 60, 0, .18), 0 0 0 1px rgba(0,0,0,.06); }
+    .toolbar { height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #f3f3f5; border-bottom: 1px solid #e4e4e7; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .url { margin-left: 18px; flex: 1; height: 30px; border-radius: 15px; background: #fff; display: flex; align-items: center;
+      padding: 0 14px; font-size: 13px; color: #6e6e73; }
+    .ext { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; }
+    .ext.active { background: #e2e2e6; }
+    .ext img { width: 18px; height: 18px; }
+    .page { width: 760px; height: 624px; border: 0; display: block; }
+    .popup { position: absolute; right: 62px; top: 116px; width: 320px; border: 0; border-radius: 12px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.22), 0 0 0 1px rgba(0,0,0,.08); background: #fff; }
+    .panels { position: absolute; left: 480px; top: 40px; display: flex; gap: 28px; }
+    .panels img { width: 345px; height: 510px; border-radius: 22px; box-shadow: 0 30px 70px rgba(120, 60, 0, .22), 0 0 0 1px rgba(0,0,0,.06); }
+    .panels img + img { margin-top: 210px; }
+  </style>
+</head>
+<body>
+  <div class="copy">
+    <img src="/assets/icon512.png" alt="">
+    <h1 id="headline"></h1>
+    <p id="lead"></p>
+    <ul id="points"></ul>
+  </div>
+  <div id="stage"></div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const lang = params.get("lang") === "tr" ? "tr" : "en";
+    const shot = params.get("shot") ?? "popup";
+    const TEXT = {
+      popup: {
+        tr: ["Videoları istediğin kalitede indir", "Açılır pencere sayfadaki videoyu bulur, kaliteleri tahmini boyutlarıyla listeler.",
+          ["4K'dan MP3'e kalite seçimi", "Sayfada oynatılan akışları yakalar", "Chrome indirmelerini uygulamaya devreder"]],
+        en: ["Download videos in the quality you want", "The popup finds the video on the page and lists its qualities with estimated sizes.",
+          ["From 4K down to MP3", "Catches streams the page plays", "Hands Chrome's downloads over to the app"]],
+      },
+      inpage: {
+        tr: ["Her videonun üstünde bir İndir butonu", "Fareyi videonun üstüne getir, kaliteyi seç; indirme uygulamada başlar.",
+          ["Oynatıcının düzenine dokunmaz", "İstemediğin sitede tek tıkla kapanır", "Sağ tık menüsünden de indirilebilir"]],
+        en: ["A Download button on every video", "Hover over a video, pick a quality and the download starts in the app.",
+          ["Stays out of the player's way", "Turn it off for any site in one click", "Also in the right-click menu"]],
+      },
+      app: {
+        tr: ["Tüm indirmeler tek panelde", "KD Download Manager uygulaması hızlı, parçalı ve kaldığı yerden devam eden indirmeler yapar.",
+          ["Ücretsiz masaüstü uygulamasıyla çalışır", "Videolar, dosyalar ve torrentler", "Eklenti yalnızca bilgisayarındaki uygulamayla konuşur"]],
+        en: ["All your downloads in one panel", "The KD Download Manager app downloads fast, in parallel chunks, and resumes where it left off.",
+          ["Works with the free desktop app", "Videos, files and torrents", "The extension talks only to the app on your computer"]],
+      },
+    };
+    const [headline, lead, points] = TEXT[shot][lang];
+    document.documentElement.lang = lang;
+    document.getElementById("headline").textContent = headline;
+    document.getElementById("lead").textContent = lead;
+    document.getElementById("points").replaceChildren(...points.map((text) => Object.assign(document.createElement("li"), { textContent: text })));
+
+    const stage = document.getElementById("stage");
+    if (shot === "app") {
+      stage.innerHTML = `<div class="panels"><img src="/app/${lang}/list-light.png" alt=""><img src="/app/${lang}/completed-dark.png" alt=""></div>`;
+    } else {
+      stage.innerHTML = `
+        <div class="window">
+          <div class="toolbar">
+            <span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+            <span class="url">videos.example.com/watch/mountain-timelapse</span>
+            <span class="ext ${shot === "popup" ? "active" : ""}"><img src="/ext/icons/icon32.png" alt=""></span>
+          </div>
+          <iframe class="page" src="/ext/store/src/page-frame.html?lang=${lang}${shot === "inpage" ? "&open=1" : ""}"></iframe>
+        </div>
+        ${shot === "popup" ? `<iframe class="popup" src="/ext/store/src/popup-frame.html?lang=${lang}"></iframe>` : ""}`;
+      // Açılır pencere araç çubuğundaki düğmenin altından açılır, içeriği kadar uzun (Chrome'daki gibi).
+      const popup = stage.querySelector(".popup");
+      if (popup) setInterval(() => { popup.style.height = `${popup.contentDocument?.body?.scrollHeight ?? 0}px`; }, 100);
+    }
+  </script>
+</body>
+</html>

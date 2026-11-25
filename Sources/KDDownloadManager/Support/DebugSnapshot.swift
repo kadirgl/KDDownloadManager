@@ -7,13 +7,22 @@ import AppKit
 /// Ekran kaydı izni gerektirmez; tasarımla karşılaştırmak için kullanılıyor.
 ///
 ///     KD_SNAPSHOT_DIR=/tmp/kd .build/debug/KDDownloadManager
+///
+/// `KD_SNAPSHOT_STORE=1`: Chrome Web Mağazası görselleri için marka ve kişi adı geçmeyen örnek liste
+/// (ChromeExtension/store/make-assets.sh).
 @MainActor
 enum DebugSnapshot {
     static func runIfRequested() {
         guard let dir = ProcessInfo.processInfo.environment["KD_SNAPSHOT_DIR"] else { return }
         let folder = URL(fileURLWithPath: dir, isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let store = DownloadStore(engine: MockDownloadEngine(), seedSamples: true)
+        let forStore = ProcessInfo.processInfo.environment["KD_SNAPSHOT_STORE"] != nil
+        let engine = MockDownloadEngine()
+        let store = DownloadStore(engine: engine, seedSamples: !forStore)
+        if forStore {
+            store.items = storeSamples()
+            store.items.filter { $0.status != .completed }.forEach(engine.start)
+        }
         store.panelVisible = true
 
         Task {
@@ -50,6 +59,26 @@ enum DebugSnapshot {
             }
             exit(0)
         }
+    }
+
+    /// Mağaza görselleri için örnek indirmeler; arayüzün dilinde.
+    private static func storeSamples() -> [DownloadItem] {
+        let mb: Int64 = 1_048_576
+        let english = AppLanguage.current == "en"
+        func item(_ name: String, _ trName: String, _ size: Int64, _ percent: Int64, _ status: DownloadStatus = .downloading,
+                  host: String = "files.example.com") -> DownloadItem {
+            DownloadItem(url: "https://\(host)/\(english ? name : trName)", totalBytes: size * mb,
+                         downloadedBytes: size * mb * percent / 100, status: status)
+        }
+        return [
+            item("Mountain_Timelapse_4K.mp4", "Dag_Manzarasi_4K.mp4", 2_150, 58, host: "videos.example.com"),
+            item("Photo_Library_2026.zip", "Fotograf_Arsivi_2026.zip", 3_400, 31),
+            item("Podcast_Episode_42.mp3", "Podcast_Bolum_42.mp3", 64, 12, .paused),
+            item("Annual_Report_2026.pdf", "Yillik_Rapor_2026.pdf", 18, 100, .completed),
+            item("City_Skyline.webp", "Sehir_Silueti.webp", 2, 100, .completed),
+            item("Project_Files_v2.zip", "Proje_Dosyalari_v2.zip", 220, 100, .completed),
+            item("Conference_Talk.mp4", "Konferans_Konusmasi.mp4", 860, 100, .completed, host: "videos.example.com")
+        ]
     }
 
     private static func render(_ store: DownloadStore, appearance: NSAppearance.Name, to url: URL) async {

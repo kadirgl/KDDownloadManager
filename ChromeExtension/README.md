@@ -5,7 +5,14 @@ Chromium tabanlı tüm tarayıcılarda çalışır: Chrome, Edge, Brave, Arc, Vi
 
 ## Kurulum
 
-En kolayı uygulamadan: **Ayarlar > Tarayıcı eklentisi > Kur**. Uygulama eklentiyi
+Eklenti Chrome Web Mağazası'ndan kurulur: uygulamanın kurulum ekranı ve **Ayarlar > Tarayıcı eklentisi** mağaza
+sayfasını açar (Edge, Brave, Arc, Vivaldi ve Opera da mağazadan kurabiliyor). Mağazadaki eklentiyi tarayıcı
+kendisi günceller. Mağaza kimliği uygulamalara yazılana kadar (bkz. [store/REHBER.md](store/REHBER.md)) ve
+mağazayı kullanamayanlar için yedek yol, uygulamayla gelen kopyayı geliştirici modundan yüklemek:
+
+### Geliştirici modundan (paketlenmemiş)
+
+Uygulamada kurulum ekranında "Geliştirici modundan yükle". Uygulama eklentiyi
 `~/Library/Application Support/KDDownloadManager/BrowserExtension` klasörüne kopyalar, yolunu panoya
 alır ve tarayıcının uzantılar sayfasını açar. Orada:
 
@@ -16,11 +23,27 @@ Windows sürümünde klasör `%LOCALAPPDATA%\KDDownloadManager\BrowserExtension`
 alanına yapıştırıp **Klasör Seç**'e basın. Eklenti iki uygulamayla da aynıdır.
 
 Eklenti bağlanınca Ayarlar'da "Bağlı" görünür. Uygulama güncellendiğinde o klasör de güncellenir;
-eklenti yeni sürümü en geç bir dakika içinde fark edip kendini yeniden yükler. Eklentinin sürümü her
-zaman uygulamanınkiyle aynıdır (paketlerken ve yayımlarken eşitlenir).
+eklenti yeni sürümü en geç bir dakika içinde fark edip kendini yeniden yükler (`reloadIfUpdated`; yalnızca
+geliştirici modunda yüklenen kopya yapar, mağaza kopyasını Chrome günceller). Eklentinin sürümü her zaman
+uygulamanınkiyle aynıdır (paketlerken ve yayımlarken eşitlenir).
 
-Eklentinin kimliği her tarayıcıda `necbfaijhfnnoikbppjdjcpfjekefdbk` olmalı (manifest'teki `key`
-sayesinde sabit). Uygulama yalnızca bu kimlikten gelen istekleri kabul eder.
+### Kimlikler
+
+- Paketlenmemiş kopya: `necbfaijhfnnoikbppjdjcpfjekefdbk`, her tarayıcıda aynı (depodaki manifest'in `key`
+  alanı sayesinde).
+- Mağaza kopyası: mağazanın verdiği kimlik; macOS'ta `BrowserExtension.storeExtensionID`, Windows'ta
+  `BrowserExtension.StoreExtensionId` (ikisini birden `scripts/chrome-store.sh set-id KİMLİK` yazar).
+
+Uygulama yalnızca bu iki kimlikten gelen istekleri kabul eder (`ExtensionBridge.allowedOrigins`).
+
+## Chrome Web Mağazası
+
+- `scripts/chrome-store.sh package` mağazaya yüklenecek zip'i üretir (`dist/KDDownloadManager-Chrome-SÜRÜM.zip`):
+  manifest'ten `key` çıkarılır, `store/` ve bu README girmez, mağazanın reddedeceği şeyler denetlenir.
+  `scripts/release.sh` bunu her sürümde çalıştırır; `CHROME_STORE=1` ile mağazaya yükleyip incelemeye de gönderir.
+- Mağaza kaydının metinleri, izin gerekçeleri ve gizlilik politikası `store/` altında; görseller
+  `store/make-assets.sh` ile üretilir. İlk yayın ve API kurulumu: [store/REHBER.md](store/REHBER.md).
+- İzinler bilerek dar: `activeTab` yok (sitelere erişim zaten var), siteler yalnızca `http`/`https`.
 
 ## Ne yapar
 
@@ -58,5 +81,4 @@ gönderilir. Uygulama bunları yalnızca indirme sırasında kullanır; çerezle
 ## Nasıl bağlanır
 
 Uygulama yalnızca `127.0.0.1:47615` adresini dinler (`Sources/KDDownloadManager/Bridge`).
-Eklenti açılışta ve dakikada bir `/hello` ile kendini bildirir. Eklenti Chrome Web Mağazası'na
-konursa mağaza farklı bir kimlik verir; o kimlik `ExtensionBridge.allowedOrigins` listesine eklenmeli.
+Eklenti açılışta ve dakikada bir `/hello` ile kendini bildirir.

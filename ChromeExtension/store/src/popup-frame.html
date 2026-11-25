@@ -1,0 +1,19 @@
+<!doctype html>
+<!-- Eklentinin gerçek açılır penceresi (popup.html/css/js) sahte Chrome ortamında. -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <base href="/ext/">
+  <link rel="stylesheet" href="/ext/popup.css">
+  <script src="/ext/store/src/chrome-stub.js"></script>
+</head>
+<body>
+  <script type="module">
+    const html = await (await fetch("/ext/popup.html")).text();
+    const source = new DOMParser().parseFromString(html, "text/html");
+    source.querySelectorAll("script").forEach((script) => script.remove());
+    document.body.replaceChildren(...[...source.body.childNodes].map((node) => document.importNode(node, true)));
+    await import("/ext/popup.js");
+  </script>
+</body>
+</html>

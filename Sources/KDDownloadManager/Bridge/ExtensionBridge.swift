@@ -28,9 +28,9 @@ final class ExtensionBridge {
         return 47615
     }()
 
-    /// Eklentinin manifest'indeki "key" alanından türeyen sabit kimlik.
-    /// Eklenti Chrome Web Mağazası'na konursa mağazanın verdiği kimlik de buraya eklenmeli.
-    static let allowedOrigins: Set<String> = ["chrome-extension://necbfaijhfnnoikbppjdjcpfjekefdbk"]
+    /// Chrome Web Mağazası'ndan kurulan eklentinin kimliği ve uygulamayla gelen paketlenmemiş kopyanınki
+    /// (manifest'teki "key"); ikisi de BrowserExtension'da.
+    static let allowedOrigins = Set(BrowserExtension.extensionIDs.map { "chrome-extension://\($0)" })
 
     private static let maxLinksPerRequest = 100
 

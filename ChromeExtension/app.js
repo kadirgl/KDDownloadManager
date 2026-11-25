@@ -1,5 +1,6 @@
-// KD Download Manager uygulamasıyla konuşma: uygulama 127.0.0.1:47615'te dinliyor ve
-// sadece bu eklentinin kimliğinden (manifest'teki "key") gelen istekleri kabul ediyor.
+// KD Download Manager uygulamasıyla konuşma: uygulama 127.0.0.1:47615'te dinliyor ve yalnızca bu eklentinin
+// kimliklerinden gelen istekleri kabul ediyor: Chrome Web Mağazası'nın verdiği kimlik ve uygulamayla gelen
+// paketlenmemiş kopyanın sabit kimliği (manifest'teki "key"; mağaza paketinde bu alan çıkarılıyor).
 
 export const APP_URL = "http://127.0.0.1:47615";
 
@@ -75,18 +76,31 @@ export function browserName() {
   return brand ?? "Chromium tabanlı tarayıcı";
 }
 
-// Eklentinin sürümü uygulamanınkiyle aynı gider. Uygulama güncellenince eklentinin klasörü de yenileniyor;
-// tarayıcı eski dosyaları kullanmaya devam etmesin diye eklenti, klasördeki sürüm kendisininkinden farklıysa
-// kendini yeniden yükler. Eklenti başka bir klasörden yüklendiyse yeniden yükleme sürümü değiştirmez;
-// döngüye girmemek için her sürüm için yalnızca bir kez denenir.
+// Eklentinin sürümü uygulamanınkiyle aynı gider. Uygulamayla gelen paketlenmemiş kopyanın klasörü uygulama
+// güncellenince yenileniyor; tarayıcı eski dosyaları kullanmaya devam etmesin diye bu kopya, klasördeki sürüm
+// kendisininkinden farklıysa kendini yeniden yükler. Mağazadan kurulan eklentiyi Chrome kendisi günceller
+// (mağaza incelemesi yüzünden uygulamadan birkaç gün geride kalabilir); yeniden yükleme ona bir şey
+// kazandırmaz, o yüzden yalnızca geliştirici modunda yüklenen kopya bunu yapar. Eklenti başka bir klasörden
+// yüklendiyse yeniden yükleme sürümü değiştirmez; döngüye girmemek için her sürüm için yalnızca bir kez denenir.
 async function reloadIfUpdated(available) {
   const current = chrome.runtime.getManifest().version;
   if (typeof available !== "string" || !/^\d+(\.\d+)*$/.test(available) || available === current) return false;
+  if (!(await isUnpacked())) return false;
   const { reloadedFor } = await chrome.storage.local.get("reloadedFor");
   if (reloadedFor === available) return false;
   await chrome.storage.local.set({ reloadedFor: available });
   chrome.runtime.reload();
   return true;
+}
+
+// Geliştirici modunda (paketlenmemiş) mı yüklendi; mağaza kurulumunda "normal". management.getSelf
+// "management" izni gerektirmiyor.
+async function isUnpacked() {
+  try {
+    return (await chrome.management.getSelf()).installType === "development";
+  } catch {
+    return false;
+  }
 }
 
 // Uygulamaya "buradayım" der; Ayarlar'daki bağlantı göstergesi bundan beslenir.

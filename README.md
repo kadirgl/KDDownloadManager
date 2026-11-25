@@ -30,7 +30,8 @@ uygulamanın içinde gelir; Homebrew gerekmez.
 Uygulama günde bir kez GitHub'daki son sürüme bakar. Yeni sürüm varsa bildirim gönderir ve listenin
 üstünde band çıkar; **Ayarlar › Uygulama güncellemesi › Güncelle ve yeniden başlat** ile kurulur.
 İndirilen paket kurulmadan önce Ed25519 imzasıyla doğrulanır; imzası tutmayan paket kurulmaz. Süren
-indirmeler uygulama yeniden açılınca kaldıkları yerden devam eder, tarayıcı eklentisi de kendini yeniler.
+indirmeler uygulama yeniden açılınca kaldıkları yerden devam eder. Chrome Web Mağazası'ndan kurulan tarayıcı
+eklentisini tarayıcı günceller; geliştirici modunda yüklenen kopya uygulamayla birlikte yenilenir.
 Video indirici (yt-dlp) ayrıca kendi resmi sürümlerinden güncel tutulur.
 
 ## Kaynaktan derleme

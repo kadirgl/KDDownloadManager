@@ -3,6 +3,8 @@
 //   swift scripts/render-icon.swift app <klasör.iconset>   → macOS uygulama ikonu (iconutil için)
 //   swift scripts/render-icon.swift extension <klasör>      → Chrome eklentisi ikonları (16/32/48/128)
 //   swift scripts/render-icon.swift windows <klasör>        → Windows .ico katmanları (Windows/scripts/make-ico.py)
+//   swift scripts/render-icon.swift store <klasör>          → Chrome Web Mağazası ikonu (128 px, kenarda 16 px boşluk)
+//                                                              ve tanıtım görselleri için büyük ikon
 //
 // macOS ikonlarında şekil, Apple'ın ızgarasına göre kenarlardan boşluk bırakıp gölgeyle çizilir;
 // eklenti ikonlarında tüm alanı kaplar.
@@ -11,7 +13,8 @@ import AppKit
 let accent = NSColor(srgbRed: 1, green: 0x85 / 255, blue: 0, alpha: 1)
 
 /// 1024×1024'lük tasarım alanında çizer; `pixels` boyutunda PNG yazar.
-func render(pixels: Int, macStyle: Bool, to url: URL) throws {
+/// `inset`: şeklin kenarlardan boşluğu (1024'lük alanda); mağaza ikonu 128 px'in 96'sını kaplamalı.
+func render(pixels: Int, macStyle: Bool, inset: CGFloat? = nil, to url: URL) throws {
     let rep = NSBitmapImageRep(
         bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels, bitsPerSample: 8,
         samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
@@ -23,7 +26,8 @@ func render(pixels: Int, macStyle: Bool, to url: URL) throws {
     NSGraphicsContext.current!.cgContext.scaleBy(x: scale, y: scale)
 
     // Şekil: macOS'ta 824'lük gövde (ızgara), eklentide neredeyse tam alan.
-    let body = macStyle ? NSRect(x: 100, y: 100, width: 824, height: 824) : NSRect(x: 32, y: 32, width: 960, height: 960)
+    let margin = inset ?? (macStyle ? 100 : 32)
+    let body = NSRect(x: margin, y: margin, width: 1024 - 2 * margin, height: 1024 - 2 * margin)
     let radius = body.width * 0.2237
     if macStyle {
         let shadow = NSShadow()
@@ -60,8 +64,8 @@ func render(pixels: Int, macStyle: Bool, to url: URL) throws {
 }
 
 let arguments = CommandLine.arguments
-guard arguments.count == 3, ["app", "extension", "windows"].contains(arguments[1]) else {
-    FileHandle.standardError.write(Data("kullanım: render-icon.swift app|extension|windows <klasör>\n".utf8))
+guard arguments.count == 3, ["app", "extension", "windows", "store"].contains(arguments[1]) else {
+    FileHandle.standardError.write(Data("kullanım: render-icon.swift app|extension|windows|store <klasör>\n".utf8))
     exit(1)
 }
 let folder = URL(fileURLWithPath: arguments[2], isDirectory: true)
@@ -73,6 +77,9 @@ if arguments[1] == "app" {
         try render(pixels: points, macStyle: true, to: folder.appendingPathComponent("icon_\(points)x\(points).png"))
         try render(pixels: points * 2, macStyle: true, to: folder.appendingPathComponent("icon_\(points)x\(points)@2x.png"))
     }
+} else if arguments[1] == "store" {
+    try render(pixels: 128, macStyle: false, inset: 128, to: folder.appendingPathComponent("icon128.png"))
+    try render(pixels: 512, macStyle: false, to: folder.appendingPathComponent("icon512.png"))
 } else if arguments[1] == "windows" {
     for pixels in [16, 20, 24, 32, 40, 48, 64, 256] {
         try render(pixels: pixels, macStyle: false, to: folder.appendingPathComponent("icon\(pixels).png"))

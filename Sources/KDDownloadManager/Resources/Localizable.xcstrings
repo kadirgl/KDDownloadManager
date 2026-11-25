@@ -671,12 +671,32 @@
         }
       }
     },
+    "Açılan pencerede “Uzantı ekle”yi onayla": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm “Add extension” in the dialog that opens"
+          }
+        }
+      }
+    },
     "Ağ bağlantısı koptu": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The network connection was lost"
+          }
+        }
+      }
+    },
+    "Aşağıdaki düğme %@'da açar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The button below opens it in %@"
           }
         }
       }
@@ -987,6 +1007,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "The live stream or premiere hasn't started yet"
+          }
+        }
+      }
+    },
+    "Chrome Web Mağazası'nda aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in Chrome Web Store"
+          }
+        }
+      }
+    },
+    "Chrome Web Mağazası'ndan kur": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install from the Chrome Web Store"
           }
         }
       }
@@ -1331,6 +1371,16 @@
         }
       }
     },
+    "Edge önce “Diğer mağazalardan uzantılara izin ver”i sorar; İzin ver'e bas": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edge first asks to “Allow extensions from other stores”; click Allow"
+          }
+        }
+      }
+    },
     "Ekle": {
       "localizations": {
         "en": {
@@ -1391,6 +1441,16 @@
         }
       }
     },
+    "Eklenti kendiliğinden bağlanır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The extension connects by itself"
+          }
+        }
+      }
+    },
     "Eklenti klasörünü seç": {
       "localizations": {
         "en": {
@@ -1421,6 +1481,16 @@
         }
       }
     },
+    "Eklentinin iki kopyası kurulu. Uzantılar sayfasından geliştirici modundaki kopyayı kaldırın.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Two copies of the extension are installed. Remove the developer-mode copy on the Extensions page."
+          }
+        }
+      }
+    },
     "En yeni": {
       "localizations": {
         "en": {
@@ -1447,6 +1517,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show in Finder"
+          }
+        }
+      }
+    },
+    "Geliştirici modundan yüklenen kopya kullanılıyor. Mağaza sürümünü kurup bunu kaldırın; mağaza sürümünü tarayıcı kendisi günceller.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The copy loaded in developer mode is in use. Install the store version and remove this one; the browser keeps the store version up to date."
           }
         }
       }
@@ -2107,6 +2187,66 @@
         }
       }
     },
+    "Mağaza sayfası": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Store page"
+          }
+        }
+      }
+    },
+    "Mağaza sayfası başka bir tarayıcıda açılırsa bağlantıyı istediğin tarayıcıya yapıştır.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If the store page opens in another browser, paste the link into the browser you want."
+          }
+        }
+      }
+    },
+    "Mağaza sayfasını aç": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the store page"
+          }
+        }
+      }
+    },
+    "Mağazadan kur": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install from store"
+          }
+        }
+      }
+    },
+    "Mağazayı kullanamıyor musun? Geliştirici modundan yükle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't use the store? Load it in developer mode"
+          }
+        }
+      }
+    },
+    "Mağazayı kullanamıyorsan uygulamayla gelen kopyayı geliştirici modundan yükleyebilirsin; 1 dakika sürer. Bu kopyayı uygulama günceller.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If you can't use the store, you can load the copy that comes with the app in developer mode; it takes a minute. The app keeps this copy up to date."
+          }
+        }
+      }
+    },
     "Menü çubuğu": {
       "localizations": {
         "en": {
@@ -2133,6 +2273,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Music"
+          }
+        }
+      }
+    },
+    "Opera'da önce “Install Chrome Extensions” eklentisi kurulmalı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opera first needs the “Install Chrome Extensions” add-on"
           }
         }
       }
@@ -2969,6 +3119,16 @@
         }
       }
     },
+    "Uygulama açıkken birkaç saniye içinde; mağaza eklentiyi kendisi güncel tutar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Within a few seconds while the app is open; the store keeps it up to date"
+          }
+        }
+      }
+    },
     "Uygulama güncellemesi": {
       "localizations": {
         "en": {
@@ -2995,6 +3155,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Move the app to the Applications folder and open it from there; updates can only be installed that way."
+          }
+        }
+      }
+    },
+    "Uzantılar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extensions"
           }
         }
       }
@@ -3168,6 +3338,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "New version: %@"
+          }
+        }
+      }
+    },
+    "Yeni sürümler GitHub'dan indirilir ve kurulmadan önce imzası doğrulanır. Mağazadan kurulan tarayıcı eklentisini tarayıcı kendisi günceller.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New versions are downloaded from GitHub and their signature is verified before installing. The browser keeps the extension installed from the store up to date."
           }
         }
       }
@@ -3754,6 +3934,16 @@
         }
       }
     },
+    "İndirmeleri, videoları ve magnet linklerini %@'dan tek tıkla uygulamaya gönderir. Chrome Web Mağazası'ndan kurulur, birkaç saniye sürer.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sends downloads, videos and magnet links from %@ to the app in one click. It installs from the Chrome Web Store in a few seconds."
+          }
+        }
+      }
+    },
     "İndirmeleri, videoları ve magnet linklerini %@'dan tek tıkla uygulamaya gönderir. Eklenti henüz Chrome Web Mağazası'nda olmadığı için geliştirici modundan yüklenir, 1 dakika sürer.": {
       "localizations": {
         "en": {
@@ -3850,6 +4040,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No results for ‘%@’"
+          }
+        }
+      }
+    },
+    "“Chrome'a ekle”ye tıkla": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click “Add to Chrome”"
           }
         }
       }

@@ -1,0 +1,65 @@
+<!doctype html>
+<!-- Örnek bir video sayfası; eklentinin gerçek sayfa betikleri (menu.js, videos.js) İndir butonunu ve
+     kalite menüsünü çizer. ?open=1 ise fare videonun üstüne getirilip menü açılır. -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Video</title>
+  <script src="/ext/store/src/chrome-stub.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1d1d1f; background: #fff; }
+    header { height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 24px; border-bottom: 1px solid #ececec; }
+    .logo { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, #5b6cff, #8f5bff); }
+    .brand { font-weight: 700; font-size: 15px; }
+    .search { margin-left: auto; width: 240px; height: 32px; border-radius: 16px; background: #f2f2f4; }
+    main { padding: 64px 32px 24px; max-width: 720px; }
+    .player { position: relative; border-radius: 12px; overflow: hidden; background: #000; }
+    video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+    .controls { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; display: flex; align-items: center; gap: 14px;
+      padding: 0 16px; background: linear-gradient(transparent, rgba(0,0,0,.55)); pointer-events: none; }
+    .play { width: 0; height: 0; border-left: 13px solid #fff; border-top: 8px solid transparent; border-bottom: 8px solid transparent; }
+    .bar { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.35); }
+    .bar i { display: block; width: 34%; height: 100%; border-radius: 2px; background: #fff; }
+    .time { color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
+    h1 { font-size: 19px; margin: 16px 0 6px; }
+    .meta { color: #6e6e73; font-size: 13px; }
+    .lines { margin-top: 18px; display: grid; gap: 8px; }
+    .lines i { display: block; height: 10px; border-radius: 5px; background: #f0f0f2; }
+  </style>
+</head>
+<body>
+  <header><span class="logo"></span><span class="brand">videos.example</span><span class="search"></span></header>
+  <main>
+    <div class="player">
+      <video poster="/ext/store/src/poster.svg" preload="none"></video>
+      <div class="controls"><span class="play"></span><span class="bar"><i></i></span><span class="time">4:16 / 12:34</span></div>
+    </div>
+    <h1 id="title"></h1>
+    <div class="meta" id="meta"></div>
+    <div class="lines"><i style="width:92%"></i><i style="width:84%"></i><i style="width:60%"></i></div>
+  </main>
+  <script>
+    document.title = window.KD_PAGE.title;
+    document.getElementById("title").textContent = window.KD_PAGE.title;
+    document.getElementById("meta").textContent = chrome.i18n.getUILanguage() === "tr" ? "Doğa Kanalı · 12 dk" : "Nature Channel · 12 min";
+  </script>
+  <script src="/ext/menu.js"></script>
+  <script src="/ext/videos.js"></script>
+  <script>
+    if (new URLSearchParams(location.search).get("open") === "1") {
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      addEventListener("load", async () => {
+        await sleep(300);
+        const box = document.querySelector("video").getBoundingClientRect();
+        document.dispatchEvent(new PointerEvent("pointermove", {
+          clientX: box.left + box.width * 0.6, clientY: box.top + box.height * 0.45, bubbles: true, composed: true,
+        }));
+        await sleep(400);
+        const host = [...document.documentElement.children].find((node) => node.shadowRoot);
+        host?.shadowRoot.querySelector("button.button")?.click();
+      });
+    }
+  </script>
+</body>
+</html>

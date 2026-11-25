@@ -3,9 +3,12 @@
 #
 #   scripts/release.sh 1.6.0               → notlar son sürümden beri commit başlıklarından
 #   scripts/release.sh 1.6.0 notlar.md     → notlar dosyadan
+#   CHROME_STORE=1 scripts/release.sh 1.6.0 → ayrıca eklentiyi Chrome Web Mağazası'na yükleyip incelemeye gönderir
+#                                            (API bilgileri Anahtar Zinciri'nde; bkz. scripts/chrome-store.sh)
 #
 # Adımlar: tarayıcı eklentisinin sürümünü uygulamanınkiyle eşitler, paketler (package-app.sh), zip'i Anahtar Zinciri'ndeki gizli anahtarla imzalar, imzayı denetler,
-# v1.6.0 etiketini ve main'i gönderir, zip + imzayla GitHub sürümünü oluşturur.
+# v1.6.0 etiketini ve main'i gönderir, zip + imzayla GitHub sürümünü oluşturur. Eklentinin mağaza paketi de
+# (dist/KDDownloadManager-Chrome-1.6.0.zip) her sürümde üretilir; CHROME_STORE=1 değilse mağazaya elle yüklenir.
 # Gerekenler: gh (giriş yapılmış), temiz çalışma ağacı, scripts/update-key.sh ile oluşturulmuş anahtar,
 # Anahtar Zinciri'nde "Developer ID Application" sertifikası ve noter onayı profili (KDNotary; bkz. package-app.sh).
 # Paket Developer ID ile imzalanıp Apple'ın noter onayından geçmeden sürüm yayımlanmaz.
@@ -47,6 +50,14 @@ if [[ -n "$(git status --porcelain "$MANIFEST")" ]]; then
     git commit -q -m "Sürüm $VERSION" -- "$MANIFEST"
 fi
 
+# Mağaza paketi yayımlamadan önce: eklentide mağazanın reddedeceği bir şey varsa sürüm hiç çıkmasın.
+scripts/chrome-store.sh package "$VERSION"
+STORE_ZIP="dist/KDDownloadManager-Chrome-$VERSION.zip"
+if [[ "${CHROME_STORE:-}" == "1" ]]; then
+    security find-generic-password -a refresh_token -s "KDDownloadManager Chrome Web Store" >/dev/null 2>&1 \
+        || fail "CHROME_STORE=1 ama API bilgileri Anahtar Zinciri'nde yok (scripts/chrome-store.sh credentials)"
+fi
+
 VERSION="$VERSION" NOTARIZE=1 scripts/package-app.sh
 ASSET="dist/KDDownloadManager-$VERSION.zip"
 cp dist/KDDownloadManager.zip "$ASSET"
@@ -76,3 +87,13 @@ git tag -a "$TAG" -m "KD Download Manager $VERSION"
 git push origin main "$TAG"
 gh release create "$TAG" "$ASSET" "$ASSET.sig" --title "KD Download Manager $VERSION" --notes-file "$NOTES"
 echo "✓ Yayımlandı: $(gh release view "$TAG" --json url -q .url)"
+
+# Chrome Web Mağazası: uygulamanın kendi güncellemesinden bağımsız; mağaza incelemesi birkaç gün sürebilir ve
+# eklenti uygulamayla aynı sürümde olmasa da çalışır.
+if [[ "${CHROME_STORE:-}" == "1" ]]; then
+    scripts/chrome-store.sh upload "$STORE_ZIP"
+    scripts/chrome-store.sh publish
+else
+    echo "→ Chrome Web Mağazası: $STORE_ZIP dosyasını Geliştirici Panosu > öğe > Paket > Yeni paket yükle ile yükleyip"
+    echo "  incelemeye gönderin (ya da: scripts/chrome-store.sh upload $STORE_ZIP && scripts/chrome-store.sh publish)."
+fi

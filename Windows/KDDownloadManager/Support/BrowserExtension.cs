@@ -6,9 +6,10 @@ namespace KDDownloadManager;
 
 /// <summary>
 /// Installing the browser extension (macOS: BrowserExtension). Chromium browsers (Chrome, Edge, Brave, Vivaldi,
-/// Opera) all use the same extension, with the same ID thanks to the manifest's "key". The app copies the bundled
-/// extension to %LOCALAPPDATA%\KDDownloadManager\BrowserExtension, which the user loads as an unpacked extension;
-/// the copy is refreshed when the app updates and the extension reloads itself on a version change.
+/// Opera) all use the same extension, installed from the Chrome Web Store. For those who can't use the store the app
+/// copies the bundled extension to %LOCALAPPDATA%\KDDownloadManager\BrowserExtension, which the user loads as an
+/// unpacked extension; that copy is refreshed when the app updates and reloads itself on a version change. The two
+/// copies have different IDs and both are accepted.
 /// </summary>
 public static class BrowserExtension
 {
@@ -17,7 +18,35 @@ public static class BrowserExtension
         public bool IsRunning => Process.GetProcessesByName(ProcessName).Length > 0;
     }
 
-    public const string ExtensionId = "necbfaijhfnnoikbppjdjcpfjekefdbk";
+    /// <summary>
+    /// The ID the Chrome Web Store gave the extension (Developer Dashboard > item > Package). Filled in once the
+    /// item exists (<c>scripts/chrome-store.sh set-id &lt;id&gt;</c> fills in the macOS one too). While empty, the
+    /// setup screens show the developer-mode install.
+    /// </summary>
+    public const string StoreExtensionId = "";
+
+    /// <summary>The bundled unpacked copy's ID, fixed in every browser by the repository manifest's "key".</summary>
+    public const string UnpackedExtensionId = "necbfaijhfnnoikbppjdjcpfjekefdbk";
+
+    /// <summary>Extension IDs the app accepts requests from (ExtensionBridge.AllowedOrigins).</summary>
+    public static readonly string[] ExtensionIds = new[] { StoreExtensionId, UnpackedExtensionId }.Where(id => id.Length > 0).ToArray();
+
+    /// <summary>The extension's Chrome Web Store page; null until the store ID is filled in.</summary>
+    public static string? StoreUrl => StoreExtensionId.Length == 0 ? null : "https://chromewebstore.google.com/detail/" + StoreExtensionId;
+
+    /// <summary>Opens the store page in that browser (Edge and Opera can install from the Chrome Web Store too).</summary>
+    public static bool OpenStorePage(Browser browser)
+    {
+        if (StoreUrl is not { } url) return false;
+        try { Process.Start(new ProcessStartInfo(browser.Exe) { ArgumentList = { url } }); }
+        catch { Shell.OpenUrl(url); }
+        return true;
+    }
+
+    public static void OpenExtensionsPage(Browser browser)
+    {
+        try { Process.Start(new ProcessStartInfo(browser.Exe) { ArgumentList = { browser.ExtensionsPage } }); } catch { }
+    }
 
     static readonly string Local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
     static readonly string Roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -68,13 +97,16 @@ public static class BrowserExtension
 
     public enum InstallState { Installed, Disabled, NotInstalled, Unknown }
 
+    /// <summary>Install state; when the browser last wrote it; whether the store copy and the unpacked copy are enabled.</summary>
+    public readonly record struct Install(InstallState State, DateTimeOffset? Written, bool FromStore = false, bool Unpacked = false);
+
     /// <summary>
     /// Whether the browser profile's (Secure) Preferences list the extension. These are settings files, not the
     /// cookie store; only the extension's own entry is looked at.
     /// </summary>
-    public static (InstallState state, DateTimeOffset? written) InstallInfo(Browser browser)
+    public static Install InstallInfo(Browser browser)
     {
-        if (!Directory.Exists(browser.DataFolder)) return (InstallState.Unknown, null);
+        if (!Directory.Exists(browser.DataFolder)) return new(InstallState.Unknown, null);
         var profiles = new List<string> { browser.DataFolder };
         try
         {
@@ -82,8 +114,7 @@ public static class BrowserExtension
                 .Where(d => Path.GetFileName(d) == "Default" || Path.GetFileName(d).StartsWith("Profile ")));
         }
         catch { }
-        var readAny = false;
-        var found = InstallState.NotInstalled;
+        bool readAny = false, disabled = false, fromStore = false, unpacked = false;
         DateTimeOffset? written = null;
         foreach (var profile in profiles)
         {
@@ -92,12 +123,19 @@ public static class BrowserExtension
                 if (ExtensionSettings(Path.Combine(profile, file)) is not { } entry) continue;
                 readAny = true;
                 written = written is { } w && w > entry.modified ? w : entry.modified;
-                if (entry.settings[ExtensionId] is not JsonObject ext || (ext["path"] == null && ext["location"] == null)) continue;
-                if (IsDisabled(ext)) { if (found == InstallState.NotInstalled) found = InstallState.Disabled; }
-                else return (InstallState.Installed, written);
+                foreach (var id in ExtensionIds)
+                {
+                    if (entry.settings[id] is not JsonObject ext || (ext["path"] == null && ext["location"] == null)) continue;
+                    if (IsDisabled(ext)) disabled = true;
+                    else if (id == UnpackedExtensionId) unpacked = true;
+                    else fromStore = true;
+                }
             }
         }
-        return (readAny ? found : InstallState.Unknown, written);
+        var state = fromStore || unpacked ? InstallState.Installed
+            : disabled ? InstallState.Disabled
+            : readAny ? InstallState.NotInstalled : InstallState.Unknown;
+        return new(state, written, fromStore, unpacked);
     }
 
     static bool IsDisabled(JsonObject entry)
@@ -124,6 +162,8 @@ public static class BrowserExtension
         }
         catch { return null; }
     }
+
+    // Developer-mode install (for those who can't use the store)
 
     /// <summary>The folder the browser loads (unpacked).</summary>
     public static string Folder => Path.Combine(AppFolders.Support, "BrowserExtension");

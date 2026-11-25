@@ -1,13 +1,20 @@
 import SwiftUI
 import AppKit
 
-/// İlk açılış: tarayıcı eklentisinin kurulumu. Eklenti ilk kez bağlanınca kısa bir onay gösterip
-/// İndirmeler'e geçer; "Şimdilik geç" denirse bir daha kendiliğinden açılmaz.
+/// İlk açılış: tarayıcı eklentisinin kurulumu. Eklenti Chrome Web Mağazası'ndan kurulur; mağazayı
+/// kullanamayanlar uygulamayla gelen kopyayı geliştirici modundan yükleyebilir (mağaza kimliği henüz
+/// yazılmadıysa yalnızca bu yol var). Eklenti ilk kez bağlanınca kısa bir onay gösterip İndirmeler'e geçer;
+/// "Şimdilik geç" denirse bir daha kendiliğinden açılmaz.
 struct OnboardingView: View {
     @Environment(DownloadStore.self) private var store
     @State private var copied = false
+    @State private var linkCopied = false
     @State private var installFailed = false
     @State private var connected = false
+    /// Mağaza yerine geliştirici modundan kurulum seçildi.
+    @State private var manual = false
+
+    private var usesStore: Bool { BrowserExtension.storeURL != nil && !manual }
 
     /// Ayarlar'da "Kur"a basılan tarayıcı; yoksa Chrome, o da yoksa ilk bulunan Chromium tarayıcı.
     private var browser: BrowserExtension.Browser? {
@@ -31,7 +38,7 @@ struct OnboardingView: View {
                     Text("\(shortName) eklentisini kur")
                         .font(.system(size: 22, weight: .semibold))
                         .padding(.bottom, 8)
-                    Text("İndirmeleri, videoları ve magnet linklerini \(shortName)'dan tek tıkla uygulamaya gönderir. Eklenti henüz Chrome Web Mağazası'nda olmadığı için geliştirici modundan yüklenir, 1 dakika sürer.")
+                    intro
                         .font(.system(size: 13))
                         .foregroundStyle(Theme.secondaryText)
                         .multilineTextAlignment(.center)
@@ -40,19 +47,38 @@ struct OnboardingView: View {
                         .padding(.bottom, 18)
 
                     if let browser {
-                        steps(for: browser)
+                        if usesStore { storeSteps(for: browser) } else { steps(for: browser) }
                     } else {
                         SettingsNote(String(localized: "Desteklenen bir tarayıcı bulunamadı (Chrome, Edge, Brave, Arc, Vivaldi, Opera)."))
                             .padding(16)
                             .glassCard()
                     }
 
-                    Label("Kısayol: Finder'daki klasörü sürükleyip eklentiler sayfasına bırakabilirsin.", systemImage: "info.circle")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.secondaryText)
+                    if !usesStore {
+                        Label("Kısayol: Finder'daki klasörü sürükleyip eklentiler sayfasına bırakabilirsin.", systemImage: "info.circle")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.secondaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 6)
+                            .padding(.top, 10)
+                    }
+                    if BrowserExtension.storeURL != nil {
+                        Button {
+                            withAnimation(.snappy) { manual.toggle() }
+                        } label: {
+                            if manual {
+                                Text("Chrome Web Mağazası'ndan kur")
+                            } else {
+                                Text("Mağazayı kullanamıyor musun? Geliştirici modundan yükle")
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 6)
                         .padding(.top, 10)
+                    }
                     if installFailed {
                         SettingsNote(String(localized: "Eklenti dosyaları hazırlanamadı."), isError: true)
                             .padding(.top, 6)
@@ -67,9 +93,17 @@ struct OnboardingView: View {
             .scrollIndicators(.never)
 
             VStack(spacing: 6) {
-                Button(action: beginInstall) {
-                    Label("Kurulumu başlat", systemImage: "puzzlepiece.extension.fill")
-                        .frame(maxWidth: .infinity)
+                Button {
+                    if usesStore { openStore() } else { beginInstall() }
+                } label: {
+                    Group {
+                        if usesStore {
+                            Label("Chrome Web Mağazası'nda aç", systemImage: "bag.fill")
+                        } else {
+                            Label("Kurulumu başlat", systemImage: "puzzlepiece.extension.fill")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(AccentButtonStyle(height: 46, fontSize: 14))
                 .disabled(browser == nil)
@@ -94,6 +128,67 @@ struct OnboardingView: View {
                 store.route = .list
             }
         }
+    }
+
+    private var intro: Text {
+        if usesStore {
+            return Text("İndirmeleri, videoları ve magnet linklerini \(shortName)'dan tek tıkla uygulamaya gönderir. Chrome Web Mağazası'ndan kurulur, birkaç saniye sürer.")
+        }
+        if BrowserExtension.storeURL != nil {
+            return Text("Mağazayı kullanamıyorsan uygulamayla gelen kopyayı geliştirici modundan yükleyebilirsin; 1 dakika sürer. Bu kopyayı uygulama günceller.")
+        }
+        return Text("İndirmeleri, videoları ve magnet linklerini \(shortName)'dan tek tıkla uygulamaya gönderir. Eklenti henüz Chrome Web Mağazası'nda olmadığı için geliştirici modundan yüklenir, 1 dakika sürer.")
+    }
+
+    /// Mağazadan kurulum: sayfayı aç, ekle, eklenti kendiliğinden bağlanır.
+    private func storeSteps(for browser: BrowserExtension.Browser) -> some View {
+        VStack(spacing: 0) {
+            step(1, title: "Mağaza sayfasını aç") {
+                Text("Aşağıdaki düğme \(shortName)'da açar")
+            } trailing: {
+                Button {
+                    guard let url = BrowserExtension.storeURL else { return }
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(url.absoluteString, forType: .string)
+                    linkCopied = true
+                } label: {
+                    Label(linkCopied ? "Kopyalandı" : "Linki kopyala", systemImage: linkCopied ? "checkmark" : "link")
+                        .fixedSize()
+                }
+                .buttonStyle(GlassCapsuleButtonStyle(height: 28, fontSize: 12))
+                .help("Mağaza sayfası başka bir tarayıcıda açılırsa bağlantıyı istediğin tarayıcıya yapıştır.")
+            }
+            GlassDivider().padding(.leading, 50)
+            step(2, title: "\u{201C}Chrome'a ekle\u{201D}ye tıkla") {
+                storeHint(for: browser)
+            } trailing: {
+                EmptyView()
+            }
+            GlassDivider().padding(.leading, 50)
+            step(3, title: "Eklenti kendiliğinden bağlanır") {
+                Text("Uygulama açıkken birkaç saniye içinde; mağaza eklentiyi kendisi güncel tutar")
+            } trailing: {
+                EmptyView()
+            }
+        }
+        .glassCard()
+    }
+
+    /// Edge ve Opera Chrome Web Mağazası'ndan kurmadan önce bir izin istiyor.
+    private func storeHint(for browser: BrowserExtension.Browser) -> Text {
+        switch browser.name {
+        case "Microsoft Edge":
+            Text("Edge önce \u{201C}Diğer mağazalardan uzantılara izin ver\u{201D}i sorar; İzin ver'e bas")
+        case "Opera":
+            Text("Opera'da önce \u{201C}Install Chrome Extensions\u{201D} eklentisi kurulmalı")
+        default:
+            Text("Açılan pencerede \u{201C}Uzantı ekle\u{201D}yi onayla")
+        }
+    }
+
+    private func openStore() {
+        guard let browser else { return }
+        installFailed = !BrowserExtension.openStorePage(in: browser)
     }
 
     private func steps(for browser: BrowserExtension.Browser) -> some View {

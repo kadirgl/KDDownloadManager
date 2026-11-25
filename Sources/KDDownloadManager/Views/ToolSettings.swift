@@ -203,6 +203,9 @@ struct AppUpdateSettings: View {
 
     private var note: String {
         if AppUpdater.isAvailable, let problem = AppUpdater.installProblem { return problem }
+        if BrowserExtension.storeURL != nil {
+            return String(localized: "Yeni sürümler GitHub'dan indirilir ve kurulmadan önce imzası doğrulanır. Mağazadan kurulan tarayıcı eklentisini tarayıcı kendisi günceller.")
+        }
         return String(localized: "Yeni sürümler GitHub'dan indirilir ve kurulmadan önce imzası doğrulanır. Tarayıcı eklentisi de uygulamayla birlikte güncellenir.")
     }
 }

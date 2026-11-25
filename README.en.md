@@ -30,8 +30,8 @@ ship inside the app; Homebrew isn't needed.
 Once a day the app checks GitHub for the latest release. When there is a new version it sends a
 notification and shows a banner above the list; install it with **Settings › App update › Update and
 restart**. The downloaded package is verified with an Ed25519 signature before installing; a package with a
-bad signature is never installed. Running downloads resume when the app reopens, and the browser extension
-updates itself too. The video downloader (yt-dlp) is kept up to date from its own official releases.
+bad signature is never installed. Running downloads resume when the app reopens. The browser keeps the
+extension installed from the Chrome Web Store up to date; a copy loaded in developer mode is refreshed with the app. The video downloader (yt-dlp) is kept up to date from its own official releases.
 
 ## Building from source
 

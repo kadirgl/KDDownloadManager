@@ -1,8 +1,9 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// Tarayıcı eklentisinin kurulumu: Chromium tabanlı tarayıcılar (Chrome, Edge, Brave, Arc…) aynı
-/// eklentiyi kullanır ve eklenti kimliği (manifest'teki "key") hepsinde aynıdır.
+/// Tarayıcı eklentisinin kurulumu: Chromium tabanlı tarayıcılar (Chrome, Edge, Brave, Arc…) aynı eklentiyi
+/// kullanır. Eklenti Chrome Web Mağazası'ndan kurulur; mağazayı kullanamayanlar için uygulamayla gelen kopya
+/// geliştirici modundan ("paketlenmemiş öğe") yüklenebilir. İki kopyanın kimliği farklıdır, ikisi de kabul edilir.
 @MainActor
 enum BrowserExtension {
     struct Browser: Identifiable {
@@ -20,8 +21,31 @@ enum BrowserExtension {
         }
     }
 
-    /// Eklentinin kimliği; manifest'teki "key" sayesinde her tarayıcıda aynı.
-    static let extensionID = "necbfaijhfnnoikbppjdjcpfjekefdbk"
+    /// Chrome Web Mağazası'nın eklentiye verdiği kimlik (Geliştirici Panosu > öğe > Paket). Mağazada öğe
+    /// oluşturulunca buraya yazılır (`scripts/chrome-store.sh set-id <kimlik>` Windows'takini de doldurur).
+    /// Boşken kurulum ekranları geliştirici modundan yüklemeyi gösterir.
+    nonisolated static let storeExtensionID = ""
+
+    /// Uygulamayla gelen paketlenmemiş kopyanın kimliği; depodaki manifest'in "key" alanı sayesinde her
+    /// tarayıcıda aynı. Bu kopyayı kullananlar mağazaya geçene kadar çalışmaya devam etsin diye kabul ediliyor.
+    nonisolated static let unpackedExtensionID = "necbfaijhfnnoikbppjdjcpfjekefdbk"
+
+    /// Uygulamanın istek kabul ettiği eklenti kimlikleri (ExtensionBridge.allowedOrigins).
+    nonisolated static var extensionIDs: [String] {
+        [storeExtensionID, unpackedExtensionID].filter { !$0.isEmpty }
+    }
+
+    /// Eklentinin Chrome Web Mağazası sayfası; mağaza kimliği yazılmadıysa nil.
+    static var storeURL: URL? {
+        storeExtensionID.isEmpty ? nil : URL(string: "https://chromewebstore.google.com/detail/\(storeExtensionID)")
+    }
+
+    /// Mağaza sayfasını o tarayıcıda açar (Edge ve Opera da Chrome Web Mağazası'ndan eklenti kurabiliyor).
+    static func openStorePage(in browser: Browser) -> Bool {
+        guard let storeURL else { return false }
+        NSWorkspace.shared.open([storeURL], withApplicationAt: browser.appURL, configuration: NSWorkspace.OpenConfiguration())
+        return true
+    }
 
     private static let candidates: [(name: String, bundleID: String, page: String, data: String)] = [
         ("Google Chrome", "com.google.Chrome", "chrome://extensions", "Google/Chrome"),
@@ -70,42 +94,57 @@ enum BrowserExtension {
         case unknown
     }
 
+    struct InstallInfo {
+        var state: InstallState
+        /// Tarayıcının bu bilgiyi diske en son yazdığı an.
+        var written: Date?
+        /// Mağaza kopyası kurulu ve açık.
+        var fromStore = false
+        /// Geliştirici modunda yüklenen kopya kurulu ve açık.
+        var unpacked = false
+    }
+
     /// Tarayıcının profil ayarlarında (Preferences / Secure Preferences) eklentinin kaydı var mı. Eklenti
     /// kaldırılınca kayıt hemen silindiği için "kurulu" görünmeye devam etmiyor. Yalnızca eklentinin
-    /// kimliğine bakılır; dosyalar değiştikçe yeniden okunur.
+    /// kimliklerine bakılır; dosyalar değiştikçe yeniden okunur.
     static func installState(in browser: Browser) -> InstallState {
         installInfo(in: browser).state
     }
 
     /// Kurulum durumu ve tarayıcının bu bilgiyi diske en son ne zaman yazdığı. Chrome ayarları kurulumdan
     /// birkaç saniye sonra yazıyor; o arada gelen eklenti sinyali dosyadan daha yeni bilgi sayılır.
-    static func installInfo(in browser: Browser) -> (state: InstallState, written: Date?) {
+    static func installInfo(in browser: Browser) -> InstallInfo {
         let manager = FileManager.default
-        guard let entries = try? manager.contentsOfDirectory(atPath: browser.dataFolder.path) else { return (.unknown, nil) }
+        guard let entries = try? manager.contentsOfDirectory(atPath: browser.dataFolder.path) else { return InstallInfo(state: .unknown) }
         // Opera'da profil klasörün kendisi; diğerlerinde "Default", "Profile 1"…
         let profiles = [browser.dataFolder] + entries
             .filter { $0 == "Default" || $0.hasPrefix("Profile ") }
             .map { browser.dataFolder.appendingPathComponent($0, isDirectory: true) }
         var readAny = false
-        var found: InstallState = .notInstalled
-        var written: Date?
+        var disabled = false
+        var info = InstallInfo(state: .notInstalled)
         for profile in profiles {
             for file in ["Secure Preferences", "Preferences"] {
                 guard let (settings, modified) = extensionSettings(at: profile.appendingPathComponent(file)) else { continue }
                 readAny = true
-                written = max(written ?? modified, modified)
-                // Chrome eklenti kaldırılınca kaydı silmiyor, içi boş bırakıyor; klasörü ya da konumu olmayan
-                // kayıt kurulu sayılmaz.
-                guard let entry = settings[extensionID] as? [String: Any],
-                      entry["path"] != nil || entry["location"] != nil else { continue }
-                if isDisabled(entry) {
-                    if found == .notInstalled { found = .disabled }
-                } else {
-                    return (.installed, written)
+                info.written = max(info.written ?? modified, modified)
+                for id in extensionIDs {
+                    // Chrome eklenti kaldırılınca kaydı silmiyor, içi boş bırakıyor; klasörü ya da konumu olmayan
+                    // kayıt kurulu sayılmaz.
+                    guard let entry = settings[id] as? [String: Any],
+                          entry["path"] != nil || entry["location"] != nil else { continue }
+                    if isDisabled(entry) {
+                        disabled = true
+                    } else if id == unpackedExtensionID {
+                        info.unpacked = true
+                    } else {
+                        info.fromStore = true
+                    }
                 }
             }
         }
-        return (readAny ? found : .unknown, written)
+        info.state = if info.fromStore || info.unpacked { .installed } else if disabled { .disabled } else if readAny { .notInstalled } else { .unknown }
+        return info
     }
 
     private static func isDisabled(_ entry: [String: Any]) -> Bool {
@@ -133,6 +172,8 @@ enum BrowserExtension {
     /// Kendini markasıyla bildiremeyen tarayıcılar (Arc, Vivaldi, Chromium) eklentide bu adla görünüyor.
     static let unnamedBrowser = "Chromium tabanlı tarayıcı"
     static let unnamedBrowsers: Set<String> = ["Arc", "Vivaldi", "Chromium"]
+
+    // MARK: - Geliştirici modundan kurulum (mağazayı kullanamayanlar için)
 
     /// Tarayıcıya "paketlenmemiş öğe" olarak yüklenen klasör. Uygulama güncellenince yeni sürüm
     /// buraya kopyalanır; tarayıcı bir sonraki açılışında (ya da uzantılar sayfasında yenileyince) alır.

@@ -8,8 +8,10 @@ using Microsoft.UI.Xaml.Media.Imaging;
 namespace KDDownloadManager.Views;
 
 /// <summary>
-/// First launch: installing the browser extension (macOS: OnboardingView). When the extension connects for the
-/// first time a short confirmation is shown and the list opens; "Şimdilik geç" stops it from opening by itself.
+/// First launch: installing the browser extension (macOS: OnboardingView). The extension installs from the Chrome
+/// Web Store; those who can't use the store can load the bundled copy in developer mode (the only way while the
+/// store ID is empty). When the extension connects for the first time a short confirmation is shown and the list
+/// opens; "Şimdilik geç" stops it from opening by itself.
 /// </summary>
 public sealed class OnboardingPage : UserControl
 {
@@ -19,6 +21,10 @@ public sealed class OnboardingPage : UserControl
     readonly DispatcherQueueTimer timer;
     readonly DateTimeOffset? initialSignal;
     bool connected;
+    /// <summary>Developer-mode install chosen instead of the store.</summary>
+    bool manual;
+
+    bool UsesStore => BrowserExtension.StoreUrl != null && !manual;
 
     BrowserExtension.Browser? Browser
     {
@@ -39,6 +45,18 @@ public sealed class OnboardingPage : UserControl
         var browser = Browser;
         initialSignal = browser != null ? ExtensionStatus.LastSignal(store, browser) : null;
 
+        Render();
+
+        timer = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(1);
+        timer.Tick += (_, _) => { if (IsLoaded) Ui.Guard(CheckConnection); };
+        Loaded += (_, _) => timer.Start();
+        Unloaded += (_, _) => timer.Stop();
+    }
+
+    void Render()
+    {
+        var browser = Browser;
         var badge = new Image
         {
             Source = new BitmapImage(new Uri(Path.Combine(AppFolders.AppDir, "Assets", "app256.png"))),
@@ -49,14 +67,32 @@ public sealed class OnboardingPage : UserControl
         };
         var title = Ui.Text(L.F("%@ eklentisini kur", ShortName), 20, FontWeights.Bold);
         title.HorizontalAlignment = HorizontalAlignment.Center;
-        var intro = Ui.Secondary(L.F("İndirmeleri, videoları ve magnet linklerini %@'dan tek tıkla uygulamaya gönderir. Eklenti henüz Chrome Web Mağazası'nda olmadığı için geliştirici modundan yüklenir, 1 dakika sürer.", ShortName), 12.5, wrap: true);
+        var introText = UsesStore
+            ? L.F("İndirmeleri, videoları ve magnet linklerini %@'dan tek tıkla uygulamaya gönderir. Chrome Web Mağazası'ndan kurulur, birkaç saniye sürer.", ShortName)
+            : BrowserExtension.StoreUrl != null
+                ? L.T("Mağazayı kullanamıyorsan uygulamayla gelen kopyayı geliştirici modundan yükleyebilirsin; 1 dakika sürer. Bu kopyayı uygulama günceller.")
+                : L.F("İndirmeleri, videoları ve magnet linklerini %@'dan tek tıkla uygulamaya gönderir. Eklenti henüz Chrome Web Mağazası'nda olmadığı için geliştirici modundan yüklenir, 1 dakika sürer.", ShortName);
+        var intro = Ui.Secondary(introText, 12.5, wrap: true);
         intro.TextAlignment = TextAlignment.Center;
         var column = Ui.Column(12, badge, title, intro);
         column.Margin = new Thickness(Theme.Margin, 0, Theme.Margin, 16);
-        if (browser != null) column.Children.Add(Steps(browser));
+        if (browser != null) column.Children.Add(UsesStore ? StoreSteps(browser) : Steps(browser));
         else column.Children.Add(Ui.Card(Ui.Secondary(L.T("Desteklenen bir tarayıcı bulunamadı (Chrome, Edge, Brave, Vivaldi, Opera)."), 12, wrap: true)));
-        column.Children.Add(Ui.Row(6, Ui.Icon("", 12, Theme.SecondaryText),
-            Ui.Secondary(L.T("Kısayol: Gezgin'deki klasörü sürükleyip eklentiler sayfasına bırakabilirsin."), 11.5, wrap: true)));
+        if (!UsesStore)
+            column.Children.Add(Ui.Row(6, Ui.Icon("\uE946", 12, Theme.SecondaryText),
+                Ui.Secondary(L.T("Kısayol: Gezgin'deki klasörü sürükleyip eklentiler sayfasına bırakabilirsin."), 11.5, wrap: true)));
+        if (BrowserExtension.StoreUrl != null)
+        {
+            var other = new HyperlinkButton
+            {
+                Content = manual ? L.T("Chrome Web Mağazası'ndan kur") : L.T("Mağazayı kullanamıyor musun? Geliştirici modundan yükle"),
+                Padding = new Thickness(0),
+            };
+            other.Click += (_, _) => { manual = !manual; error.Text = ""; Render(); };
+            column.Children.Add(other);
+        }
+        if (error.Parent is Panel oldErrorParent) oldErrorParent.Children.Remove(error);
+        if (waiting.Parent is Panel oldWaitingParent) oldWaitingParent.Children.Remove(waiting);
         column.Children.Add(error);
         column.Children.Add(waiting);
         RenderWaiting();
@@ -65,7 +101,9 @@ public sealed class OnboardingPage : UserControl
         layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.Children.Add(new ScrollViewer { Content = column });
-        var start = Ui.AccentButton(L.T("Kurulumu başlat"), "", BeginInstall, 46);
+        var start = UsesStore
+            ? Ui.AccentButton(L.T("Chrome Web Mağazası'nda aç"), "\uE719", OpenStore, 46)
+            : Ui.AccentButton(L.T("Kurulumu başlat"), "\uEA86", BeginInstall, 46);
         start.IsEnabled = browser != null;
         var skip = new HyperlinkButton { Content = L.T("Şimdilik geç"), HorizontalAlignment = HorizontalAlignment.Center };
         skip.Click += (_, _) => store.SkipOnboarding();
@@ -74,12 +112,36 @@ public sealed class OnboardingPage : UserControl
         Grid.SetRow(footer, 1);
         layout.Children.Add(footer);
         Content = layout;
+    }
 
-        timer = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().CreateTimer();
-        timer.Interval = TimeSpan.FromSeconds(1);
-        timer.Tick += (_, _) => { if (IsLoaded) Ui.Guard(CheckConnection); };
-        Loaded += (_, _) => timer.Start();
-        Unloaded += (_, _) => timer.Stop();
+    /// <summary>Store install: open the page, add, the extension connects by itself.</summary>
+    UIElement StoreSteps(BrowserExtension.Browser browser)
+    {
+        var copy = Ui.Pill(L.T("Linki kopyala"), () => { }, "\uE71B", 28, 12);
+        copy.Click += (_, _) =>
+        {
+            if (BrowserExtension.StoreUrl is { } url) Shell.Copy(url);
+            copy.Content = Ui.Row(6, Ui.Icon("\uE73E", 12), Ui.Text(L.T("Kopyalandı"), 12, FontWeights.SemiBold));
+        };
+        ToolTipService.SetToolTip(copy, L.T("Mağaza sayfası başka bir tarayıcıda açılırsa bağlantıyı istediğin tarayıcıya yapıştır."));
+        var hint = browser.Name switch
+        {
+            "Microsoft Edge" => L.T("Edge önce “Diğer mağazalardan uzantılara izin ver”i sorar; İzin ver'e bas"),
+            "Opera" => L.T("Opera'da önce “Install Chrome Extensions” eklentisi kurulmalı"),
+            _ => L.T("Açılan pencerede “Uzantı ekle”yi onayla"),
+        };
+        return Ui.Card(Ui.Column(10,
+            Step(1, L.T("Mağaza sayfasını aç"), Ui.Secondary(L.F("Aşağıdaki düğme %@'da açar", ShortName), 11.5, wrap: true), copy),
+            Ui.Divider(),
+            Step(2, L.T("“Chrome'a ekle”ye tıkla"), Ui.Secondary(hint, 11.5, wrap: true), null),
+            Ui.Divider(),
+            Step(3, L.T("Eklenti kendiliğinden bağlanır"), Ui.Secondary(L.T("Uygulama açıkken birkaç saniye içinde; mağaza eklentiyi kendisi güncel tutar"), 11.5, wrap: true), null)));
+    }
+
+    void OpenStore()
+    {
+        if (Browser is not { } browser) return;
+        error.Text = BrowserExtension.OpenStorePage(browser) ? "" : L.T("Eklenti dosyaları hazırlanamadı.");
     }
 
     UIElement Steps(BrowserExtension.Browser browser)
