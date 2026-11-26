@@ -47,7 +47,7 @@ if [[ -z "$expected" || "$expected" != "$actual" ]]; then
     exit 1
 fi
 ditto -x -k "$CACHE/yt-dlp_macos.zip" "$OUT/yt-dlp"
-# Sadece arm64 kodu ve tekrar eden kopyalar yerine bağlantılar: 123 MB → ~46 MB.
+# Sadece arm64 kodu: 123 MB → ~60 MB.
 python3 scripts/slim_onedir.py "$OUT/yt-dlp"
 # Uygulama, içindeki sürümü güncellemeyle indirileninkiyle karşılaştırırken bunu okur.
 echo "$YTDLP_VERSION" > "$OUT/yt-dlp.version"

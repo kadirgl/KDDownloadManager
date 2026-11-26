@@ -183,6 +183,10 @@ if [[ "$SIGN_IDENTITY" == "-" ]]; then
 else
     echo "→ İmzalanıyor ($SIGN_IDENTITY)…"
     SIGN=(codesign --force --timestamp --options runtime --sign "$SIGN_IDENTITY")
+    # Uygulama zip olarak dağıtılıyor; sembolik bağlantıları korumayan zip açıcılar imzayı bozuyor ve macOS
+    # uygulamaya "hasarlı" diyor. Pakette bağlantı olmamalı.
+    LINKS="$(find "$APP" -type l)"
+    [[ -z "$LINKS" ]] || fail "Pakette sembolik bağlantı var (zip açıcılar bozabiliyor):"$'\n'"$LINKS"
     # Noter onayı paketteki her programın ve kütüphanenin (yt-dlp'nin Python dosyaları dahil) ayrı ayrı
     # Hardened Runtime ve zaman damgasıyla imzalanmasını ister; dıştaki uygulama en son imzalanır.
     CODE=()
