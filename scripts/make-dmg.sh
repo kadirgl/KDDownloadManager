@@ -56,13 +56,8 @@ ditto "$APP" "$MOUNT/$EXECUTABLE.app"
 ln -s /Applications "$MOUNT/Applications"
 mkdir "$MOUNT/.background"
 cp "$WORK/background.tiff" "$MOUNT/.background/background.tiff"
-# Diskin kendi ikonu: uygulamanınki.
-cp "$APP/Contents/Resources/AppIcon.icns" "$MOUNT/.VolumeIcon.icns"
-SetFile -c icnC "$MOUNT/.VolumeIcon.icns"
-SetFile -a C "$MOUNT"
-# Gizli dosyaları gösteren Finder'larda da görünmesinler.
+# Gizli dosyaları gösteren Finder'larda da görünmesin.
 SetFile -a V "$MOUNT/.background"
-SetFile -a V "$MOUNT/.VolumeIcon.icns"
 
 echo "→ Pencere düzeni kuruluyor (Finder)…"
 osascript <<APPLESCRIPT || fail "Finder pencere düzenini kuramadı (Sistem Ayarları › Gizlilik › Otomasyon'da Finder iznini verin)"
@@ -89,9 +84,6 @@ tell application "Finder"
         try
             set position of item ".background" of theWindow to {$((WIDTH + 200)), 100}
         end try
-        try
-            set position of item ".VolumeIcon.icns" of theWindow to {$((WIDTH + 200)), 250}
-        end try
         -- Boyut en son: Finder ilk açılışta kendi varsayılanına dönebiliyor.
         set the bounds of theWindow to {$WINDOW_LEFT, $WINDOW_TOP, $((WINDOW_LEFT + WIDTH)), $((WINDOW_TOP + HEIGHT + TITLE_BAR))}
         delay 1
@@ -106,6 +98,10 @@ APPLESCRIPT
 # Finder'ın .DS_Store'u yazmasını bekle.
 for _ in {1..20}; do [[ -f "$MOUNT/.DS_Store" ]] && break; sleep 0.5; done
 [[ -f "$MOUNT/.DS_Store" ]] || fail "Finder pencere düzenini kaydetmedi"
+# Diskin kendi ikonu (uygulamanınki). Finder pencere düzenini kurarken bu dosyayı siliyordu; o yüzden sonra.
+cp "$APP/Contents/Resources/AppIcon.icns" "$MOUNT/.VolumeIcon.icns"
+SetFile -c icnC -a V "$MOUNT/.VolumeIcon.icns"
+SetFile -a C "$MOUNT"
 chmod -Rf go-w "$MOUNT" 2>/dev/null || true
 rm -rf "$MOUNT/.fseventsd" "$MOUNT/.Trashes"
 sync
