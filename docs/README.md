@@ -17,7 +17,7 @@ cd docs && python3 -m http.server 8765   # http://127.0.0.1:8765
   5. **Menü çubuğu:** ilerleme halkalı simge (`StatusItemController.swift`) ve bildirim (`Notifier.swift`).
 - Sahneler 6'şar saniye, döngü 30 saniye (`--beat`, `--loop`). Sahne içi animasyon yüzdeleri 6 saniyeye göre.
 - TR/EN metinleri sayfanın sonundaki `T` nesnesinde. Tarayıcı dili Türkçe değilse EN açılır.
-- İndir butonu GitHub API'sinden son sürümün paketini bulur: Windows'ta Windows zip'ini (ARM64 cihazda arm64, yoksa x64), diğerlerinde macOS zip'ini. Altındaki "Diğer sistemler" satırı üç paketin de bağlantısını verir. GitHub'a ulaşılamazsa sürümler sayfasına gider.
+- İndir butonu GitHub API'sinden son 10 sürüme bakar ve her sistemin paketini onu içeren en yeni sürümden alır (yalnızca Mac için çıkan bir sürümde Windows butonları önceki sürüme gider): Windows'ta Windows zip'ini (ARM64 cihazda arm64, yoksa x64), diğerlerinde macOS zip'ini. Altındaki "Diğer sistemler" satırı üç paketin de bağlantısını verir. GitHub'a ulaşılamazsa sürümler sayfasına gider.
 
 ## Yayın
 

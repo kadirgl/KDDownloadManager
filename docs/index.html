@@ -704,24 +704,35 @@ fitStage();
 const architecture = onWindows && navigator.userAgentData?.getHighEntropyValues
   ? navigator.userAgentData.getHighEntropyValues(['architecture']).then((v) => { if (v.architecture === 'arm') windowsArch = 'arm64'; }).catch(() => {})
   : Promise.resolve();
+// Son sürümler sırayla taranır: her paket, onu içeren en yeni sürümden alınır. Bir sürüm yalnızca macOS için
+// çıktıysa (ya da yalnızca Windows için) öteki sistemin butonu bir önceki sürümün paketine gider.
+const findAsset = (releases, patterns) => {
+  for (const release of releases) {
+    for (const pattern of patterns) {
+      const found = release.assets?.find((a) => pattern.test(a.name));
+      if (found) return { url: found.browser_download_url, tag: release.tag_name };
+    }
+  }
+  return null;
+};
 Promise.all([
-  fetch('https://api.github.com/repos/kadirgl/KDDownloadManager/releases/latest').then((r) => (r.ok ? r.json() : null)),
+  fetch('https://api.github.com/repos/kadirgl/KDDownloadManager/releases?per_page=10').then((r) => (r.ok ? r.json() : [])),
   architecture,
 ])
-  .then(([release]) => {
-    const asset = (pattern) => release?.assets?.find((a) => pattern.test(a.name))?.browser_download_url;
-    const urls = {
-      mac: asset(/^KDDownloadManager-\d[\d.]*\.zip$/),
-      x64: asset(/^KDDownloadManager-Windows-x64-[\d.]+-Setup\.exe$/) || asset(/^KDDownloadManager-Windows-x64-[\d.]+\.zip$/),
-      arm64: asset(/^KDDownloadManager-Windows-arm64-[\d.]+-Setup\.exe$/) || asset(/^KDDownloadManager-Windows-arm64-[\d.]+\.zip$/),
+  .then(([list]) => {
+    const releases = (Array.isArray(list) ? list : []).filter((r) => !r.draft && !r.prerelease);
+    const found = {
+      mac: findAsset(releases, [/^KDDownloadManager-\d[\d.]*\.zip$/]),
+      x64: findAsset(releases, [/^KDDownloadManager-Windows-x64-[\d.]+-Setup\.exe$/, /^KDDownloadManager-Windows-x64-[\d.]+\.zip$/]),
+      arm64: findAsset(releases, [/^KDDownloadManager-Windows-arm64-[\d.]+-Setup\.exe$/, /^KDDownloadManager-Windows-arm64-[\d.]+\.zip$/]),
     };
-    if (urls.mac) document.getElementById('dl-mac').href = urls.mac;
-    if (urls.x64) document.getElementById('dl-win-x64').href = urls.x64;
-    if (urls.arm64) document.getElementById('dl-win-arm64').href = urls.arm64;
-    const main = onWindows ? urls[windowsArch] : urls.mac;
+    if (found.mac) document.getElementById('dl-mac').href = found.mac.url;
+    if (found.x64) document.getElementById('dl-win-x64').href = found.x64.url;
+    if (found.arm64) document.getElementById('dl-win-arm64').href = found.arm64.url;
+    const main = onWindows ? found[windowsArch] : found.mac;
     if (!main) return;
-    document.getElementById('download').href = main;
-    document.getElementById('version').textContent = release.tag_name;
+    document.getElementById('download').href = main.url;
+    document.getElementById('version').textContent = main.tag;
   })
   .catch(() => {});
 </script>

@@ -211,7 +211,7 @@ else
     if [[ "$NOTARIZE" == "1" ]]; then
         echo "→ Apple'ın noter onayına gönderiliyor (birkaç dakika sürebilir)…"
         SUBMISSION="$ICON_WORK/$EXECUTABLE.zip"
-        ditto -c -k --keepParent "$APP" "$SUBMISSION"
+        ditto -c -k --norsrc --noextattr --keepParent "$APP" "$SUBMISSION"
         xcrun notarytool submit "$SUBMISSION" --keychain-profile "$NOTARY_PROFILE" --wait \
             --output-format json > "$ICON_WORK/notary.json" || true
         STATUS="$(plutil -extract status raw -o - "$ICON_WORK/notary.json" 2>/dev/null || echo "?")"
@@ -227,7 +227,7 @@ else
     fi
 fi
 
-(cd dist && rm -f "$EXECUTABLE.zip" && ditto -c -k --keepParent "$EXECUTABLE.app" "$EXECUTABLE.zip")
+(cd dist && rm -f "$EXECUTABLE.zip" && ditto -c -k --norsrc --noextattr --keepParent "$EXECUTABLE.app" "$EXECUTABLE.zip")
 echo "✓ Hazır: $APP  (sürüm $VERSION, derleme $BUILD_NUMBER)"
 if [[ -z "$UPDATE_REPOSITORY" || -z "$UPDATE_PUBLIC_KEY" ]]; then
     echo "  ! Uygulama içi güncelleme kapalı (GitHub deposu ya da scripts/update-public-key.txt yok)."
