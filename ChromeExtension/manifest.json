@@ -16,8 +16,14 @@
     },
     {
       "matches": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
-      "js": ["menu.js", "youtube.js"],
+      "js": ["menu.js", "formats.js", "youtube.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
+      "js": ["youtube-page.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
     },
     {
       "matches": ["http://*/*", "https://*/*"],

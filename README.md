@@ -17,9 +17,11 @@ tarayıcıdaki indirmeleri ve videoları doğrudan uygulamaya gönderir.
 
 ## Kurulum
 
-1. [Releases](../../releases/latest) sayfasından `KDDownloadManager-<sürüm>.zip` dosyasını indirip açın.
-2. **KDDownloadManager.app**'i **Uygulamalar** klasörüne taşıyıp açın. Uygulama Apple Developer ID ile
-   imzalı ve Apple'ın noter onayından geçmiş; macOS uyarı vermeden açar.
+1. [kddownloadmanager.com](https://kddownloadmanager.com) ya da [Releases](../../releases/latest) sayfasından
+   `KDDownloadManager-<sürüm>.dmg` dosyasını indirip açın.
+2. Açılan pencerede **KDDownloadManager**'ı yanındaki **Uygulamalar** klasörünün üstüne sürükleyin, sonra
+   Uygulamalar'dan açın. Uygulamayı doğrudan diskin içinden açarsanız kendini Uygulamalar'a taşımayı önerir.
+   Uygulama ve disk Apple Developer ID ile imzalı ve Apple'ın noter onayından geçmiş; macOS uyarı vermeden açar.
 3. Uygulama ilk açılışta tarayıcı eklentisinin kurulumunu adım adım gösterir.
 
 Gereksinimler: Apple Silicon (M1 ve sonrası), macOS 14 Sonoma veya üstü. aria2, yt-dlp, ffmpeg ve QuickJS
@@ -39,6 +41,7 @@ Video indirici (yt-dlp) ayrıca kendi resmi sürümlerinden güncel tutulur.
 ```bash
 swift build                      # geliştirme sürümü (.build/debug/KDDownloadManager)
 scripts/package-app.sh           # dist/KDDownloadManager.app + .zip
+scripts/make-dmg.sh              # dist/KDDownloadManager.dmg (sürükle-bırak kurulum diski)
 scripts/package-app.sh --install # ayrıca /Applications'a kurup açar
 ```
 
@@ -88,7 +91,7 @@ scripts/release.sh 1.6.0               # notlar son sürümden beri commit başl
 scripts/release.sh 1.6.0 notlar.md     # notlar dosyadan
 ```
 
-Betik uygulamayı paketler, zip'i imzalar, `v1.6.0` etiketini gönderir ve GitHub sürümünü oluşturur.
+Betik uygulamayı paketler, kurulum diskini (DMG) üretip noter onayından geçirir, zip'i imzalar, `v1.6.0` etiketini gönderir ve GitHub sürümünü oluşturur.
 
 ## Windows
 
@@ -141,8 +144,11 @@ BtbN `checksums.sha256`, aria2 ve QuickJS betiğe sabitlenmiş SHA-256). Arayüz
 `Localizable.xcstrings` dosyasından ve yalnızca Windows'a özgü metinler için [Windows/strings.en.json](Windows/strings.en.json)'dan
 üretilir; metin ekleyince `python3 Windows/scripts/strings.py` çalıştırın (çevirisi eksik olanları listeler).
 
-Mac'ten, UTM'deki bir Windows sanal makinesinde derlemek için `Windows/scripts/utm-sync.sh '<komut>'` kaynakları QEMU
-misafir ajanıyla `C:\kd\src`'ye kopyalayıp komutu orada çalıştırır (paylaşılan klasör ya da SSH gerekmez).
+Mac'ten, VMware Fusion'daki bir Windows sanal makinesinde derlemek için `Windows/scripts/vm-sync.sh '<komut>'` kaynakları
+SSH ile `C:\kd\src`'ye kopyalayıp komutu orada çalıştırır (`--run` yalnızca çalıştırır, `--pull` dosya alır). Sanal
+makinede bir kez: OpenSSH Sunucusu açılır ve Mac'teki `~/.ssh/kd_windows_vm.pub` anahtarı
+`C:\ProgramData\ssh\administrators_authorized_keys`'e yazılır; Windows'taki kullanıcı adı
+`~/.config/kd-download-manager/vm` dosyasına `user=<ad>` olarak girilir. Adres VMware'in DHCP kayıtlarından bulunur.
 
 ### Windows sürümünü yayımlama
 
@@ -152,7 +158,7 @@ macOS sürümü `scripts/release.sh` ile yayımlandıktan sonra:
 scripts/release-windows.sh 1.9.3
 ```
 
-Betik `Windows/dist`'teki kurulumları ve zip'leri (yoksa UTM'deki Windows'ta üretip) Anahtar Zinciri'ndeki aynı gizli
+Betik `Windows/dist`'teki kurulumları ve zip'leri (yoksa VMware'deki Windows'ta, testleri orada da çalıştırıp üretip) Anahtar Zinciri'ndeki aynı gizli
 anahtarla imzalar, imzaları denetler ve `KDDownloadManager-Windows-<mimari>-<sürüm>-Setup.exe`,
 `KDDownloadManager-Windows-<mimari>-<sürüm>.zip` ve `.sig` dosyalarını aynı GitHub sürümüne ekler. Uygulama içi
 güncelleme kurulumu indirip imzasını denetler ve sessizce uygulamanın kendi klasörüne kurar; 1.9.3 ve öncesi yalnızca

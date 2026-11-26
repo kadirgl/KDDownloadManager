@@ -39,6 +39,12 @@ struct VideoFormats: Sendable {
         }
     }
 
+    /// Yalnızca liste için: YouTube'un JavaScript bilmecesi (n) çözülmez. Bilmece indirme adreslerinin hızı için
+    /// gerekli, biçimlerin çözünürlüğü ve boyutu için değil; QuickJS'le çözmek listeyi ~2 sn uzatıyordu (4 sn → 1,7 sn).
+    /// İndirmenin kendisi (YtDlpEngine) bilmeceyi yine çözer. Eklenti YouTube'da listeyi zaten sayfadan okuyor;
+    /// bu yol diğer siteler ve yedek içindir.
+    static let listingArguments = ["--no-js-runtimes", "--extractor-args", "youtube:player_skip=js"]
+
     /// `cookies` verilirse yt-dlp'ye geçici bir çerez dosyasıyla verilir (YouTube robot doğrulaması için).
     static func fetch(_ url: String, cookies: [BrowserCookie]? = nil) async throws -> VideoFormats {
         guard let binary = Executables.find("yt-dlp") else {
@@ -59,7 +65,7 @@ struct VideoFormats: Sendable {
             // açılınca liste çok uzun sürebiliyordu.
             process.arguments = ["-J", "--no-playlist", "--playlist-items", "1", "--no-warnings",
                                  "--socket-timeout", "10", "--extractor-retries", "1"]
-                + cookieArguments + Executables.javaScriptRuntimeArguments + ["--", url]
+                + listingArguments + cookieArguments + ["--", url]
             process.environment = Executables.environment
             let output = Pipe()
             process.standardOutput = output

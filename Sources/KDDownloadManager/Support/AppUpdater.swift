@@ -156,7 +156,14 @@ final class AppUpdater {
 
     /// "1.5.10" > "1.5.9"; parça parça sayı olarak.
     nonisolated static func isNewer(_ candidate: String, than other: String) -> Bool {
-        YtDlpUpdater.isNewer(candidate, than: other)
+        let a = candidate.split(separator: ".").map { Int($0) ?? 0 }
+        let b = other.split(separator: ".").map { Int($0) ?? 0 }
+        for index in 0..<max(a.count, b.count) {
+            let x = index < a.count ? a[index] : 0
+            let y = index < b.count ? b[index] : 0
+            if x != y { return x > y }
+        }
+        return false
     }
 
     private struct UpdateError: LocalizedError {

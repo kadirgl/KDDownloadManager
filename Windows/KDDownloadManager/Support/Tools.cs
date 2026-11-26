@@ -7,7 +7,7 @@ namespace KDDownloadManager;
 /// <summary>
 /// The helper programs bundled next to the app by Windows/scripts/bundle-tools.ps1 (macOS: Executables):
 ///   tools\aria2c.exe, tools\yt-dlp\yt-dlp.exe (onedir), tools\ffmpeg\ffmpeg.exe (+ DLLs), tools\qjs.exe
-/// A yt-dlp updated from inside the app (YtDlpUpdater) wins over the bundled one when newer.
+/// yt-dlp is only the bundled one (YtDlp); it is updated with the app.
 /// Falls back to PATH so a developer build works with tools installed elsewhere.
 /// </summary>
 public static class Tools
@@ -24,7 +24,6 @@ public static class Tools
 
     public static string? Find(string name)
     {
-        if (name == "yt-dlp" && YtDlpUpdater.PreferredBinary() is { } updated) return updated;
         if (Bundled.TryGetValue(name, out var relative))
         {
             var bundled = Path.Combine(BundledFolder, relative);

@@ -242,7 +242,10 @@ async function init() {
   // durumu beklenmeden istenir; uygulama kapalıysa istek zaten hemen düşer.
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const page = tab?.url && isDownloadable(tab.url) ? tab : null;
-  const formatsRequest = page ? fetchFormats(page.url) : null;
+  // YouTube'da liste önce sayfanın kendisinden istenir (anında); olmazsa uygulamadan (yt-dlp).
+  const formatsRequest = page
+    ? (isVideoPage(page.url) ? pageFormats(page) : Promise.resolve(null)).then((found) => found ?? fetchFormats(page.url))
+    : null;
   showSiteSwitch(tab?.url);
 
   const running = await isAppRunning();
@@ -258,6 +261,19 @@ async function init() {
     showVideo(page.url, formatsRequest, page.title?.replace(/^\(\d+\)\s*/, "").replace(/ - YouTube$/, ""));
   } else {
     showAnyPage(page, formatsRequest);
+  }
+}
+
+// Sekmedeki youtube.js'in sayfadan okuduğu kalite listesi; YouTube değilse ya da cevap gelmezse null.
+async function pageFormats(tab) {
+  if (!/^https:\/\/(www|m)\.youtube\.com\//.test(tab.url)) return null;
+  try {
+    return await Promise.race([
+      chrome.tabs.sendMessage(tab.id, { type: "page-formats", url: tab.url }),
+      new Promise((resolve) => setTimeout(() => resolve(null), 800)),
+    ]);
+  } catch {
+    return null; // Betik henüz yüklenmemiş (sayfa eklenti kurulmadan önce açılmış).
   }
 }
 

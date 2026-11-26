@@ -122,6 +122,5 @@ struct VersionTests {
     ] as [(String, String, Bool)])
     func compare(candidate: String, other: String, newer: Bool) {
         #expect(AppUpdater.isNewer(candidate, than: other) == newer)
-        #expect(YtDlpUpdater.isNewer(candidate, than: other) == newer)
     }
 }

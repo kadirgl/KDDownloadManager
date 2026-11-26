@@ -1,68 +1,6 @@
 import SwiftUI
 import AppKit
 
-/// Ayarlar > Video indirici: yt-dlp sürümü, elle ve otomatik güncelleme.
-struct YtDlpSettings: View {
-    @AppStorage(SettingsKey.ytDlpAutoUpdate) private var autoUpdate = true
-    private let updater = YtDlpUpdater.shared
-
-    var body: some View {
-        SettingsSection(title: String(localized: "Video indirici (yt-dlp)")) {
-            HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(updater.current.version.map { "yt-dlp \($0)" } ?? "yt-dlp").fontWeight(.semibold)
-                    StatusLine(text: statusText, kind: isError ? .error : isUpToDate ? .success : .neutral)
-                }
-                Spacer()
-                if updater.isBusy {
-                    ProgressView().controlSize(.small)
-                }
-                Button("Denetle") {
-                    Task { await updater.update() }
-                }
-                .buttonStyle(GlassCapsuleButtonStyle())
-                .disabled(updater.isBusy || updater.current.origin == .system)
-                .help("yt-dlp'nin yeni sürümü var mı denetle")
-            }
-            GlassDivider()
-            SettingsToggle(title: String(localized: "Otomatik güncelle"), isOn: $autoUpdate)
-                .disabled(updater.current.origin == .system)
-            SettingsNote(String(localized: "YouTube sık değiştiği için yt-dlp güncel tutulmazsa video indirmeleri bozulabilir. Güncellemeler yt-dlp'nin resmi GitHub sürümünden alınır ve doğrulanır."))
-        }
-    }
-
-    private var isUpToDate: Bool {
-        switch updater.state {
-        case .upToDate, .updated: true
-        default: false
-        }
-    }
-
-    private var isError: Bool {
-        if case .failed = updater.state { true } else { false }
-    }
-
-    private var statusText: String {
-        switch updater.state {
-        case .checking: return String(localized: "Denetleniyor…")
-        case .downloading(let version): return String(localized: "\(version) indiriliyor…")
-        case .upToDate: return String(localized: "Güncel")
-        case .updated(let version): return String(localized: "\(version) sürümüne güncellendi")
-        case .failed(let message): return message
-        case .idle: break
-        }
-        switch updater.current.origin {
-        case .system:
-            return String(localized: "Sistemdeki (Homebrew) yt-dlp kullanılıyor; uygulama içinden güncellenmez.")
-        case .bundled, .downloaded:
-            let origin = updater.current.origin == .bundled ? String(localized: "Uygulamayla gelen") : String(localized: "Güncellenmiş")
-            guard let lastCheck = updater.lastCheck else { return String(localized: "\(origin) · henüz denetlenmedi") }
-            let ago = AppLanguage.relative(lastCheck)
-            return String(localized: "\(origin) · son denetim \(ago)")
-        }
-    }
-}
-
 /// Ayarlar > Uygulama güncellemesi: sürüm, denetim, yeni sürümün notları ve kurulumu.
 struct AppUpdateSettings: View {
     @AppStorage(SettingsKey.appAutoUpdateCheck) private var autoCheck = true

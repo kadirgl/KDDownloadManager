@@ -17,9 +17,12 @@ Brave, Arc, Vivaldi, Opera) sends browser downloads and videos straight to the a
 
 ## Installation
 
-1. Download `KDDownloadManager-<version>.zip` from the [Releases](../../releases/latest) page and unzip it.
-2. Move **KDDownloadManager.app** to the **Applications** folder and open it. The app is signed with an
-   Apple Developer ID and notarized by Apple, so macOS opens it without warnings.
+1. Download `KDDownloadManager-<version>.dmg` from [kddownloadmanager.com](https://kddownloadmanager.com) or the
+   [Releases](../../releases/latest) page and open it.
+2. In the window that opens, drag **KDDownloadManager** onto the **Applications** folder next to it, then open it
+   from Applications. If you open the app straight from the disk image, it offers to move itself to Applications.
+   The app and the disk image are signed with an Apple Developer ID and notarized by Apple, so macOS opens them
+   without warnings.
 3. On first launch the app walks you through installing the browser extension.
 
 Requirements: Apple Silicon (M1 or later), macOS 14 Sonoma or later. aria2, yt-dlp, ffmpeg and QuickJS
@@ -38,6 +41,7 @@ extension installed from the Chrome Web Store up to date; a copy loaded in devel
 ```bash
 swift build                      # development build (.build/debug/KDDownloadManager)
 scripts/package-app.sh           # dist/KDDownloadManager.app + .zip
+scripts/make-dmg.sh              # dist/KDDownloadManager.dmg (drag-to-Applications disk image)
 scripts/package-app.sh --install # also installs to /Applications and opens it
 ```
 
@@ -83,7 +87,8 @@ such a copy is installed in place by its first in-app update.
 [Windows/installer/KDDownloadManager.iss](Windows/installer/KDDownloadManager.iss)). Helper programs are fetched from their official
 releases and checksum-verified by `Windows\scripts\bundle-tools.ps1`. English UI strings come from the macOS
 `Localizable.xcstrings` plus [Windows/strings.en.json](Windows/strings.en.json); run `python3 Windows/scripts/strings.py`
-after changing UI text. From a Mac, `Windows/scripts/utm-sync.sh '<command>'` builds inside a UTM Windows VM.
+after changing UI text. From a Mac, `Windows/scripts/vm-sync.sh '<command>'` copies the sources to a Windows VM in VMware Fusion over SSH and
+runs the command there (key `~/.ssh/kd_windows_vm`, user name in `~/.config/kd-download-manager/vm`).
 
 **Release:** after `scripts/release.sh 1.9.3`, run `scripts/release-windows.sh 1.9.3`. It signs the Windows setups and zips
 with the Keychain key and attaches them (and their `.sig` files) to the same GitHub release; the macOS app ignores them.

@@ -16,7 +16,7 @@ $ProgressPreference = 'SilentlyContinue'
 $Root = Resolve-Path (Join-Path $PSScriptRoot '..')
 $Cache = Join-Path $Root 'dist\cache'
 $Out = Join-Path $Root "dist\tools-$Arch"
-$YtDlpVersion = if ($env:YTDLP_VERSION) { $env:YTDLP_VERSION } else { '2026.10.21' }
+$YtDlpVersion = if ($env:YTDLP_VERSION) { $env:YTDLP_VERSION } else { '2026.11.23' }
 $Aria2Version = '1.37.0'
 # aria2 ve QuickJS sürümleri sağlama toplamı yayımlamıyor; ilk indirmede hesaplanıp buraya sabitlendi.
 $Aria2Sha256 = '67d015301eef0b612191212d564c5bb0a14b5b9c4796b76454276a4d28d9b288'

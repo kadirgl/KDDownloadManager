@@ -78,8 +78,6 @@ public static class Settings
     public const string AppTheme = "appTheme";
     public const string AccentColor = "accentColor";
     public const string AccentCustomColor = "accentCustomColor";
-    public const string YtDlpAutoUpdate = "ytDlpAutoUpdate";
-    public const string YtDlpLastCheck = "ytDlpLastCheck";
     public const string AppAutoUpdateCheck = "appAutoUpdateCheck";
     public const string AppUpdateLastCheck = "appUpdateLastCheck";
     public const string AppUpdateAnnounced = "appUpdateAnnounced";

@@ -6,7 +6,8 @@
 #   CHROME_STORE=1 scripts/release.sh 1.6.0 → ayrıca eklentiyi Chrome Web Mağazası'na yükleyip incelemeye gönderir
 #                                            (API bilgileri Anahtar Zinciri'nde; bkz. scripts/chrome-store.sh)
 #
-# Adımlar: testleri çalıştırır (scripts/test.sh), tarayıcı eklentisinin sürümünü uygulamanınkiyle eşitler, paketler (package-app.sh), zip'i Anahtar Zinciri'ndeki gizli anahtarla imzalar, imzayı denetler,
+# Adımlar: testleri çalıştırır (scripts/test.sh), tarayıcı eklentisinin sürümünü uygulamanınkiyle eşitler, paketler (package-app.sh),
+# sürükle-bırak kurulum diskini üretip noter onayından geçirir (make-dmg.sh), zip'i Anahtar Zinciri'ndeki gizli anahtarla imzalar, imzayı denetler,
 # v1.6.0 etiketini ve main'i gönderir, zip + imzayla GitHub sürümünü oluşturur. Eklentinin mağaza paketi de
 # (dist/KDDownloadManager-Chrome-1.6.0.zip) her sürümde üretilir; CHROME_STORE=1 değilse mağazaya elle yüklenir.
 # Gerekenler: gh (giriş yapılmış), temiz çalışma ağacı, scripts/update-key.sh ile oluşturulmuş anahtar,
@@ -42,6 +43,16 @@ PUBLIC_KEY="$(cat scripts/update-public-key.txt)"
 [[ "$(printf '%s' "$PRIVATE_KEY" | swift scripts/update-signing.swift public)" == "$PUBLIC_KEY" ]] \
     || fail "Anahtar Zinciri'ndeki gizli anahtar scripts/update-public-key.txt ile eşleşmiyor"
 
+# yt-dlp yalnızca uygulamayla güncelleniyor (uygulama içinden ayrıca indirilmez): pakete yt-dlp'nin son sürümü
+# girmeli. Bilerek eski bir sürümle yayımlamak için: YTDLP_ALLOW_OLD=1.
+YTDLP_PINNED="$(sed -nE 's/^YTDLP_VERSION="\$\{YTDLP_VERSION:-([0-9.]+)\}"$/\1/p' scripts/bundle-tools.sh)"
+YTDLP_LATEST="$(gh api repos/yt-dlp/yt-dlp/releases/latest --jq .tag_name 2>/dev/null || true)"
+[[ -n "$YTDLP_PINNED" ]] || fail "scripts/bundle-tools.sh'ta yt-dlp sürümü okunamadı"
+if [[ -n "$YTDLP_LATEST" && "$YTDLP_LATEST" != "$YTDLP_PINNED" && -z "${YTDLP_ALLOW_OLD:-}" ]]; then
+    fail "yt-dlp'nin son sürümü $YTDLP_LATEST, pakete $YTDLP_PINNED girecek. scripts/bundle-tools.sh ve Windows/scripts/bundle-tools.ps1'deki sürümü güncelleyin (ya da YTDLP_ALLOW_OLD=1)"
+fi
+echo "→ yt-dlp $YTDLP_PINNED pakete girecek."
+
 # Testler (Mac, Windows, eklenti) geçmeden paketleme bile başlamaz; hiçbiri araç eksikliğinden atlanamaz.
 echo "→ Testler çalışıyor…"
 KD_TESTS_REQUIRE_ALL=1 scripts/test.sh || fail "Testler geçmedi; sürüm yayımlanmadı"
@@ -67,6 +78,10 @@ fi
 VERSION="$VERSION" NOTARIZE=1 scripts/package-app.sh
 ASSET="dist/KDDownloadManager-$VERSION.zip"
 cp dist/KDDownloadManager.zip "$ASSET"
+# Kurulum diski (site ve yeni kullanıcılar): imzalı ve noter onaylı. Uygulama içi güncelleme zip'i kullanır.
+VERSION="$VERSION" NOTARIZE=1 scripts/make-dmg.sh
+DMG="dist/KDDownloadManager-$VERSION.dmg"
+[[ -f "$DMG" ]] || fail "$DMG üretilemedi"
 
 echo "→ İmzalanıyor…"
 printf '%s' "$PRIVATE_KEY" | swift scripts/update-signing.swift sign "$ASSET" > "$ASSET.sig"
@@ -84,7 +99,7 @@ fi
 cat >> "$NOTES" <<NOTES
 
 ---
-**macOS:** \`KDDownloadManager-$VERSION.zip\` dosyasını indirip açın, uygulamayı **Uygulamalar** klasörüne taşıyın. Apple Silicon (M1 ve sonrası), macOS 14+.
+**macOS:** \`KDDownloadManager-$VERSION.dmg\` dosyasını indirip açın, uygulamayı yanındaki **Uygulamalar** klasörüne sürükleyin. Apple Silicon (M1 ve sonrası), macOS 14+. (Zip, uygulama içi güncelleme içindir.)
 **Windows:** \`KDDownloadManager-Windows-x64-$VERSION-Setup.exe\` (çoğu bilgisayar) ya da \`KDDownloadManager-Windows-arm64-$VERSION-Setup.exe\` (ARM işlemcili bilgisayarlar) dosyasını indirip çalıştırın; yönetici izni istemez. Windows "bilgisayarınızı korudu" derse **Ek bilgi › Yine de çalıştır**'a tıklayın. Kurulum istemeyenler için aynı sürümün zip'i de var. Windows 10 (1809) ve 11.
 Kurulu uygulama yeni sürümleri kendisi bulur (Ayarlar › Uygulama güncellemesi).
 NOTES
@@ -92,7 +107,7 @@ NOTES
 echo "→ $TAG gönderiliyor…"
 git tag -a "$TAG" -m "KD Download Manager $VERSION"
 git push origin main "$TAG"
-gh release create "$TAG" "$ASSET" "$ASSET.sig" --title "KD Download Manager $VERSION" --notes-file "$NOTES"
+gh release create "$TAG" "$DMG" "$ASSET" "$ASSET.sig" --title "KD Download Manager $VERSION" --notes-file "$NOTES"
 echo "✓ Yayımlandı: $(gh release view "$TAG" --json url -q .url)"
 
 # Chrome Web Mağazası: uygulamanın kendi güncellemesinden bağımsız; mağaza incelemesi birkaç gün sürebilir ve

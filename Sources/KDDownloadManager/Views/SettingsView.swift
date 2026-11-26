@@ -109,8 +109,6 @@ struct SettingsView: View {
                         AppUpdateSettings()
                     }
 
-                    YtDlpSettings()
-
                     SettingsSection(title: String(localized: "Bildirimler")) {
                         SettingsToggle(title: String(localized: "İndirme eklendiğinde"), isOn: $notifyOnAdd)
                         GlassDivider()

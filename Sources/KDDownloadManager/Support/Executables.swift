@@ -26,8 +26,8 @@ enum Executables {
     }()
 
     static func find(_ name: String) -> URL? {
-        // Uygulama içinden güncellenen yt-dlp, paketteki sürümden yeniyse o kullanılır.
-        if name == "yt-dlp", let ytDlp = YtDlpUpdater.preferredBinary() ?? YtDlpUpdater.bundledBinary {
+        // yt-dlp: uygulamayla gelen (paketli uygulamada hep o).
+        if name == "yt-dlp", let ytDlp = YtDlp.bundledBinary {
             return ytDlp
         }
         return searchPath

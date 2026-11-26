@@ -52,14 +52,12 @@ public sealed class SettingsPage : UserControl
         Loaded += (_, _) =>
         {
             AppUpdater.Shared.Changed += Changed;
-            YtDlpUpdater.Shared.Changed += Changed;
             statusTimer.Start();
             Render();
         };
         Unloaded += (_, _) =>
         {
             AppUpdater.Shared.Changed -= Changed;
-            YtDlpUpdater.Shared.Changed -= Changed;
             statusTimer.Stop();
         };
     }
@@ -79,7 +77,6 @@ public sealed class SettingsPage : UserControl
         column.Children.Add(Ui.Column(8, Ui.SectionLabel(L.T("Tarayıcı eklentisi")), browserCard));
         column.Children.Add(Section(L.T("Torrent"), TorrentRows()));
         if (!UpdateAvailable) column.Children.Add(AppUpdateSection());
-        column.Children.Add(Section(L.T("Video indirici (yt-dlp)"), YtDlpRows()));
         column.Children.Add(Section(L.T("Bildirimler"), Ui.Column(12,
             Ui.SettingRow(L.T("İndirme eklendiğinde"), Ui.Toggle(Settings.Enabled(Settings.NotifyOnAdd), on => Settings.Set(Settings.NotifyOnAdd, on))),
             Ui.Divider(),
@@ -378,32 +375,5 @@ public sealed class SettingsPage : UserControl
             ? L.T("Yeni sürümler GitHub'dan indirilir ve kurulmadan önce imzası doğrulanır. Mağazadan kurulan tarayıcı eklentisini tarayıcı kendisi günceller.")
             : L.T("Yeni sürümler GitHub'dan indirilir ve kurulmadan önce imzası doğrulanır. Tarayıcı eklentisi de uygulamayla birlikte güncellenir."), 11.5, wrap: true));
         return Section(L.T("Uygulama güncellemesi"), rows);
-    }
-
-    UIElement YtDlpRows()
-    {
-        var updater = YtDlpUpdater.Shared;
-        var status = updater.State switch
-        {
-            YtDlpUpdater.UpdateState.Checking => L.T("Denetleniyor…"),
-            YtDlpUpdater.UpdateState.Downloading d => L.F("%@ indiriliyor…", d.Version),
-            YtDlpUpdater.UpdateState.UpToDate => L.T("Güncel"),
-            YtDlpUpdater.UpdateState.Updated u => L.F("%@ sürümüne güncellendi", u.Version),
-            YtDlpUpdater.UpdateState.Failed f => f.Message,
-            _ => (updater.IsUpdated ? L.T("Güncellenmiş") : L.T("Uygulamayla gelen"))
-                 + (updater.LastCheck is { } last ? L.F(" · son denetim %@", L.Relative(last)) : L.T(" · henüz denetlenmedi")),
-        };
-        var grid = new Grid { ColumnSpacing = 10 };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.Children.Add(Ui.Column(2, Ui.Text("yt-dlp " + updater.CurrentVersion, 13.5, FontWeights.SemiBold), Ui.Secondary(status, 12, wrap: true)));
-        UIElement action = updater.State is YtDlpUpdater.UpdateState.Checking or YtDlpUpdater.UpdateState.Downloading
-            ? Ui.Spinner(18)
-            : Ui.Pill(L.T("Şimdi denetle"), async () => await updater.Check(), height: 28, fontSize: 12);
-        Grid.SetColumn((FrameworkElement)action, 1);
-        grid.Children.Add(action);
-        return Ui.Column(12, grid, Ui.Divider(),
-            Ui.SettingRow(L.T("Otomatik güncelle"), Ui.Toggle(Settings.Get(Settings.YtDlpAutoUpdate, true), on => Settings.Set(Settings.YtDlpAutoUpdate, on))),
-            Ui.Secondary(L.T("YouTube sık değiştiği için yt-dlp güncel tutulmazsa video indirmeleri bozulabilir. Güncellemeler yt-dlp'nin resmi GitHub sürümünden alınır ve doğrulanır."), 11.5, wrap: true));
     }
 }

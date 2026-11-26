@@ -16,8 +16,6 @@ enum SettingsKey {
     static let accentColor = "accentColor"
     /// "Özel renk" seçildiğinde kullanılan renk, "#RRGGBB".
     static let accentCustomColor = "accentCustomColor"
-    static let ytDlpAutoUpdate = "ytDlpAutoUpdate"
-    static let ytDlpLastCheck = "ytDlpLastCheck"
     static let appAutoUpdateCheck = "appAutoUpdateCheck"
     static let appUpdateLastCheck = "appUpdateLastCheck"
     /// Bildirimi gönderilen son sürüm (her yeni sürüm için bir kez bildirilir).

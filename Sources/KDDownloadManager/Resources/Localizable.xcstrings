@@ -24,6 +24,16 @@
         }
       }
     },
+    "%@\n\nKD Download Manager'ı açık penceredeki Uygulamalar klasörünün üstüne sürükleyin.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@\n\nDrag KD Download Manager onto the Applications folder in the open window."
+          }
+        }
+      }
+    },
     "%@ artır": {
       "localizations": {
         "en": {
@@ -81,6 +91,7 @@
       }
     },
     "%@ indiriliyor…": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -127,6 +138,7 @@
       }
     },
     "%@ sürümüne güncellendi": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -147,6 +159,7 @@
       }
     },
     "%@ · henüz denetlenmedi": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -157,6 +170,7 @@
       }
     },
     "%@ · son denetim %@": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1322,6 +1336,7 @@
       }
     },
     "Doğrulama listesi okunamadı": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1692,6 +1707,7 @@
       }
     },
     "Güncel sürüm bilgisi alınamadı": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1802,6 +1818,7 @@
       }
     },
     "Güncellenmiş": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1913,6 +1930,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Opens with KD Download Manager"
+          }
+        }
+      }
+    },
+    "KD Download Manager kurulum diskinin içinden açıldı. Buradan çalışırsa disk çıkarılınca kapanır ve güncellemeler kurulamaz. Uygulamalar klasörüne taşınınca oradan açılır ve disk çıkarılır.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KD Download Manager was opened from its disk image. Running from here, it quits when the disk is ejected and can't install updates. Once moved to the Applications folder, it opens from there and the disk is ejected."
           }
         }
       }
@@ -2298,6 +2325,7 @@
       }
     },
     "Otomatik güncelle": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2490,6 +2518,7 @@
       }
     },
     "Sistemdeki (Homebrew) yt-dlp kullanılıyor; uygulama içinden güncellenmez.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3139,7 +3168,38 @@
         }
       }
     },
+    "Uygulamalar klasörüne taşınamadı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't move to the Applications folder"
+          }
+        }
+      }
+    },
+    "Uygulamalar klasörüne taşınsın mı?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to the Applications folder?"
+          }
+        }
+      }
+    },
+    "Uygulamalar'a taşı": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to Applications"
+          }
+        }
+      }
+    },
     "Uygulamayla gelen": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3253,6 +3313,7 @@
       }
     },
     "Video indirici (yt-dlp)": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3413,6 +3474,7 @@
       }
     },
     "YouTube sık değiştiği için yt-dlp güncel tutulmazsa video indirmeleri bozulabilir. Güncellemeler yt-dlp'nin resmi GitHub sürümünden alınır ve doğrulanır.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3605,12 +3667,6 @@
         }
       }
     },
-    "yt-dlp": {
-      "shouldTranslate": false
-    },
-    "yt-dlp %@": {
-      "shouldTranslate": false
-    },
     "yt-dlp bulunamadı (brew install yt-dlp)": {
       "localizations": {
         "en": {
@@ -3622,6 +3678,7 @@
       }
     },
     "yt-dlp indirilemedi": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3632,6 +3689,7 @@
       }
     },
     "yt-dlp'nin yeni sürümü var mı denetle": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3795,6 +3853,7 @@
       }
     },
     "İndirilen dosya doğrulanamadı (SHA-256 uyuşmuyor); kurulmadı": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3825,6 +3884,7 @@
       }
     },
     "İndirilen yt-dlp açılamadı": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -3835,6 +3895,7 @@
       }
     },
     "İndirilen yt-dlp çalıştırılamadı; kurulmadı": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4000,6 +4061,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "You can download without waiting; the name and size are found once the download starts."
+          }
+        }
+      }
+    },
+    "Şimdilik buradan çalıştır": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Now"
           }
         }
       }

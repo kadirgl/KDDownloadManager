@@ -2,7 +2,7 @@
 # Windows paketlerini (arm64, x64) imzalayıp mevcut bir GitHub sürümüne ekler; Windows uygulaması bunları
 # kendisi bulup kurar (Windows/KDDownloadManager/Support/AppUpdater.cs).
 #
-#   scripts/release-windows.sh 1.9.4            → Windows/dist'teki paketler, yoksa UTM'deki Windows VM'de üretilir
+#   scripts/release-windows.sh 1.9.4            → Windows/dist'teki paketler, yoksa VMware'deki Windows'ta üretilir
 #
 # Her mimari için iki paket: kurulum (KDDownloadManager-Windows-<mimari>-<sürüm>-Setup.exe; site ve yeni sürümlerin
 # uygulama içi güncellemesi bunu kullanır) ve zip (KDDownloadManager-Windows-<mimari>-<sürüm>.zip; 1.9.3 ve öncesinin
@@ -10,16 +10,15 @@
 #
 # Sıra: önce scripts/release.sh 1.9.3 (macOS sürümü ve v1.9.3 etiketi), sonra bu betik.
 # İmza macOS uygulamasınınkiyle aynı Ed25519 anahtarıyla atılır (Anahtar Zinciri; scripts/update-key.sh).
-# Gerekenler: gh (giriş yapılmış), Anahtar Zinciri'nde imza anahtarı; paketler yoksa UTM'de "Windows" adlı,
-# .NET 10 SDK'sı C:\kd\dotnet'te ve Inno Setup 6 C:\kd\inno'da kurulu bir sanal makine (Windows/scripts/utm-sync.sh).
+# Gerekenler: gh (giriş yapılmış), Anahtar Zinciri'nde imza anahtarı; paketler yoksa VMware Fusion'da SSH'si açık,
+# .NET 10 SDK'sı C:\kd\dotnet'te ve Inno Setup 6 C:\kd\inno'da kurulu bir Windows sanal makinesi (Windows/scripts/vm-sync.sh).
+# Paketlenmeden önce Windows testleri sanal makinede de (gerçek Windows'ta) çalışır.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VERSION="${1:-}"
 SERVICE="KDDownloadManager update signing key"
 TAG="v$VERSION"
-UTMCTL=/Applications/UTM.app/Contents/MacOS/utmctl
-VM="${UTM_VM:-Windows}"
 
 fail() { echo "✗ $*" >&2; exit 1; }
 
@@ -43,11 +42,17 @@ for ARCH in arm64 x64; do
     ZIP="KDDownloadManager-Windows-$ARCH-$VERSION.zip"
     SETUP="KDDownloadManager-Windows-$ARCH-$VERSION-Setup.exe"
     if [[ ! -f "Windows/dist/$ZIP" || ! -f "Windows/dist/$SETUP" ]]; then
-        [[ -x "$UTMCTL" ]] || fail "Windows/dist/$SETUP ya da $ZIP yok; Windows'ta Windows\\scripts\\package.ps1 -Version $VERSION çalıştırıp buraya kopyalayın"
-        echo "→ $ARCH paketleri UTM'deki Windows'ta üretiliyor…"
-        Windows/scripts/utm-sync.sh "powershell -NoProfile -ExecutionPolicy Bypass -File Windows\\scripts\\package.ps1 -Arch $ARCH -Version $VERSION"
+        if [[ -z "${SYNCED:-}" ]]; then
+            echo "→ Kaynaklar sanal makineye kopyalanıyor ve Windows testleri orada çalışıyor…"
+            Windows/scripts/vm-sync.sh "dotnet test Tests\\Windows --nologo -v quiet" \
+                || fail "Windows sanal makinesine ulaşılamadı ya da testler orada geçmedi; Windows'ta Windows\\scripts\\package.ps1 -Version $VERSION çalıştırıp paketleri Windows/dist'e kopyalayabilirsiniz"
+            SYNCED=1
+        fi
+        echo "→ $ARCH paketleri sanal makinedeki Windows'ta üretiliyor…"
+        Windows/scripts/vm-sync.sh --run "powershell -NoProfile -ExecutionPolicy Bypass -File Windows\\scripts\\package.ps1 -Arch $ARCH -Version $VERSION" \
+            || fail "$ARCH paketi üretilemedi"
         for FILE in "$ZIP" "$SETUP"; do
-            "$UTMCTL" file pull "$VM" "C:\\kd\\src\\Windows\\dist\\$FILE" > "Windows/dist/$FILE.part"
+            Windows/scripts/vm-sync.sh --pull "C:\\kd\\src\\Windows\\dist\\$FILE" "Windows/dist/$FILE.part"
             mv "Windows/dist/$FILE.part" "Windows/dist/$FILE"
         done
     fi

@@ -699,7 +699,7 @@ new ResizeObserver(fitStage).observe(stageWrap);
 fitStage();
 
 // Butonlar son sürümün paketlerine gitsin; GitHub'a ulaşılamazsa sürümler sayfasında kalırlar.
-// Paketler: KDDownloadManager-X.Y.Z.zip (macOS); Windows'ta kurulum KDDownloadManager-Windows-<x64|arm64>-X.Y.Z-Setup.exe,
+// Paketler: macOS'ta kurulum diski KDDownloadManager-X.Y.Z.dmg (1.9.5 ve öncesinde yalnızca zip); Windows'ta kurulum KDDownloadManager-Windows-<x64|arm64>-X.Y.Z-Setup.exe,
 // kurulumu olmayan (1.9.3 ve öncesi) sürümlerde KDDownloadManager-Windows-<x64|arm64>-X.Y.Z.zip.
 const architecture = onWindows && navigator.userAgentData?.getHighEntropyValues
   ? navigator.userAgentData.getHighEntropyValues(['architecture']).then((v) => { if (v.architecture === 'arm') windowsArch = 'arm64'; }).catch(() => {})
@@ -722,7 +722,7 @@ Promise.all([
   .then(([list]) => {
     const releases = (Array.isArray(list) ? list : []).filter((r) => !r.draft && !r.prerelease);
     const found = {
-      mac: findAsset(releases, [/^KDDownloadManager-\d[\d.]*\.zip$/]),
+      mac: findAsset(releases, [/^KDDownloadManager-\d[\d.]*\.dmg$/, /^KDDownloadManager-\d[\d.]*\.zip$/]),
       x64: findAsset(releases, [/^KDDownloadManager-Windows-x64-[\d.]+-Setup\.exe$/, /^KDDownloadManager-Windows-x64-[\d.]+\.zip$/]),
       arm64: findAsset(releases, [/^KDDownloadManager-Windows-arm64-[\d.]+-Setup\.exe$/, /^KDDownloadManager-Windows-arm64-[\d.]+\.zip$/]),
     };

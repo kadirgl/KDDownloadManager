@@ -120,9 +120,46 @@
     if (Math.abs(shift) >= 0.5) host.style.marginTop = `${(parseFloat(host.style.marginTop) || 0) + shift}px`;
   }
 
+  // Videonun kimliği: /watch?v=ID ya da /shorts/ID.
+  function videoId(url) {
+    const parsed = new URL(url);
+    return parsed.searchParams.get("v") ?? parsed.pathname.match(/^\/shorts\/([\w-]+)/)?.[1] ?? null;
+  }
+
+  // Kalite listesi önce sayfanın kendisinden (youtube-page.js, oynatıcının bildiği biçimler): anında gelir.
+  // Sayfa cevap vermezse ya da bilgi eksikse null; o zaman uygulamaya (yt-dlp) sorulur.
+  const PAGE_WAIT = 400;
+  function pageFormats(url) {
+    const id = videoId(url);
+    if (!id) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const request = `${Date.now()}-${Math.random()}`;
+      const done = (value) => {
+        window.removeEventListener("message", listen);
+        clearTimeout(timer);
+        resolve(value);
+      };
+      const listen = (event) => {
+        if (event.source !== window || event.data?.type !== "kd-dm-formats-response" || event.data.id !== request) return;
+        const data = event.data.data;
+        done(data?.videoId === id ? globalThis.KDFormats.fromPlayerResponse(data) : null);
+      };
+      const timer = setTimeout(() => done(null), PAGE_WAIT);
+      window.addEventListener("message", listen);
+      window.postMessage({ type: "kd-dm-formats-request", id: request, videoId: id }, location.origin);
+    });
+  }
+
+  // Araç çubuğundaki açılır pencere de YouTube'da listeyi sayfadan alır.
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type !== "page-formats" || typeof message.url !== "string") return false;
+    pageFormats(message.url).then(sendResponse, () => sendResponse(null));
+    return true;
+  });
+
   function loadFormats(url) {
     if (formatsCache.url !== url) {
-      const promise = send({ type: "video-formats", url }).then((data) => {
+      const promise = pageFormats(url).then((page) => page ?? send({ type: "video-formats", url })).then((data) => {
         // Başarısız olduysa bir sonraki denemede yeniden istensin.
         if (!data && formatsCache.promise === promise) formatsCache = { url: null, promise: null };
         return data;

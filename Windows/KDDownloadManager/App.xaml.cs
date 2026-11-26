@@ -99,9 +99,9 @@ public partial class App : Application
         bridge = new ExtensionBridge(requests => store.Add(requests), browser => store.ExtensionDidConnect(browser));
         bridge.Start();
 
-        YtDlpUpdater.RemoveOldVersions();
+        // yt-dlp is updated only with the app; copies older versions downloaded by themselves are deleted.
+        _ = Task.Run(YtDlp.RemoveDownloadedCopies);
         VideoFormats.WarmUp();
-        YtDlpUpdater.Shared.CheckAutomaticallyIfDue();
         AppUpdater.Shared.StartAutomaticChecks();
         if (Directory.Exists(BrowserExtension.Folder)) BrowserExtension.RefreshFolder();
         StartMenu.EnsureShortcut();

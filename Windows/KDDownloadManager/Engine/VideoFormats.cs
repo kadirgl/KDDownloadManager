@@ -30,6 +30,13 @@ public sealed record VideoFormats(string Title, double? Duration, List<VideoForm
         });
     }
 
+    /// <summary>
+    /// Listing only: YouTube's JavaScript challenge (n) is not solved. It matters for download speed, not for the formats'
+    /// resolution and size; solving it with QuickJS made the list ~2 s slower. The download itself (YtDlpEngine) still
+    /// solves it. On YouTube the extension reads the list from the page; this path is for other sites and as a fallback.
+    /// </summary>
+    public static readonly string[] ListingArguments = ["--no-js-runtimes", "--extractor-args", "youtube:player_skip=js"];
+
     public static async Task<VideoFormats> Fetch(string url, List<BrowserCookie>? cookies = null)
     {
         var binary = Tools.Find("yt-dlp") ?? throw new FetchException(L.T("yt-dlp bulunamadı"));
@@ -44,7 +51,7 @@ public sealed record VideoFormats(string Title, double? Duration, List<VideoForm
                 CookieVault.WriteNetscapeFile(cookies, file);
                 arguments.AddRange(["--cookies", file]);
             }
-            arguments.AddRange(Tools.JavaScriptRuntimeArguments());
+            arguments.AddRange(ListingArguments);
             arguments.AddRange(["--", url]);
 
             var (data, exit, timedOut) = await Task.Run(async () =>

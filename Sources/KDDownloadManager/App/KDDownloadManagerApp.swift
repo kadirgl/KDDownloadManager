@@ -55,6 +55,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // .app paketinde Info.plist'teki LSUIElement bunu zaten sağlıyor;
         // `swift run` ile çalışırken de Dock ikonu çıkmasın diye burada da ayarlıyoruz.
         NSApp.setActivationPolicy(.accessory)
+        // Kurulum diskinin içinden açıldıysa önce Uygulamalar'a taşımayı öner; taşınırsa oradaki kopya açılır.
+        if ApplicationsMover.offerIfNeeded() { return }
         _ = AppLanguage.launchChoice
         Notifier.shared.setUp()
         AppTheme.apply()
@@ -67,7 +69,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DebugPersistenceTest.runIfRequested()
         DebugLimitTest.runIfRequested()
         DebugTorrentTest.runIfRequested()
-        DebugUpdateTest.runIfRequested()
         DebugAppUpdateTest.runIfRequested()
         // Senaryolar çalışırken asıl uygulamanın portunu işgal etmesinler.
         if DebugHarness.isActive { return }
@@ -79,10 +80,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         bridge.start()
         self.bridge = bridge
-        // Gömülü yt-dlp'yi günde en fazla bir kez sessizce denetle (Ayarlar'dan kapatılabilir).
-        YtDlpUpdater.removeOldVersions()
+        // yt-dlp yalnızca uygulamayla güncellenir; eski sürümlerin ayrıca indirdiği kopyalar silinir.
+        Task.detached(priority: .utility) { YtDlp.removeDownloadedCopies() }
         VideoFormats.warmUp()
-        YtDlpUpdater.shared.checkAutomaticallyIfDue()
         // Uygulamanın yeni sürümü (GitHub Releases) günde bir denetlenir.
         AppUpdater.shared.startAutomaticChecks()
         // Kurulu tarayıcı eklentisi uygulamayla birlikte güncellensin (tarayıcı yeniden açılınca alır).

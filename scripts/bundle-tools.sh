@@ -11,7 +11,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-YTDLP_VERSION="${YTDLP_VERSION:-2026.10.21}"
+YTDLP_VERSION="${YTDLP_VERSION:-2026.11.23}"
 OUT=dist/tools
 CACHE="dist/cache/yt-dlp-$YTDLP_VERSION"
 BREW="$(brew --prefix 2>/dev/null || echo /opt/homebrew)"
