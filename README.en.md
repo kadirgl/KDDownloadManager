@@ -46,6 +46,19 @@ The source strings are Turkish and double as translation keys; the English text 
 `scripts/strings.sh sync` to update the catalog and list missing translations. The browser extension is in
 [ChromeExtension](ChromeExtension); its strings are in `ChromeExtension/_locales/{tr,en}/messages.json`.
 
+### Tests
+
+Tests for the macOS app, the Windows app (its logic layer also runs on macOS) and the Chrome extension live in
+[Tests](Tests) ([layout](Tests/README.md)):
+
+```bash
+scripts/test.sh                          # everything
+scripts/test.sh mac                      # or: windows, extension
+git config core.hooksPath scripts/hooks  # once: run the tests before every git push
+```
+
+The release scripts refuse to publish when a test fails.
+
 ## Windows
 
 A native Windows version lives in [Windows](Windows): WinUI 3 (Windows App SDK 1.8) and .NET 10, self-contained,

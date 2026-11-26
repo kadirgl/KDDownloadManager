@@ -514,11 +514,12 @@ final class DownloadStore {
     func freshName(for name: String, in folder: URL, keepExtension: Bool = true) -> String {
         let ext = (name as NSString).pathExtension
         let base = ext.isEmpty ? name : (name as NSString).deletingPathExtension
-        let taken = Set(items.map(\.fileName))
+        // Mac'in dosya sistemi büyük/küçük harfe duyarsız: "RAPOR (1).pdf" ile "rapor (1).pdf" aynı dosya.
+        let taken = Set(items.map { $0.fileName.lowercased() })
         for number in 1...999 {
             let candidate = "\(base) (\(number))" + (ext.isEmpty ? "" : ".\(ext)")
             let exists = FileManager.default.fileExists(atPath: folder.appendingPathComponent(candidate).path)
-            if !exists, !taken.contains(candidate) {
+            if !exists, !taken.contains(candidate.lowercased()) {
                 return keepExtension ? candidate : (candidate as NSString).deletingPathExtension
             }
         }

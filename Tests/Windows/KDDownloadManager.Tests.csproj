@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Windows uygulamasının testleri. WinUI'ye bağlı olmayan mantık katmanı (modeller, liste, motorlar, köprü,
+    güncelleyici…) doğrudan Windows/KDDownloadManager'dan derlenir; ekran, bildirim, tepsi ve kabuk
+    (Shell/Notifier/App) Shims/ altındaki küçük yerine geçenlerle değişir. Böylece testler Mac'te de
+    "dotnet test" ile çalışır; arayüz Windows sanal makinesinde denenir.
+    Çalıştırma: scripts/test.sh windows ya da bu klasörde "dotnet test".
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>KDDownloadManager.Tests</RootNamespace>
+    <!-- Windows kodunun kendi DEBUG ayarları (KD_SUPPORT_DIR vb.) açık olsun. -->
+    <DefineConstants>$(DefineConstants);DEBUG;KD_TESTS</DefineConstants>
+    <NoWarn>$(NoWarn);CA1416;CS8618;CS0067;CS0162;xUnit1031;xUnit1030</NoWarn>
+    <App>..\..\Windows\KDDownloadManager\</App>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(App)Models\*.cs" Link="App\Models\%(Filename)%(Extension)" />
+    <Compile Include="$(App)Store\*.cs" Link="App\Store\%(Filename)%(Extension)" />
+    <Compile Include="$(App)Engine\*.cs" Link="App\Engine\%(Filename)%(Extension)" />
+    <Compile Include="$(App)Bridge\*.cs" Link="App\Bridge\%(Filename)%(Extension)" />
+    <Compile Include="$(App)Support\*.cs" Exclude="$(App)Support\Notifier.cs;$(App)Support\Shell.cs" Link="App\Support\%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\scripts\update-public-key.txt" LogicalName="update-public-key.txt" />
+    <None Include="$(App)Strings\**" Link="Strings\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+</Project>

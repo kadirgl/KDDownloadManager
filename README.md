@@ -64,6 +64,19 @@ swift build && scripts/strings.sh compile .build/debug
 
 Eklentinin metinleri `ChromeExtension/_locales/{tr,en}/messages.json`'da; tarayıcının dilini izler.
 
+### Testler
+
+Mac uygulaması, Windows uygulaması (mantık katmanı Mac'te de çalışır) ve Chrome eklentisi için testler
+[Tests](Tests) klasöründe ([ağaç ve ayrıntılar](Tests/README.md)):
+
+```bash
+scripts/test.sh                          # hepsi
+scripts/test.sh mac                      # ya da: windows, extension
+git config core.hooksPath scripts/hooks  # bir kez: her git push'tan önce testler çalışsın
+```
+
+Yayın betikleri de testler geçmeden sürüm çıkarmaz.
+
 ## Sürüm yayımlama
 
 Bir kez: `scripts/update-key.sh` imza anahtarını oluşturur. Gizli anahtar yalnızca Anahtar Zinciri'nde durur

@@ -6,7 +6,7 @@
 #   CHROME_STORE=1 scripts/release.sh 1.6.0 → ayrıca eklentiyi Chrome Web Mağazası'na yükleyip incelemeye gönderir
 #                                            (API bilgileri Anahtar Zinciri'nde; bkz. scripts/chrome-store.sh)
 #
-# Adımlar: tarayıcı eklentisinin sürümünü uygulamanınkiyle eşitler, paketler (package-app.sh), zip'i Anahtar Zinciri'ndeki gizli anahtarla imzalar, imzayı denetler,
+# Adımlar: testleri çalıştırır (scripts/test.sh), tarayıcı eklentisinin sürümünü uygulamanınkiyle eşitler, paketler (package-app.sh), zip'i Anahtar Zinciri'ndeki gizli anahtarla imzalar, imzayı denetler,
 # v1.6.0 etiketini ve main'i gönderir, zip + imzayla GitHub sürümünü oluşturur. Eklentinin mağaza paketi de
 # (dist/KDDownloadManager-Chrome-1.6.0.zip) her sürümde üretilir; CHROME_STORE=1 değilse mağazaya elle yüklenir.
 # Gerekenler: gh (giriş yapılmış), temiz çalışma ağacı, scripts/update-key.sh ile oluşturulmuş anahtar,
@@ -42,6 +42,10 @@ PUBLIC_KEY="$(cat scripts/update-public-key.txt)"
 [[ "$(printf '%s' "$PRIVATE_KEY" | swift scripts/update-signing.swift public)" == "$PUBLIC_KEY" ]] \
     || fail "Anahtar Zinciri'ndeki gizli anahtar scripts/update-public-key.txt ile eşleşmiyor"
 
+# Testler (Mac, Windows, eklenti) geçmeden paketleme bile başlamaz; hiçbiri araç eksikliğinden atlanamaz.
+echo "→ Testler çalışıyor…"
+KD_TESTS_REQUIRE_ALL=1 scripts/test.sh || fail "Testler geçmedi; sürüm yayımlanmadı"
+
 # Uygulama ve tarayıcı eklentisi hep aynı sürümde: depodaki manifest de bu sürüme çekilip commit'lenir.
 MANIFEST="ChromeExtension/manifest.json"
 sed -i '' -E 's/"version": "[^"]*"/"version": "'"$VERSION"'"/' "$MANIFEST"
@@ -49,6 +53,8 @@ grep -q "\"version\": \"$VERSION\"" "$MANIFEST" || fail "Eklentinin sürümü ay
 if [[ -n "$(git status --porcelain "$MANIFEST")" ]]; then
     git commit -q -m "Sürüm $VERSION" -- "$MANIFEST"
 fi
+# Sürüm commit'i yalnızca manifest'teki sürümü değiştirdi: push öncesi kanca testleri yeniden çalıştırmasın.
+export KD_TESTS_PASSED="$(git rev-parse HEAD)"
 
 # Mağaza paketi yayımlamadan önce: eklentide mağazanın reddedeceği bir şey varsa sürüm hiç çıkmasın.
 scripts/chrome-store.sh package "$VERSION"

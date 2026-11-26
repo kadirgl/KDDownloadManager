@@ -522,7 +522,9 @@ public sealed class DownloadStore : INotifyPropertyChanged
 
     // MARK: Helpers
 
-    static readonly char[] Invalid = Path.GetInvalidFileNameChars();
+    // Characters Windows refuses in file names (control characters are checked separately). A fixed list rather than
+    // Path.GetInvalidFileNameChars(), so the rules are the same when the tests run on macOS.
+    static readonly char[] Invalid = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
     /// <summary>Characters that cannot be in a Windows file name become "-"; length is limited.</summary>
     public static string SanitizedFileName(string name)

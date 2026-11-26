@@ -34,6 +34,9 @@ PUBLIC_KEY="$(cat scripts/update-public-key.txt)"
 [[ "$(printf '%s' "$PRIVATE_KEY" | swift scripts/update-signing.swift public)" == "$PUBLIC_KEY" ]] \
     || fail "Anahtar Zinciri'ndeki gizli anahtar scripts/update-public-key.txt ile eşleşmiyor"
 
+echo "→ Windows testleri çalışıyor…"
+KD_TESTS_REQUIRE_ALL=1 scripts/test.sh windows || fail "Windows testleri geçmedi; paketler yüklenmedi"
+
 mkdir -p Windows/dist
 ASSETS=()
 for ARCH in arm64 x64; do

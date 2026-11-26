@@ -1,0 +1,42 @@
+#!/bin/bash
+# git push'tan önce testleri çalıştırır; biri başarısızsa push yapılmaz.
+# Kurulum (bir kez): git config core.hooksPath scripts/hooks
+# Acil durumda atlamak için: git push --no-verify
+#
+# Yalnızca belge/site değiştiyse (docs/, *.md…) testler çalışmaz. Yayın betiği testleri az önce aynı commit için
+# çalıştırdıysa (KD_TESTS_PASSED) tekrarlanmaz.
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+ZERO=0000000000000000000000000000000000000000
+HEAD_SHA="$(git rev-parse HEAD)"
+if [[ "${KD_TESTS_PASSED:-}" == "$HEAD_SHA" ]]; then
+    echo "→ Testler bu commit için az önce geçti; tekrar çalıştırılmıyor."
+    exit 0
+fi
+
+# Gönderilen commit'lerde kod değişti mi?
+CODE='^(Sources/|Windows/|ChromeExtension/|Tests/|Package\.swift|scripts/)'
+needs_tests=false
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [[ "$local_sha" == "$ZERO" ]] && continue   # silinen dal/etiket
+    if [[ "$remote_sha" == "$ZERO" ]]; then
+        # Yeni dal ya da etiket: uzaktaki main'den bu yana değişenler (yoksa her şey).
+        base="$(git merge-base "$local_sha" origin/main 2>/dev/null || true)"
+        changed="$( [[ -n "$base" ]] && git diff --name-only "$base" "$local_sha" || echo Sources/)"
+    else
+        changed="$(git diff --name-only "$remote_sha" "$local_sha" 2>/dev/null || echo Sources/)"
+    fi
+    grep -Eq "$CODE" <<<"$changed" && needs_tests=true
+done
+
+if [[ "$needs_tests" != true ]]; then
+    echo "→ Kod değişmemiş (yalnızca belge/site); testler atlandı."
+    exit 0
+fi
+
+echo "→ Push öncesi testler (atlamak için: git push --no-verify)"
+if ! scripts/test.sh; then
+    echo "✗ Testler geçmedi; push yapılmadı." >&2
+    exit 1
+fi

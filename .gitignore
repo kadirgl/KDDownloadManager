@@ -17,3 +17,7 @@ xcuserdata/
 
 # Paketleme çıktısı (scripts/package-app.sh)
 dist/
+
+# .NET derleme çıktısı (Windows uygulaması ve testleri)
+bin/
+obj/

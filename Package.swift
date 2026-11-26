@@ -14,6 +14,12 @@ let package = Package(
             // uygulamanın Contents/Resources'ına konuyor; böylece SwiftUI'nin Text("…") metinleri ve
             // String(localized:) ek bir `bundle:` vermeden Bundle.main'den çevriliyor.
             exclude: ["Resources"]
+        ),
+        // Mac uygulamasının testleri: `swift test` ya da hepsi birden `scripts/test.sh` (Tests/README.md).
+        .testTarget(
+            name: "KDDownloadManagerTests",
+            dependencies: ["KDDownloadManager"],
+            path: "Tests/Mac"
         )
     ]
 )

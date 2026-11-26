@@ -3,6 +3,12 @@ import Foundation
 /// Uygulamanın kendi dosyalarını tuttuğu klasörler (~/Library/Application Support/KDDownloadManager).
 enum AppFolders {
     static var support: URL {
+        #if DEBUG
+        // Testler ve denemeler gerçek klasöre (dht.dat, torrent kopyaları) dokunmasın.
+        if let path = ProcessInfo.processInfo.environment["KD_SUPPORT_DIR"], !path.isEmpty {
+            return created(URL(fileURLWithPath: path, isDirectory: true))
+        }
+        #endif
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return created(base.appendingPathComponent("KDDownloadManager", isDirectory: true))
     }
