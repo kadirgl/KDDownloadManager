@@ -102,14 +102,23 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         closedByOutsideClickAt = nil
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self else { return }
-                // İkonun kendisine tıklandıysa kapatmayı ikonun eylemine (toggle) bırak.
-                if let frame = self.buttonScreenFrame, frame.insetBy(dx: -2, dy: -2).contains(NSEvent.mouseLocation) { return }
-                guard self.isOpen else { return }
+                guard let self, self.isOpen else { return }
+                guard Self.isOutsideClick(at: NSEvent.mouseLocation, statusButton: self.buttonScreenFrame,
+                                          preview: QuickLook.shared.visibleFrame) else { return }
                 self.close()
                 self.closedByOutsideClickAt = Date()
             }
         }
+    }
+
+    /// Panel dışına yapılan bir tıklama mı (panel kapanmalı mı)? Menü çubuğu ikonuna tıklanırsa kapatmak ikonun
+    /// eylemine (toggle) kalır. Quick Look önizlemesinin içi de dışarı sayılmaz: oradaki video/ses oynatıcı macOS'un
+    /// ayrı bir servisinde çalıştığı için tıklamaları başka bir uygulamaya gidiyormuş gibi görünüyor; ileri sarmak
+    /// için çubuğa tıklamak önizlemeyi ve paneli kapatıyordu.
+    nonisolated static func isOutsideClick(at point: NSPoint, statusButton: NSRect?, preview: NSRect?) -> Bool {
+        if let statusButton, statusButton.insetBy(dx: -2, dy: -2).contains(point) { return false }
+        if let preview, preview.contains(point) { return false }
+        return true
     }
 
     func close() {

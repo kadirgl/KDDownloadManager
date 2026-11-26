@@ -21,6 +21,9 @@ final class QuickLook: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegat
 
     var isVisible: Bool { openPanel != nil }
 
+    /// Açık önizlemenin ekrandaki yeri; kapalıysa nil.
+    var visibleFrame: NSRect? { openPanel?.frame }
+
     /// Aynı dosya için açıksa kapatır, değilse gösterir.
     func toggle(_ url: URL) {
         if isVisible, self.url == url {

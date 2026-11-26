@@ -10,6 +10,7 @@ import QuickLookUI
 ///
 /// KD_DEMO: list, completed, empty, empty-completed, add-link, settings, onboarding, failed
 /// KD_DEMO_THEME: light / dark (isteğe bağlı)
+/// KD_DEMO_MEDIA: ilk tamamlanan indirmenin dosyası (Quick Look'ta video/ses oynatmayı denemek için).
 /// KD_DEMO_BACKDROP=1: panelin arkasına tasarımdaki renkli zemini koyar.
 /// KD_DEMO_LINK: Link ekle alanına yazılacak metin (panoya dokunmadan); KD_DEMO_SEARCH: Tamamlanan'da arama.
 /// KD_DEMO=deleted: ilk indirmeyi silip "Geri al" bildirimini gösterir.
@@ -38,8 +39,15 @@ enum DebugPanel {
             break
         }
         // Tamamlananlara örnek bitiş zamanları.
+        let media = ProcessInfo.processInfo.environment["KD_DEMO_MEDIA"].map { URL(fileURLWithPath: $0) }
         for (index, item) in store.items.filter({ $0.status == .completed }).enumerated() {
             item.completedAt = Date().addingTimeInterval(-Double(index) * 30_000 - 600)
+            // KD_DEMO_MEDIA: ilk tamamlanan bu video/ses dosyası olur (Quick Look'ta oynatma, ileri sarma).
+            if index == 0, let media {
+                item.fileName = media.lastPathComponent
+                item.destination = media
+                continue
+            }
             // Quick Look ve "Dosyayı aç" denenebilsin diye geçici bir örnek dosya.
             let file = FileManager.default.temporaryDirectory.appendingPathComponent("kd-demo-\(index).txt")
             try? "KD Download Manager örnek dosyası: \(item.fileName)".write(to: file, atomically: true, encoding: .utf8)

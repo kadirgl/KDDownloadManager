@@ -55,6 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // .app paketinde Info.plist'teki LSUIElement bunu zaten sağlıyor;
         // `swift run` ile çalışırken de Dock ikonu çıkmasın diye burada da ayarlıyoruz.
         NSApp.setActivationPolicy(.accessory)
+        #if DEBUG
+        // Ekran denetimi araçları yalnızca Dock'ta görünen uygulamaları tanıyor (arayüz denemeleri için).
+        if ProcessInfo.processInfo.environment["KD_DEMO_DOCK"] != nil { NSApp.setActivationPolicy(.regular) }
+        #endif
         // Kurulum diskinin içinden açıldıysa önce Uygulamalar'a taşımayı öner; taşınırsa oradaki kopya açılır.
         if ApplicationsMover.offerIfNeeded() { return }
         _ = AppLanguage.launchChoice

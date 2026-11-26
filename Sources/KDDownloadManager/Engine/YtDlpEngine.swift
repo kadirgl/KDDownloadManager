@@ -222,7 +222,7 @@ final class YtDlpEngine: DownloadEngine {
             for await line in output.lines {
                 // Durdurulan sürecin son satırları duraklatılmış durumu ezmesin.
                 if items[item.id] != nil, job.stopReason == nil {
-                    handle(line, for: item)
+                    for part in Self.outputLines(line) { handle(part, for: item) }
                 }
             }
             var status: Int32 = -1
@@ -383,6 +383,25 @@ final class YtDlpEngine: DownloadEngine {
         }
     }
 
+    /// Uygulamanın yt-dlp'ye yazdırdığı satır başları.
+    nonisolated static let markers = ["KDINFO ", "KDPROG ", "KDFILE "]
+
+    /// Bir çıktı satırını ayrı mesajlara böler. aria2c son ilerleme satırını bazen satır sonu koymadan bırakıyor
+    /// (Windows'ta her parçanın sonunda); yt-dlp'nin "parça bitti" mesajı aynı satıra yapışıyordu:
+    /// `[#caef46 70MiB/77MiB(91%) …]KDPROG {"status": "finished", …}`. Satır aria2 ilerlemesi sanılıp mesaj
+    /// kaybolunca indirilen miktar ikinci parçada sıfıra düşüyor, indirme baştan başlamış gibi görünüyordu.
+    /// Yalnızca araç çıktısı satırları ("[#…]", "[download]" gibi) bölünür, o da bir kez: uygulamanın kendi
+    /// mesajlarının içi (videonun başlığı) olduğu gibi kalır.
+    nonisolated static func outputLines(_ line: String) -> [String] {
+        guard line.hasPrefix("["),
+              let found = markers.compactMap({ line.range(of: $0) }).min(by: { $0.lowerBound < $1.lowerBound }) else {
+            return [line]
+        }
+        let head = String(line[..<found.lowerBound])
+        let tail = String(line[found.lowerBound...])
+        return head.trimmingCharacters(in: .whitespaces).isEmpty ? [tail] : [head, tail]
+    }
+
     private func handle(_ line: String, for item: DownloadItem) {
         if line.hasPrefix("[#") {
             handleSegmentedProgress(line, for: item)
@@ -487,7 +506,13 @@ final class YtDlpEngine: DownloadEngine {
     /// Yarım parçaların (.part, .ytdl, "-Frag" dosyaları, birleştirilmemiş görüntü/ses) tutulduğu,
     /// bu indirmeye özel klasör. Bitince yt-dlp sonucu indirme klasörüne taşır.
     private static func temporaryFolder(for id: UUID) -> URL {
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        var caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        #if DEBUG
+        // Testler gerçek önbellek klasörüne dokunmasın.
+        if let support = ProcessInfo.processInfo.environment["KD_SUPPORT_DIR"], !support.isEmpty {
+            caches = URL(fileURLWithPath: support, isDirectory: true).appendingPathComponent("Caches", isDirectory: true)
+        }
+        #endif
         return caches.appendingPathComponent("KDDownloadManager/yt-dlp/\(id.uuidString)", isDirectory: true)
     }
 

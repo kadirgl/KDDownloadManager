@@ -26,6 +26,12 @@ enum Executables {
     }()
 
     static func find(_ name: String) -> URL? {
+        #if DEBUG
+        // Testler motoru sahte bir yt-dlp ile çalıştırabilsin (gerçek bir sitenin çıktısını yeniden oynatan betik).
+        if name == "yt-dlp", let path = ProcessInfo.processInfo.environment["KD_YTDLP"], !path.isEmpty {
+            return URL(fileURLWithPath: path)
+        }
+        #endif
         // yt-dlp: uygulamayla gelen (paketli uygulamada hep o).
         if name == "yt-dlp", let ytDlp = YtDlp.bundledBinary {
             return ytDlp

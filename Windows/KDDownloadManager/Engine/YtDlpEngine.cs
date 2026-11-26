@@ -178,7 +178,8 @@ public sealed partial class YtDlpEngine : IDownloadEngine
         });
         while (await process.StandardOutput.ReadLineAsync() is { } line)
         {
-            if (items.ContainsKey(item.Id) && job.StopReason == null) Handle(line, item);
+            if (items.ContainsKey(item.Id) && job.StopReason == null)
+                foreach (var part in OutputLines(line)) Handle(part, item);
         }
         await process.WaitForExitAsync();
         Finish(item, job, process.ExitCode, await lastError);
@@ -325,6 +326,25 @@ public sealed partial class YtDlpEngine : IDownloadEngine
 
     static string? Str(JsonNode? n) => n is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
     static long? Num(JsonNode? n) => n is JsonValue v ? (v.TryGetValue<long>(out var l) ? l : v.TryGetValue<double>(out var d) ? (long)d : null) : null;
+
+    static readonly string[] Markers = ["KDINFO ", "KDPROG ", "KDFILE "];
+
+    /// <summary>
+    /// Splits an output line into separate messages. aria2c leaves its last progress line without a line break at the end
+    /// of every part, so yt-dlp's "part finished" message was glued to it: <c>[#caef46 70MiB/77MiB(91%) …]KDPROG {"status":
+    /// "finished", …}</c>. Taken for an aria2 readout, the message was lost: the downloaded amount fell back to the second
+    /// part's few MB (the download seemed to start over) and then jumped to complete.
+    /// </summary>
+    /// <remarks>Only tool output lines ("[#…]", "[download]") are split, and only once: our own messages (a video title)
+    /// stay as they are.</remarks>
+    public static List<string> OutputLines(string line)
+    {
+        if (!line.StartsWith('[')) return [line];
+        var at = Markers.Select(m => line.IndexOf(m, StringComparison.Ordinal)).Where(i => i >= 0).DefaultIfEmpty(-1).Min();
+        if (at < 0) return [line];
+        var head = line[..at];
+        return head.Trim().Length == 0 ? [line[at..]] : [head, line[at..]];
+    }
 
     void Handle(string line, DownloadItem item)
     {
