@@ -30,12 +30,11 @@ APP_X=170; APP_Y=170; APPLICATIONS_X=470; APPLICATIONS_Y=170; ICON_SIZE=128
 
 [[ -d "$APP" ]] || fail "$APP yok; önce scripts/package-app.sh"
 [[ "$NOTARIZE" != "1" || -n "$SIGN_IDENTITY" ]] || fail "Noter onayı için Developer ID Application sertifikası gerekli"
-[[ ! -e "/Volumes/$VOLUME" ]] || fail "\"$VOLUME\" adlı bir disk zaten bağlı; önce çıkarın (hdiutil detach \"/Volumes/$VOLUME\")"
 
 WORK="$(mktemp -d)"
 MOUNT=""
 cleanup() {
-    [[ -n "$MOUNT" ]] && hdiutil detach -quiet -force "$MOUNT" 2>/dev/null || true
+    [[ -n "$MOUNT" ]] && hdiutil detach -quiet -force "${DEVICE:-$MOUNT}" 2>/dev/null || true
     rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -48,9 +47,14 @@ tiffutil -cathidpicheck "$WORK/background/background.png" "$WORK/background/back
 
 echo "→ Disk hazırlanıyor…"
 SIZE_MB=$(( $(du -sm "$APP" | cut -f1) + 40 ))
-hdiutil create -quiet -size "${SIZE_MB}m" -fs HFS+ -volname "$VOLUME" -ov "$WORK/rw.dmg"
-MOUNT="$(hdiutil attach -readwrite -noverify -noautoopen "$WORK/rw.dmg" 2>/dev/null | sed -nE 's#^/dev/[^[:space:]]+[[:space:]]+Apple_HFS[[:space:]]+(.*)$#\1#p' | head -1)"
-[[ "$MOUNT" == "/Volumes/$VOLUME" ]] || fail "Disk beklenen yere bağlanmadı: ${MOUNT:-?}"
+# Hazırlarken diskin adı benzersiz: aynı adlı bir disk (ör. kullanıcının açık tuttuğu eski kurulum diski) bağlıyken
+# Finder'a verilen ad ikisinden birini seçerdi. Kapatmadan hemen önce asıl adını alır.
+BUILD_VOLUME="$VOLUME Hazırlanıyor $$"
+hdiutil create -quiet -size "${SIZE_MB}m" -fs HFS+ -volname "$BUILD_VOLUME" -ov "$WORK/rw.dmg"
+ATTACHED="$(hdiutil attach -readwrite -noverify -noautoopen "$WORK/rw.dmg" 2>/dev/null | awk -F'\t' '/Apple_HFS/ {print}' | head -1)"
+DEVICE="$(awk '{print $1}' <<<"$ATTACHED")"
+MOUNT="$(sed -E 's#^/dev/[^[:space:]]+[[:space:]]+Apple_HFS[[:space:]]+##' <<<"$ATTACHED")"
+[[ "$MOUNT" == "/Volumes/$BUILD_VOLUME" && "$DEVICE" == /dev/disk* ]] || fail "Disk beklenen yere bağlanmadı: ${MOUNT:-?}"
 
 ditto "$APP" "$MOUNT/$EXECUTABLE.app"
 ln -s /Applications "$MOUNT/Applications"
@@ -62,7 +66,7 @@ SetFile -a V "$MOUNT/.background"
 echo "→ Pencere düzeni kuruluyor (Finder)…"
 osascript <<APPLESCRIPT || fail "Finder pencere düzenini kuramadı (Sistem Ayarları › Gizlilik › Otomasyon'da Finder iznini verin)"
 tell application "Finder"
-    tell disk "$VOLUME"
+    tell disk "$BUILD_VOLUME"
         open
         delay 1
         set theWindow to container window
@@ -103,9 +107,12 @@ cp "$APP/Contents/Resources/AppIcon.icns" "$MOUNT/.VolumeIcon.icns"
 SetFile -c icnC -a V "$MOUNT/.VolumeIcon.icns"
 SetFile -a C "$MOUNT"
 chmod -Rf go-w "$MOUNT" 2>/dev/null || true
+diskutil rename "$DEVICE" "$VOLUME" >/dev/null || fail "Diskin adı değiştirilemedi"
+# Ad değişince disk yeni adıyla (aynı adlı başka disk varsa "… 1") yeniden bağlanıyor.
+MOUNT="$(diskutil info -plist "$DEVICE" | plutil -extract MountPoint raw -o - -)"
 rm -rf "$MOUNT/.fseventsd" "$MOUNT/.Trashes"
 sync
-hdiutil detach -quiet "$MOUNT" || { sleep 2; hdiutil detach -quiet -force "$MOUNT"; }
+hdiutil detach -quiet "$DEVICE" || { sleep 2; hdiutil detach -quiet -force "$DEVICE"; }
 MOUNT=""
 
 echo "→ Sıkıştırılıyor…"
