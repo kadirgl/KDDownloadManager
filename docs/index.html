@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="app-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap">
 <style>
 /* Sayfanın tasarımı "Gradient hero – Açık – 1440" çalışmasından; sağdaki animasyonlar uygulamanın gerçek
    ekranlarından (Swift görünümleri ve tarayıcı eklentisi) birebir çizildi. Renkler, ölçüler ve metinler
@@ -28,7 +28,7 @@
 html{color-scheme:light}
 body{margin:0;background:#fbfaf8}
 a{text-decoration:none;color:inherit}
-.pg{position:relative;min-height:100vh;overflow:hidden;font-family:Inter,-apple-system,'SF Pro Text','Segoe UI',sans-serif;color:var(--ink);background:#fbfaf8;display:flex;flex-direction:column}
+.pg{position:relative;min-height:100vh;overflow:hidden;font-family:Poppins,-apple-system,'SF Pro Text','Segoe UI',sans-serif;color:var(--ink);background:#fbfaf8;display:flex;flex-direction:column}
 .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:0.75;will-change:transform}
 .b1{width:760px;height:760px;left:-160px;top:-240px;background:#FFB27A;animation:d1 22s ease-in-out infinite alternate}
 .b2{width:680px;height:680px;right:-200px;top:-120px;background:#C9BCFF;animation:d2 26s ease-in-out infinite alternate}
@@ -45,24 +45,26 @@ a{text-decoration:none;color:inherit}
 .btn{border:0;cursor:pointer;font-family:inherit;color:inherit}
 .glass{background:rgba(255,255,255,0.55);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);box-shadow:0 1px 2px rgba(40,30,80,0.05),inset 0 1px 0 rgba(255,255,255,0.9),inset 0 0 0 1px rgba(255,255,255,0.6)}
 .mut{color:var(--sec)}
-.h1{margin:0;font-size:72px;line-height:1.02;font-weight:800;letter-spacing:-2.6px}
+.h1{margin:0;font-size:68px;line-height:1.05;font-weight:700;letter-spacing:-2.4px}
 .sub{margin:0;font-size:20px;line-height:1.55;max-width:480px}
 .cta{height:56px;padding:0 24px;border-radius:28px;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-size:16px;font-weight:700;transition:transform .2s ease}
 .cta:hover{transform:translateY(-1px)}
 .cta small{font-size:12px;font-weight:600;opacity:0.65}
 .others a{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(0,0,0,0.25)}
-.pill{position:relative;overflow:hidden;height:32px;padding:0 14px;border-radius:16px;display:inline-flex;align-items:center;font-size:13px;font-weight:600;background:rgba(255,255,255,0.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);animation:pillOn var(--loop) linear infinite}
+/* Sahnenin altında, hangi özelliğin oynadığını gösteren çipler (sahnelerle aynı döngüde). */
+.pills{position:absolute;left:32px;right:32px;bottom:20px;display:flex;flex-wrap:nowrap;gap:6px;z-index:30;font-family:Poppins,var(--sys)}
+.pill{position:relative;overflow:hidden;height:30px;padding:0 12px;border-radius:15px;display:inline-flex;align-items:center;white-space:nowrap;font-size:12px;font-weight:600;background:rgba(255,255,255,0.6);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);animation:pillOn var(--loop) linear infinite}
 .pill::after{content:'';position:absolute;left:0;bottom:0;height:2px;width:0;background:rgba(255,255,255,0.7);animation:pillBar var(--loop) linear infinite;animation-delay:inherit}
 @keyframes pillOn{0%,19.6%{background:#1d1d1f;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,0.18)}20%,100%{background:rgba(255,255,255,0.6);color:#1d1d1f;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06)}}
 @keyframes pillBar{0%{width:0}19.6%{width:100%}20%,100%{width:0}}
 
 /* ---------- sahne ---------- */
 .stagewrap{width:560px;flex:none}
-.stage{position:relative;width:560px;height:520px;border-radius:32px;overflow:hidden;box-shadow:0 40px 100px rgba(60,40,100,0.18),inset 0 1px 0 #fff,inset 0 0 0 1px rgba(255,255,255,0.7);background:rgba(255,255,255,0.45);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
+.stage{position:relative;width:560px;height:568px;border-radius:32px;overflow:hidden;box-shadow:0 40px 100px rgba(60,40,100,0.18),inset 0 1px 0 #fff,inset 0 0 0 1px rgba(255,255,255,0.7);background:rgba(255,255,255,0.45);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
 .scene{position:absolute;inset:0;opacity:0;animation:scene var(--loop) cubic-bezier(.3,.7,.2,1) infinite}
 @keyframes scene{0%{opacity:0;transform:translateY(14px) scale(0.985);filter:blur(8px)}2.4%,17.6%{opacity:1;transform:none;filter:blur(0)}20%,100%{opacity:0;transform:translateY(-14px) scale(0.985);filter:blur(8px)}}
 .scene *{animation-duration:var(--beat);animation-iteration-count:infinite}
-.cap{position:absolute;left:32px;right:32px;bottom:28px;display:flex;flex-direction:column;gap:4px}
+.cap{position:absolute;left:32px;right:32px;bottom:76px;display:flex;flex-direction:column;gap:4px}
 .cap b{font-size:20px;letter-spacing:-0.3px}
 .cap span{font-size:14px;color:rgba(0,0,0,0.6)}
 .cur{position:absolute;width:20px;height:24px;z-index:20;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3));transform-origin:3px 2px}
@@ -285,7 +287,13 @@ html[lang=tr] .kpct .tk>span{align-items:flex-start}
   .ctas{flex-direction:column;width:100%}
   .ctas>a{width:100%}
   /* Sahne telefonda sütun genişliğine sığacak kadar küçülür (oranı aşağıdaki betik hesaplar). */
-  .stagewrap{width:100%;max-width:560px;aspect-ratio:560/520}
+  /* Telefonda önce animasyon, sonra başlık ve indir butonu. Sahne küçültülerek çizildiği için sarmalayıcı
+     yüksekliğini içeriğinden değil orandan alır (min-height:0; yoksa tam boy sahne kadar boşluk kalıyordu). */
+  .stagewrap{width:100%;max-width:560px;aspect-ratio:560/568;min-height:0;order:-1}
+  .brand{font-size:14px !important}
+  /* Sahne telefonda ~0,6 ölçekle çiziliyor; çipler okunabilsin diye içeride daha büyük. */
+  .pills{gap:5px;left:24px;right:24px}
+  .pill{height:40px;padding:0 11px;border-radius:20px;font-size:16px}
   .stage{transform:scale(var(--s,0.6125));transform-origin:top left}
   .b1,.b2,.b3,.b4,.b5{width:420px;height:420px}
 }
@@ -325,7 +333,7 @@ html[lang=tr] .kpct .tk>span{align-items:flex-start}
 <header class="wrap" style="height:80px;display:flex;align-items:center;justify-content:space-between">
   <a href="./" style="display:flex;align-items:center;gap:10px">
     <img src="app-icon.png" width="36" height="36" alt="" style="filter:drop-shadow(0 4px 10px var(--accent-glow))">
-    <span style="font-size:16px;font-weight:700">KD Download Manager</span>
+    <span class="brand" style="font-size:16px;font-weight:700;white-space:nowrap">KD Download Manager</span>
   </a>
   <div style="display:flex;align-items:center;gap:8px">
     <div class="glass" role="group" aria-label="Dil / Language" style="display:flex;padding:3px;border-radius:18px">
@@ -347,14 +355,6 @@ html[lang=tr] .kpct .tk>span{align-items:flex-start}
     <a class="cta glass" href="https://github.com/kadirgl/KDDownloadManager/releases" style="font-weight:600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg><span data-t="all">Tüm sürümler</span></a>
   </div>
   <p class="mut others" style="margin:-8px 0 0;font-size:13px"><span data-t="others">Diğer sistemler:</span> <a id="dl-mac" href="https://github.com/kadirgl/KDDownloadManager/releases/latest">macOS</a> · <a id="dl-win-x64" href="https://github.com/kadirgl/KDDownloadManager/releases/latest">Windows (x64)</a> · <a id="dl-win-arm64" href="https://github.com/kadirgl/KDDownloadManager/releases/latest">Windows (ARM64)</a></p>
-  <p class="mut" style="margin:0;font-size:13px;line-height:1.7"><span data-t="req1">macOS 14 Sonoma ve üstü · Apple Silicon (M1 ve sonrası)</span><br><span data-t="reqWin">Windows 10 (1809) ve 11 · x64 ve ARM64</span><br><span data-t="req2">Ücretsiz · Apple onaylı · Kendini güncel tutar</span></p>
-  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px" aria-hidden="true">
-    <span class="pill" style="animation-delay:0s" data-t="p1">Video</span>
-    <span class="pill" style="animation-delay:6s" data-t="p2">8 bağlantı</span>
-    <span class="pill" style="animation-delay:12s" data-t="p3">Torrent</span>
-    <span class="pill" style="animation-delay:18s" data-t="p4">Hız sınırı</span>
-    <span class="pill" style="animation-delay:24s" data-t="p5">Menü çubuğu</span>
-  </div>
 </div>
 
 <!-- SAĞ: uygulamanın gerçek ekranlarıyla animasyon -->
@@ -597,6 +597,14 @@ html[lang=tr] .kpct .tk>span{align-items:flex-start}
   </div>
   <div class="cap"><b data-t="c5">Menü çubuğundan takip et</b><span data-t="c5s">Simgedeki halka ilerlemeyi gösterir, bitince haber verir.</span></div>
 </div>
+<!-- Hangi özelliğin oynadığı (sahnelerle aynı 30 sn'lik döngü). -->
+<div class="pills" aria-hidden="true">
+  <span class="pill" style="animation-delay:0s" data-t="p1">Video</span>
+  <span class="pill" style="animation-delay:6s" data-t="p2">8 bağlantı</span>
+  <span class="pill" style="animation-delay:12s" data-t="p3">Torrent</span>
+  <span class="pill" style="animation-delay:18s" data-t="p4">Hız sınırı</span>
+  <span class="pill" style="animation-delay:24s" data-t="p5">Menü çubuğu</span>
+</div>
 
 </div>
 </div>
@@ -611,9 +619,6 @@ const T = {
     h1: 'İndirmenin en şık yolu.',
     sub: 'Mac ve Windows için indirme yöneticisi. Video, torrent ve büyük dosyalar; tek tıkla, tam hızda.',
     dl: 'macOS için indir', dlWin: 'Windows için indir', all: 'Tüm sürümler', others: 'Diğer sistemler:',
-    req1: 'macOS 14 Sonoma ve üstü · Apple Silicon (M1 ve sonrası)',
-    req2: 'Ücretsiz · Mac sürümü Apple onaylı · Kendini güncel tutar',
-    reqWin: 'Windows 10 (1809) ve 11 · x64 ve ARM64',
     p1: 'Video', p2: '8 bağlantı', p3: 'Torrent', p4: 'Hız sınırı', p5: 'Menü çubuğu',
     stageAlt: 'Özellikleri sırayla gösteren animasyon: video indirme, 8 bağlantı, torrent, hız sınırı, menü çubuğu',
     vTitle: 'Konferans 2026 – Açılış konuşması', vFile: 'Konferans_2026_1080p.mp4',
@@ -636,9 +641,6 @@ const T = {
     h1: 'The most beautiful way to download.',
     sub: 'A download manager for Mac and Windows. Videos, torrents and big files; one click, full speed.',
     dl: 'Download for macOS', dlWin: 'Download for Windows', all: 'All releases', others: 'Other systems:',
-    req1: 'macOS 14 Sonoma or later · Apple Silicon (M1 or later)',
-    req2: 'Free · Mac version notarized by Apple · Keeps itself up to date',
-    reqWin: 'Windows 10 (1809) and 11 · x64 and ARM64',
     p1: 'Video', p2: '8 connections', p3: 'Torrent', p4: 'Speed limit', p5: 'Menu bar',
     stageAlt: 'Animation showing the features in turn: video download, 8 connections, torrent, speed limit, menu bar',
     vTitle: 'Conference 2026 – Opening keynote', vFile: 'Conference_2026_1080p.mp4',
