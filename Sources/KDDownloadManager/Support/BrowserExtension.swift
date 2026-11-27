@@ -38,7 +38,7 @@ enum BrowserExtension {
     /// Mağaza kaydı incelemeden geçip yayımlandı mı? Yayımlanana kadar kurulum ekranları uygulamayla gelen
     /// kopyayı (geliştirici modu) gösterir; mağaza kimliği yine de kabul edilir. Onaydan sonra true yapılır
     /// (`scripts/chrome-store.sh live` Windows'takini de değiştirir).
-    nonisolated static let storeListingLive = false
+    nonisolated static let storeListingLive = true
 
     /// Eklentinin Chrome Web Mağazası sayfası; mağaza kaydı yayımlanmadıysa nil.
     static var storeURL: URL? {

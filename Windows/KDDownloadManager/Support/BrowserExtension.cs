@@ -35,7 +35,7 @@ public static class BrowserExtension
     // Mağaza kaydı incelemeden geçip yayımlandı mı? Yayımlanana kadar kurulum ekranları uygulamayla gelen kopyayı
     // (geliştirici modu) gösterir; mağaza kimliği yine de kabul edilir. Onaydan sonra true yapılır
     // (scripts/chrome-store.sh live macOS'takini de değiştirir).
-    public const bool StoreListingLive = false;
+    public const bool StoreListingLive = true;
 
     public static string? StoreUrl => !StoreListingLive || StoreExtensionId.Length == 0 ? null : "https://chromewebstore.google.com/detail/" + StoreExtensionId;
 
